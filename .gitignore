@@ -1,0 +1,5 @@
+# Read-only reference codebases (cloned upstream projects, large; not part of our source)
+reference/
+
+# OS / editor cruft
+.DS_Store

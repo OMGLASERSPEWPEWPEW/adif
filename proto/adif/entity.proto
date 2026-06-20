@@ -1,0 +1,119 @@
+syntax = "proto3";
+
+package adif;
+
+option csharp_namespace = "Adif.Protocol";
+
+import "adif/common.proto";
+
+enum EntityType {
+  ENTITY_TYPE_UNSPECIFIED = 0;
+  ENTITY_TYPE_PLAYER = 1;
+  ENTITY_TYPE_NPC = 2;
+  ENTITY_TYPE_PLAYER_CORPSE = 3;
+  ENTITY_TYPE_NPC_CORPSE = 4;
+}
+
+// Full entity data sent when an entity enters view.
+// Equivalent to EQ's Spawn_Struct (383 bytes).
+message Spawn {
+  uint32 entity_id = 1;
+  EntityType entity_type = 2;
+
+  // Identity
+  string name = 3;
+  string last_name = 4;
+  uint32 race = 5;
+  uint32 class_id = 6;
+  uint32 level = 7;
+  uint32 gender = 8;
+  uint32 deity = 9;
+
+  // Position
+  Vec3 position = 10;
+  float heading = 11;
+  Vec3 velocity = 12;
+
+  // Stats (visible to others)
+  int32 current_hp = 13;
+  int32 max_hp = 14;
+
+  // Appearance
+  Appearance appearance = 15;
+  repeated EquipSlot equipment = 16;
+
+  // Flags
+  bool gm = 17;
+  bool afk = 18;
+  bool anonymous = 19;
+  bool lfg = 20;
+  bool sneaking = 21;
+  bool pvp = 22;
+  bool linkdead = 23;
+
+  // NPC-specific
+  uint32 guild_id = 24;
+  uint32 pet_owner_id = 25;
+  uint32 body_type = 26;
+
+  // Animation
+  uint32 animation = 27;
+}
+
+message Appearance {
+  uint32 hair_color = 1;
+  uint32 beard_color = 2;
+  uint32 eye_color_1 = 3;
+  uint32 eye_color_2 = 4;
+  uint32 hair_style = 5;
+  uint32 beard_style = 6;
+  uint32 face = 7;
+  Color skin_tint = 8;
+}
+
+message EquipSlot {
+  uint32 slot = 1;
+  uint32 item_id = 2;
+  Color tint = 3;
+}
+
+enum DespawnReason {
+  DESPAWN_REASON_UNSPECIFIED = 0;
+  DESPAWN_REASON_OUT_OF_RANGE = 1;
+  DESPAWN_REASON_DEATH = 2;
+  DESPAWN_REASON_ZONED = 3;
+  DESPAWN_REASON_DECAY = 4;
+  DESPAWN_REASON_GM_REMOVED = 5;
+}
+
+message Despawn {
+  uint32 entity_id = 1;
+  DespawnReason reason = 2;
+}
+
+// Lightweight position update — the hot path.
+// Sent every tick for moving entities.
+// Equivalent to EQ's SpawnPositionUpdate_Struct (11 bytes).
+message PositionUpdate {
+  uint32 entity_id = 1;
+  Vec3 position = 2;
+  Vec3 velocity = 3;
+  float heading = 4;
+  float heading_delta = 5;
+  uint32 animation = 6;
+}
+
+enum AppearanceType {
+  APPEARANCE_TYPE_UNSPECIFIED = 0;
+  APPEARANCE_TYPE_ANIMATION = 1;
+  APPEARANCE_TYPE_EQUIPMENT = 2;
+  APPEARANCE_TYPE_VISIBILITY = 3;
+  APPEARANCE_TYPE_HP_PERCENT = 4;
+  APPEARANCE_TYPE_LIGHT = 5;
+}
+
+message AppearanceUpdate {
+  uint32 entity_id = 1;
+  AppearanceType type = 2;
+  uint32 value = 3;
+}

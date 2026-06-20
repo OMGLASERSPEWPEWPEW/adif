@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+package adif;
+
+option csharp_namespace = "Adif.Protocol";
+
+// Client requests a session with the server.
+message SessionRequest {
+  uint32 protocol_version = 1;
+  string client_version = 2;
+}
+
+message SessionResponse {
+  bool accepted = 1;
+  uint32 session_id = 2;
+  string reject_reason = 3;
+}
+
+message AuthRequest {
+  string account_name = 1;
+  string token = 2;
+}
+
+message AuthResponse {
+  bool success = 1;
+  uint32 account_id = 2;
+  string reject_reason = 3;
+}
+
+message Heartbeat {
+  uint32 session_id = 1;
+}
+
+enum DisconnectReason {
+  DISCONNECT_REASON_UNSPECIFIED = 0;
+  DISCONNECT_REASON_CLIENT_QUIT = 1;
+  DISCONNECT_REASON_KICKED = 2;
+  DISCONNECT_REASON_TIMEOUT = 3;
+  DISCONNECT_REASON_SERVER_SHUTDOWN = 4;
+  DISCONNECT_REASON_ZONE_UNAVAILABLE = 5;
+}
+
+message Disconnect {
+  DisconnectReason reason = 1;
+  string message = 2;
+}

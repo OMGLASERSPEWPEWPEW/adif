@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package adif;
+
+option csharp_namespace = "Adif.Protocol";
+
+// 3D position in world space (floating point).
+message Vec3 {
+  float x = 1;
+  float y = 2;
+  float z = 3;
+}
+
+// 3D position in voxel grid coordinates (integer).
+message Vec3Int {
+  int32 x = 1;
+  int32 y = 2;
+  int32 z = 3;
+}
+
+// RGBA color.
+message Color {
+  uint32 r = 1;
+  uint32 g = 2;
+  uint32 b = 3;
+  uint32 a = 4;
+}

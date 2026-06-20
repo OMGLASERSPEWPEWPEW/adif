@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package adif;
+
+option csharp_namespace = "Adif.Protocol";
+
+// Stub — will be expanded when we build the inventory system.
+
+message ItemDefinition {
+  uint32 item_id = 1;
+  string name = 2;
+  uint32 icon = 3;
+  // Stats, slot restrictions, etc. will go here.
+}
+
+message LootRequest {
+  uint32 corpse_id = 1;
+  uint32 slot = 2;
+}
+
+message LootResponse {
+  bool success = 1;
+  uint32 item_id = 2;
+  string error_message = 3;
+}

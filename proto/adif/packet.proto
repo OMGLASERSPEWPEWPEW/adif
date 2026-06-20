@@ -1,0 +1,63 @@
+syntax = "proto3";
+
+package adif;
+
+option csharp_namespace = "Adif.Protocol";
+
+import "adif/connection.proto";
+import "adif/zone.proto";
+import "adif/entity.proto";
+import "adif/combat.proto";
+import "adif/chat.proto";
+import "adif/inventory.proto";
+
+// Top-level packet envelope. Every message between client and server
+// is wrapped in this. The oneof replaces EQ's opcode dispatch table
+// with type-safe, schema-enforced routing.
+message Packet {
+  uint32 sequence = 1;
+  uint32 timestamp = 2;
+
+  oneof payload {
+    // Connection
+    SessionRequest session_request = 10;
+    SessionResponse session_response = 11;
+    AuthRequest auth_request = 12;
+    AuthResponse auth_response = 13;
+    Heartbeat heartbeat = 14;
+    Disconnect disconnect = 15;
+
+    // Zone
+    ZoneEntryRequest zone_entry_request = 20;
+    ZoneConfig zone_config = 21;
+    ZoneReady zone_ready = 22;
+    ZoneChangeRequest zone_change_request = 23;
+    ZoneChangeResponse zone_change_response = 24;
+
+    // Entity
+    Spawn spawn = 30;
+    Despawn despawn = 31;
+    PositionUpdate position_update = 32;
+    AppearanceUpdate appearance_update = 33;
+
+    // Combat
+    MeleeAttack melee_attack = 40;
+    MeleeDamage melee_damage = 41;
+    SpellBeginCast spell_begin_cast = 42;
+    SpellCast spell_cast = 43;
+    SpellEffect spell_effect = 44;
+    EntityDeath entity_death = 45;
+    HPUpdate hp_update = 46;
+    BuffApply buff_apply = 47;
+    BuffFade buff_fade = 48;
+
+    // Chat
+    ChatMessage chat_message = 50;
+    Emote emote = 51;
+    SystemMessage system_message = 52;
+
+    // Inventory
+    LootRequest loot_request = 60;
+    LootResponse loot_response = 61;
+  }
+}

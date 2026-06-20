@@ -1,0 +1,4 @@
+version: v2
+plugins:
+  - protoc_builtin: csharp
+    out: ../tests/ProtoRoundTrip/Generated

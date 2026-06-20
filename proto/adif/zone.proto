@@ -1,0 +1,85 @@
+syntax = "proto3";
+
+package adif;
+
+option csharp_namespace = "Adif.Protocol";
+
+import "adif/common.proto";
+
+message ZoneEntryRequest {
+  string character_name = 1;
+  uint32 zone_id = 2;
+}
+
+// Zone configuration sent to client on entry.
+// Equivalent to EQ's NewZone_Struct (604 bytes).
+message ZoneConfig {
+  uint32 zone_id = 1;
+  string short_name = 2;
+  string long_name = 3;
+
+  // Safe/spawn point
+  Vec3 safe_point = 4;
+  float safe_heading = 5;
+
+  // Boundaries
+  float underworld_z = 6;
+  float max_z = 7;
+  float min_clip = 8;
+  float max_clip = 9;
+
+  // Atmosphere
+  repeated FogLayer fog_layers = 10;
+  uint32 sky_type = 11;
+  float gravity = 12;
+
+  // Weather
+  repeated WeatherChance rain = 13;
+  repeated WeatherChance snow = 14;
+
+  // Rules
+  bool can_bind = 15;
+  bool can_combat = 16;
+  bool can_levitate = 17;
+  bool can_cast_outdoor = 18;
+  float exp_multiplier = 19;
+}
+
+message FogLayer {
+  Color color = 1;
+  float min_clip = 2;
+  float max_clip = 3;
+  float density = 4;
+}
+
+message WeatherChance {
+  uint32 chance = 1;
+  uint32 duration = 2;
+}
+
+message ZoneReady {
+  uint32 zone_id = 1;
+}
+
+enum ZoneChangeTrigger {
+  ZONE_CHANGE_TRIGGER_UNSPECIFIED = 0;
+  ZONE_CHANGE_TRIGGER_ZONELINE = 1;
+  ZONE_CHANGE_TRIGGER_SPELL = 2;
+  ZONE_CHANGE_TRIGGER_GM_COMMAND = 3;
+  ZONE_CHANGE_TRIGGER_DEATH = 4;
+  ZONE_CHANGE_TRIGGER_EVAC = 5;
+}
+
+message ZoneChangeRequest {
+  uint32 target_zone_id = 1;
+  ZoneChangeTrigger trigger = 2;
+  Vec3 position = 3;
+}
+
+message ZoneChangeResponse {
+  bool approved = 1;
+  uint32 target_zone_id = 2;
+  Vec3 target_position = 3;
+  float target_heading = 4;
+  string deny_reason = 5;
+}

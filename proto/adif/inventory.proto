@@ -4,13 +4,58 @@ package adif;
 
 option csharp_namespace = "Adif.Protocol";
 
-// Stub — will be expanded when we build the inventory system.
+import "adif/character.proto";
 
 message ItemDefinition {
   uint32 item_id = 1;
   string name = 2;
   uint32 icon = 3;
-  // Stats, slot restrictions, etc. will go here.
+  string lore_text = 4;
+  uint32 weight = 5;
+  uint32 slot_bitmask = 6;
+  uint32 item_class = 7;
+  uint32 class_bitmask = 8;
+  uint32 race_bitmask = 9;
+  bool no_trade = 10;
+  bool lore = 11;
+  bool magic = 12;
+}
+
+message InventoryList {
+  repeated InventorySlot slots = 1;
+}
+
+message InventorySlot {
+  uint32 slot_id = 1;
+  uint32 item_id = 2;
+  uint32 charges = 3;
+  uint32 quantity = 4;
+}
+
+message MoveItem {
+  uint32 from_slot = 1;
+  uint32 to_slot = 2;
+  uint32 quantity = 3;
+}
+
+message ItemChargeUpdate {
+  uint32 slot_id = 1;
+  int32 charges = 2;
+}
+
+message ContainerContents {
+  uint32 container_slot = 1;
+  repeated InventorySlot items = 2;
+}
+
+message ItemSummon {
+  uint32 item_id = 1;
+  uint32 charges = 2;
+}
+
+message ItemLink {
+  uint32 item_id = 1;
+  string name = 2;
 }
 
 message LootRequest {
@@ -22,4 +67,41 @@ message LootResponse {
   bool success = 1;
   uint32 item_id = 2;
   string error_message = 3;
+}
+
+message LootComplete {
+  uint32 corpse_id = 1;
+}
+
+message CorpseMoney {
+  uint32 corpse_id = 1;
+  Money amount = 2;
+}
+
+message MoneyMove {
+  uint32 from_slot = 1;
+  uint32 to_slot = 2;
+  Money amount = 3;
+}
+
+message MoneyUpdate {
+  Money character_money = 1;
+}
+
+message MoneySplit {
+  Money amount = 1;
+}
+
+message BookContent {
+  uint32 item_id = 1;
+  string text = 2;
+}
+
+message BookRead {
+  uint32 item_id = 1;
+}
+
+message KeyUpdate {
+  uint32 key_item_id = 1;
+  bool acquired = 2;
 }

@@ -87,3 +87,59 @@ message BuffFade {
   uint32 slot = 2;
   uint32 spell_id = 3;
 }
+
+message SpellInterrupt {
+  uint32 caster_id = 1;
+  uint32 spell_id = 2;
+  string message = 3;
+}
+
+message MemorizeSpell {
+  uint32 slot = 1;
+  uint32 spell_id = 2;
+  bool scribing = 3;
+}
+
+message StunEffect {
+  uint32 entity_id = 1;
+  uint32 duration_ms = 2;
+}
+
+message CombatAbility {
+  uint32 entity_id = 1;
+  uint32 target_id = 2;
+  uint32 ability_id = 3;
+}
+
+message DisciplineActivate {
+  uint32 entity_id = 1;
+  uint32 discipline_id = 2;
+}
+
+message Projectile {
+  uint32 source_id = 1;
+  uint32 target_id = 2;
+  uint32 item_id = 3;
+  Vec3 origin = 4;
+  Vec3 target_pos = 5;
+}
+
+message TauntAttempt {
+  uint32 entity_id = 1;
+  uint32 target_id = 2;
+}
+
+message ShieldTarget {
+  uint32 entity_id = 1;
+  uint32 target_id = 2;
+}
+
+message BerserkToggle {
+  uint32 entity_id = 1;
+  bool active = 2;
+}
+
+message DisarmAttempt {
+  uint32 entity_id = 1;
+  uint32 target_id = 2;
+}

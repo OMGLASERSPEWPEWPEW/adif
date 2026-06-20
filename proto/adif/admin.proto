@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package adif;
+
+option csharp_namespace = "Adif.Protocol";
+
+import "adif/common.proto";
+
+// All GM/admin actions go through one message.
+// Replaces EQ's 17 separate GM opcodes.
+enum AdminAction {
+  ADMIN_ACTION_UNSPECIFIED = 0;
+  ADMIN_ACTION_GOTO = 1;
+  ADMIN_ACTION_SUMMON = 2;
+  ADMIN_ACTION_KILL = 3;
+  ADMIN_ACTION_KICK = 4;
+  ADMIN_ACTION_HIDE = 5;
+  ADMIN_ACTION_BECOME_NPC = 6;
+  ADMIN_ACTION_FIND = 7;
+  ADMIN_ACTION_EMOTE_ZONE = 8;
+  ADMIN_ACTION_ZONE_REQUEST = 9;
+  ADMIN_ACTION_DEL_CORPSE = 10;
+  ADMIN_ACTION_SEARCH_CORPSE = 11;
+  ADMIN_ACTION_SET_LEVEL = 12;
+  ADMIN_ACTION_SET_SKILL = 13;
+  ADMIN_ACTION_GRANT_ITEM = 14;
+  ADMIN_ACTION_GRANT_MONEY = 15;
+  ADMIN_ACTION_FLAG_ACCOUNT = 16;
+  ADMIN_ACTION_RENAME = 17;
+  ADMIN_ACTION_SET_LASTNAME = 18;
+}
+
+message AdminCommand {
+  AdminAction action = 1;
+  string target_name = 2;
+  uint32 target_id = 3;
+  Vec3 position = 4;
+  uint32 zone_id = 5;
+  uint32 int_param = 6;
+  string string_param = 7;
+}
+
+message AdminResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message RewardGrant {
+  uint32 entity_id = 1;
+  uint32 reward_id = 2;
+}

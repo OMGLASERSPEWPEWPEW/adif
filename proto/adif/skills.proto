@@ -1,0 +1,101 @@
+syntax = "proto3";
+
+package adif;
+
+option csharp_namespace = "Adif.Protocol";
+
+// Class abilities
+message FeignDeath {
+  uint32 entity_id = 1;
+  bool success = 2;
+}
+
+message HideToggle {
+  uint32 entity_id = 1;
+  bool active = 2;
+}
+
+message SneakToggle {
+  uint32 entity_id = 1;
+  bool active = 2;
+}
+
+message TrackRequest {
+  uint32 entity_id = 1;
+}
+
+message TrackList {
+  repeated TrackEntry entries = 1;
+}
+
+message TrackEntry {
+  uint32 entity_id = 1;
+  string name = 2;
+  float distance = 3;
+  float direction = 4;
+}
+
+message PickPocket {
+  uint32 entity_id = 1;
+  uint32 target_id = 2;
+}
+
+message InstillDoubt {
+  uint32 entity_id = 1;
+  uint32 target_id = 2;
+}
+
+message BeggingAttempt {
+  uint32 entity_id = 1;
+  uint32 target_id = 2;
+}
+
+message SafeFallResult {
+  uint32 entity_id = 1;
+  bool success = 2;
+  int32 damage_prevented = 3;
+}
+
+message SenseTraps {
+  uint32 entity_id = 1;
+}
+
+message DisarmTrap {
+  uint32 entity_id = 1;
+  uint32 trap_id = 2;
+}
+
+// Tradeskills
+message CraftAttempt {
+  uint32 container_id = 1;
+  uint32 recipe_id = 2;
+}
+
+message FishingAttempt {
+  uint32 entity_id = 1;
+}
+
+message ForageAttempt {
+  uint32 entity_id = 1;
+}
+
+message BindWound {
+  uint32 entity_id = 1;
+  uint32 target_id = 2;
+}
+
+message MendAttempt {
+  uint32 entity_id = 1;
+}
+
+message ApplyPoison {
+  uint32 entity_id = 1;
+  uint32 item_id = 2;
+}
+
+// Consumables
+message ConsumeItem {
+  uint32 entity_id = 1;
+  uint32 item_id = 2;
+  uint32 slot = 3;
+}

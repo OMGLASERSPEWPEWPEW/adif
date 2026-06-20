@@ -1,0 +1,154 @@
+syntax = "proto3";
+
+package adif;
+
+option csharp_namespace = "Adif.Protocol";
+
+message WhoRequest {
+  string filter_name = 1;
+  uint32 filter_class = 2;
+  uint32 filter_race = 3;
+  uint32 min_level = 4;
+  uint32 max_level = 5;
+  bool friends_only = 6;
+  uint32 filter_zone = 7;
+  bool lfg_only = 8;
+}
+
+message WhoResponse {
+  repeated WhoEntry entries = 1;
+  uint32 total_online = 2;
+}
+
+message WhoEntry {
+  string name = 1;
+  uint32 level = 2;
+  uint32 race = 3;
+  uint32 class_id = 4;
+  string guild_name = 5;
+  uint32 zone_id = 6;
+  bool anonymous = 7;
+  bool lfg = 8;
+}
+
+message MessageOfTheDay {
+  string message = 1;
+}
+
+message InspectRequest {
+  uint32 entity_id = 1;
+}
+
+message InspectResponse {
+  uint32 entity_id = 1;
+  string message = 2;
+  repeated uint32 equipment_item_ids = 3;
+}
+
+message LFGToggle {
+  bool active = 1;
+  string comment = 2;
+}
+
+message DuelRequest {
+  uint32 entity_id = 1;
+  uint32 target_id = 2;
+}
+
+message DuelResponse {
+  uint32 entity_id = 1;
+  bool accepted = 2;
+}
+
+message RandomRoll {
+  uint32 entity_id = 1;
+  uint32 min_value = 2;
+  uint32 max_value = 3;
+  uint32 result = 4;
+}
+
+message MessageFilter {
+  repeated uint32 enabled_filters = 1;
+}
+
+// Resurrection
+message ResurrectOffer {
+  uint32 caster_id = 1;
+  string caster_name = 2;
+  uint32 spell_id = 3;
+  uint32 zone_id = 4;
+  float exp_percent = 5;
+}
+
+message ResurrectResponse {
+  bool accepted = 1;
+}
+
+message ResurrectComplete {
+  uint32 entity_id = 1;
+}
+
+// Corpse management
+message CorpseConsent {
+  string target_name = 1;
+  bool grant = 2;
+}
+
+message CorpseDrag {
+  uint32 corpse_id = 1;
+}
+
+// Translocate
+message TranslocateOffer {
+  uint32 spell_id = 1;
+  uint32 zone_id = 2;
+  string zone_name = 3;
+}
+
+message TranslocateConfirm {
+  bool accepted = 1;
+}
+
+// Chat channels
+message ChatJoin {
+  string channel_name = 1;
+}
+
+message ChatLeave {
+  string channel_name = 1;
+}
+
+// Server list
+message ServerListRequest {}
+
+message ServerListResponse {
+  repeated ServerEntry servers = 1;
+}
+
+message ServerEntry {
+  uint32 server_id = 1;
+  string name = 2;
+  uint32 players_online = 3;
+  uint32 status = 4;
+}
+
+// Pet commands
+message PetCommand {
+  uint32 pet_id = 1;
+  PetAction action = 2;
+  uint32 target_id = 3;
+}
+
+enum PetAction {
+  PET_ACTION_UNSPECIFIED = 0;
+  PET_ACTION_ATTACK = 1;
+  PET_ACTION_GUARD = 2;
+  PET_ACTION_FOLLOW = 3;
+  PET_ACTION_SIT = 4;
+  PET_ACTION_STAND = 5;
+  PET_ACTION_TAUNT_ON = 6;
+  PET_ACTION_TAUNT_OFF = 7;
+  PET_ACTION_BACK_OFF = 8;
+  PET_ACTION_GET_LOST = 9;
+  PET_ACTION_HOLD = 10;
+}

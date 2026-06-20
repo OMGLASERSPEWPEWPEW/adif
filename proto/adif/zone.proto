@@ -83,3 +83,43 @@ message ZoneChangeResponse {
   float target_heading = 4;
   string deny_reason = 5;
 }
+
+message ZoneServerInfo {
+  string host = 1;
+  uint32 port = 2;
+  uint32 zone_id = 3;
+}
+
+message ZonePoint {
+  uint32 id = 1;
+  Vec3 position = 2;
+  float heading = 3;
+  uint32 target_zone_id = 4;
+  Vec3 target_position = 5;
+  float target_heading = 6;
+  float width = 7;
+  float height = 8;
+}
+
+message ZonePointList {
+  repeated ZonePoint zone_points = 1;
+}
+
+message TimeOfDay {
+  uint32 hour = 1;
+  uint32 minute = 2;
+  uint32 day = 3;
+  uint32 month = 4;
+  uint32 year = 5;
+}
+
+message WeatherUpdate {
+  uint32 weather_type = 1;
+  uint32 intensity = 2;
+}
+
+message PlaySound {
+  uint32 sound_id = 1;
+  Vec3 position = 2;
+  float radius = 3;
+}

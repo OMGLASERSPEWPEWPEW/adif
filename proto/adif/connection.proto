@@ -44,3 +44,21 @@ message Disconnect {
   DisconnectReason reason = 1;
   string message = 2;
 }
+
+message LogoutResponse {
+  bool approved = 1;
+  uint32 delay_seconds = 2;
+}
+
+message WorldLogout {
+  bool to_character_select = 1;
+}
+
+message CampRequest {
+  bool cancel = 1;
+}
+
+message ClientError {
+  string error_message = 1;
+  uint32 error_code = 2;
+}

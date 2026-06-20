@@ -13,14 +13,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Protobuf Include="..\..\proto\adif\common.proto" ProtoRoot="..\..\proto" />
-    <Protobuf Include="..\..\proto\adif\connection.proto" ProtoRoot="..\..\proto" />
-    <Protobuf Include="..\..\proto\adif\zone.proto" ProtoRoot="..\..\proto" />
-    <Protobuf Include="..\..\proto\adif\entity.proto" ProtoRoot="..\..\proto" />
-    <Protobuf Include="..\..\proto\adif\combat.proto" ProtoRoot="..\..\proto" />
-    <Protobuf Include="..\..\proto\adif\chat.proto" ProtoRoot="..\..\proto" />
-    <Protobuf Include="..\..\proto\adif\inventory.proto" ProtoRoot="..\..\proto" />
-    <Protobuf Include="..\..\proto\adif\packet.proto" ProtoRoot="..\..\proto" />
+    <Protobuf Include="..\..\proto\adif\*.proto" ProtoRoot="..\..\proto" />
   </ItemGroup>
 
 </Project>

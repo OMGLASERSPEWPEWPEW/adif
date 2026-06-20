@@ -10,54 +10,224 @@ import "adif/entity.proto";
 import "adif/combat.proto";
 import "adif/chat.proto";
 import "adif/inventory.proto";
+import "adif/character.proto";
+import "adif/world_objects.proto";
+import "adif/group.proto";
+import "adif/guild.proto";
+import "adif/trade.proto";
+import "adif/skills.proto";
+import "adif/social.proto";
+import "adif/admin.proto";
 
 // Top-level packet envelope. Every message between client and server
 // is wrapped in this. The oneof replaces EQ's opcode dispatch table
 // with type-safe, schema-enforced routing.
+//
+// Field numbers are grouped by category with gaps for future additions.
 message Packet {
   uint32 sequence = 1;
   uint32 timestamp = 2;
 
   oneof payload {
-    // Connection
+    // ── Connection (10-19) ──
     SessionRequest session_request = 10;
     SessionResponse session_response = 11;
     AuthRequest auth_request = 12;
     AuthResponse auth_response = 13;
     Heartbeat heartbeat = 14;
     Disconnect disconnect = 15;
+    LogoutResponse logout_response = 16;
+    WorldLogout world_logout = 17;
+    CampRequest camp_request = 18;
+    ClientError client_error = 19;
 
-    // Zone
+    // ── Zone (20-39) ──
     ZoneEntryRequest zone_entry_request = 20;
     ZoneConfig zone_config = 21;
     ZoneReady zone_ready = 22;
     ZoneChangeRequest zone_change_request = 23;
     ZoneChangeResponse zone_change_response = 24;
+    ZoneServerInfo zone_server_info = 25;
+    ZonePointList zone_point_list = 26;
+    TimeOfDay time_of_day = 27;
+    WeatherUpdate weather_update = 28;
+    PlaySound play_sound = 29;
 
-    // Entity
-    Spawn spawn = 30;
-    Despawn despawn = 31;
-    PositionUpdate position_update = 32;
-    AppearanceUpdate appearance_update = 33;
+    // ── Entity (40-59) ──
+    Spawn spawn = 40;
+    Despawn despawn = 41;
+    PositionUpdate position_update = 42;
+    AppearanceUpdate appearance_update = 43;
+    HPUpdate hp_update = 44;
+    ManaUpdate mana_update = 45;
+    StaminaUpdate stamina_update = 46;
+    Target target = 47;
+    Consider consider = 48;
+    ClientControlState client_control_state = 49;
+    FaceChange face_change = 50;
+    IllusionChange illusion_change = 51;
 
-    // Combat
-    MeleeAttack melee_attack = 40;
-    MeleeDamage melee_damage = 41;
-    SpellBeginCast spell_begin_cast = 42;
-    SpellCast spell_cast = 43;
-    SpellEffect spell_effect = 44;
-    EntityDeath entity_death = 45;
-    HPUpdate hp_update = 46;
-    BuffApply buff_apply = 47;
-    BuffFade buff_fade = 48;
+    // ── Character (60-79) ──
+    CharacterList character_list = 60;
+    CharacterCreate character_create = 61;
+    CharacterCreateResponse character_create_response = 62;
+    CharacterDelete character_delete = 63;
+    NameCheck name_check = 64;
+    NameCheckResponse name_check_response = 65;
+    PlayerProfile player_profile = 66;
+    ExperienceUpdate experience_update = 67;
+    LevelUpdate level_update = 68;
+    SkillUpdate skill_update = 69;
+    SaveRequest save_request = 70;
+    SaveConfirm save_confirm = 71;
+    SurnameChange surname_change = 72;
+    TitleChange title_change = 73;
+    RandomName random_name = 74;
+    RandomNameResponse random_name_response = 75;
 
-    // Chat
-    ChatMessage chat_message = 50;
-    Emote emote = 51;
-    SystemMessage system_message = 52;
+    // ── Combat (80-99) ──
+    MeleeAttack melee_attack = 80;
+    MeleeDamage melee_damage = 81;
+    SpellBeginCast spell_begin_cast = 82;
+    SpellCast spell_cast = 83;
+    SpellEffect spell_effect = 84;
+    EntityDeath entity_death = 85;
+    BuffApply buff_apply = 86;
+    BuffFade buff_fade = 87;
+    SpellInterrupt spell_interrupt = 88;
+    MemorizeSpell memorize_spell = 89;
+    StunEffect stun_effect = 90;
+    CombatAbility combat_ability = 91;
+    DisciplineActivate discipline_activate = 92;
+    Projectile projectile = 93;
+    TauntAttempt taunt_attempt = 94;
+    ShieldTarget shield_target = 95;
+    BerserkToggle berserk_toggle = 96;
+    DisarmAttempt disarm_attempt = 97;
 
-    // Inventory
-    LootRequest loot_request = 60;
-    LootResponse loot_response = 61;
+    // ── Chat (100-109) ──
+    ChatMessage chat_message = 100;
+    Emote emote = 101;
+    SystemMessage system_message = 102;
+
+    // ── Inventory & Loot (110-129) ──
+    LootRequest loot_request = 110;
+    LootResponse loot_response = 111;
+    LootComplete loot_complete = 112;
+    CorpseMoney corpse_money = 113;
+    InventoryList inventory_list = 114;
+    MoveItem move_item = 115;
+    ItemChargeUpdate item_charge_update = 116;
+    ContainerContents container_contents = 117;
+    ItemSummon item_summon = 118;
+    ItemLink item_link = 119;
+    MoneyMove money_move = 120;
+    MoneyUpdate money_update = 121;
+    MoneySplit money_split = 122;
+    BookContent book_content = 123;
+    BookRead book_read = 124;
+    KeyUpdate key_update = 125;
+
+    // ── World Objects (130-139) ──
+    DoorSpawn door_spawn = 130;
+    DoorDespawn door_despawn = 131;
+    DoorInteract door_interact = 132;
+    DoorStateChange door_state_change = 133;
+    GroundItem ground_item = 134;
+    GroundItemDespawn ground_item_despawn = 135;
+    ObjectInteract object_interact = 136;
+    ObjectRemove object_remove = 137;
+    VehicleBoard vehicle_board = 138;
+    VehicleExit vehicle_exit = 139;
+
+    // ── Trade & Merchants (140-159) ──
+    TradeRequest trade_request = 140;
+    TradeAccept trade_accept = 141;
+    TradeCancel trade_cancel = 142;
+    TradeItem trade_item = 143;
+    TradeMoney trade_money = 144;
+    TradeConfirm trade_confirm = 145;
+    TradeComplete trade_complete = 146;
+    MerchantOpen merchant_open = 147;
+    MerchantClose merchant_close = 148;
+    MerchantInventory merchant_inventory = 149;
+    MerchantBuy merchant_buy = 150;
+    MerchantSell merchant_sell = 151;
+    AuctionSearch auction_search = 152;
+    AuctionSearchResults auction_search_results = 153;
+    SetupShop setup_shop = 154;
+    TraderPurchase trader_purchase = 155;
+
+    // ── Groups & Raids (160-179) ──
+    GroupInvite group_invite = 160;
+    GroupAccept group_accept = 161;
+    GroupDecline group_decline = 162;
+    GroupDisband group_disband = 163;
+    GroupUpdate group_update = 164;
+    RaidInvite raid_invite = 165;
+    RaidJoin raid_join = 166;
+    RaidUpdate raid_update = 167;
+    CallForHelp call_for_help = 168;
+    AssistRequest assist_request = 169;
+
+    // ── Guild (180-189) ──
+    GuildList guild_list = 180;
+    GuildInvite guild_invite = 181;
+    GuildInviteResponse guild_invite_response = 182;
+    GuildRemove guild_remove = 183;
+    GuildDisband guild_disband = 184;
+    GuildPromote guild_promote = 185;
+    GuildMOTD guild_motd = 186;
+
+    // ── Skills & Abilities (190-209) ──
+    FeignDeath feign_death = 190;
+    HideToggle hide_toggle = 191;
+    SneakToggle sneak_toggle = 192;
+    TrackRequest track_request = 193;
+    TrackList track_list = 194;
+    PickPocket pick_pocket = 195;
+    InstillDoubt instill_doubt = 196;
+    BeggingAttempt begging_attempt = 197;
+    SafeFallResult safe_fall_result = 198;
+    SenseTraps sense_traps = 199;
+    DisarmTrap disarm_trap = 200;
+    CraftAttempt craft_attempt = 201;
+    FishingAttempt fishing_attempt = 202;
+    ForageAttempt forage_attempt = 203;
+    BindWound bind_wound = 204;
+    MendAttempt mend_attempt = 205;
+    ApplyPoison apply_poison = 206;
+    ConsumeItem consume_item = 207;
+
+    // ── Social (210-229) ──
+    WhoRequest who_request = 210;
+    WhoResponse who_response = 211;
+    MessageOfTheDay motd = 212;
+    InspectRequest inspect_request = 213;
+    InspectResponse inspect_response = 214;
+    LFGToggle lfg_toggle = 215;
+    DuelRequest duel_request = 216;
+    DuelResponse duel_response = 217;
+    RandomRoll random_roll = 218;
+    MessageFilter message_filter = 219;
+    ResurrectOffer resurrect_offer = 220;
+    ResurrectResponse resurrect_response = 221;
+    ResurrectComplete resurrect_complete = 222;
+    CorpseConsent corpse_consent = 223;
+    CorpseDrag corpse_drag = 224;
+    TranslocateOffer translocate_offer = 225;
+    TranslocateConfirm translocate_confirm = 226;
+    ChatJoin chat_join = 227;
+    ChatLeave chat_leave = 228;
+    PetCommand pet_command = 229;
+
+    // ── Server (230-239) ──
+    ServerListRequest server_list_request = 230;
+    ServerListResponse server_list_response = 231;
+
+    // ── Admin (240-249) ──
+    AdminCommand admin_command = 240;
+    AdminResponse admin_response = 241;
+    RewardGrant reward_grant = 242;
   }
 }

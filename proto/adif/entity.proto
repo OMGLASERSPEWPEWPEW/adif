@@ -117,3 +117,54 @@ message AppearanceUpdate {
   AppearanceType type = 2;
   uint32 value = 3;
 }
+
+message ManaUpdate {
+  uint32 entity_id = 1;
+  int32 current_mana = 2;
+  int32 max_mana = 3;
+}
+
+message StaminaUpdate {
+  uint32 entity_id = 1;
+  int32 current_endurance = 2;
+  int32 max_endurance = 3;
+}
+
+message Target {
+  uint32 entity_id = 1;
+  uint32 target_id = 2;
+}
+
+message Consider {
+  uint32 entity_id = 1;
+  uint32 target_id = 2;
+  int32 faction = 3;
+  uint32 level = 4;
+  int32 current_hp = 5;
+  int32 max_hp = 6;
+  bool pvp = 7;
+}
+
+message ClientControlState {
+  bool frozen = 1;
+  uint32 duration_ms = 2;
+}
+
+message FaceChange {
+  uint32 entity_id = 1;
+  uint32 hair_color = 2;
+  uint32 beard_color = 3;
+  uint32 eye_color_1 = 4;
+  uint32 eye_color_2 = 5;
+  uint32 hair_style = 6;
+  uint32 beard_style = 7;
+  uint32 face = 8;
+}
+
+message IllusionChange {
+  uint32 entity_id = 1;
+  uint32 race = 2;
+  uint32 gender = 3;
+  uint32 texture = 4;
+  float size = 5;
+}

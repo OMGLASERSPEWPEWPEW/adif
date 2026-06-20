@@ -1,0 +1,74 @@
+syntax = "proto3";
+
+package adif;
+
+option csharp_namespace = "Adif.Protocol";
+
+// Groups
+message GroupInvite {
+  string inviter_name = 1;
+  string invitee_name = 2;
+}
+
+message GroupAccept {
+  string name = 1;
+}
+
+message GroupDecline {
+  string name = 1;
+}
+
+message GroupDisband {
+  string name = 1;
+}
+
+message GroupUpdate {
+  string leader_name = 1;
+  repeated GroupMember members = 2;
+}
+
+message GroupMember {
+  string name = 1;
+  uint32 level = 2;
+  uint32 class_id = 3;
+  uint32 zone_id = 4;
+  int32 current_hp = 5;
+  int32 max_hp = 6;
+  int32 current_mana = 7;
+  int32 max_mana = 8;
+  bool is_leader = 9;
+}
+
+// Raids
+message RaidInvite {
+  string inviter_name = 1;
+  string invitee_name = 2;
+}
+
+message RaidJoin {
+  string name = 1;
+  uint32 group_number = 2;
+}
+
+message RaidUpdate {
+  string leader_name = 1;
+  repeated RaidMember members = 2;
+}
+
+message RaidMember {
+  string name = 1;
+  uint32 level = 2;
+  uint32 class_id = 3;
+  uint32 group_number = 4;
+  bool is_group_leader = 5;
+  bool is_raid_leader = 6;
+}
+
+message CallForHelp {
+  uint32 entity_id = 1;
+}
+
+message AssistRequest {
+  uint32 entity_id = 1;
+  uint32 target_id = 2;
+}

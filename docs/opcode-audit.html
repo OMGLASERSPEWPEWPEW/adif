@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ADIF — EQ Opcode Audit (288 → ADIF)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  darkMode: 'class',
+  theme: { extend: { colors: {
+    eq: { bg: '#0d1117', card: '#161b22', border: '#30363d', text: '#c9d1d9', dim: '#8b949e', gold: '#c9a64e' }
+  }}}
+}
+</script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400&display=swap');
+  body { font-family: 'Inter', sans-serif; background: #0d1117; color: #c9d1d9; }
+  code { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; }
+  .tag-need { background: #1a3a1a; color: #4ade80; }
+  .tag-adapt { background: #3a2a1a; color: #f59e0b; }
+  .tag-skip { background: #2a1a1a; color: #8b949e; text-decoration: line-through; }
+  .tag-have { background: #1a2a3a; color: #60a5fa; }
+  .tag-m1 { background: #1a1a3a; color: #a78bfa; }
+  .tag-m2 { background: #2a1a2a; color: #f472b6; }
+  .tag-m3 { background: #1a2a2a; color: #2dd4bf; }
+  .tag-m4 { background: #2a2a1a; color: #facc15; }
+  .tag-later { background: #1a1a1a; color: #6b7280; }
+  tr:hover { background: #1c2128; }
+  .counter { font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body class="min-h-screen">
+
+<header class="max-w-7xl mx-auto px-6 pt-8 pb-4">
+  <h1 class="text-2xl font-bold text-white mb-1">EQ Opcode → ADIF Packet Audit</h1>
+  <p class="text-eq-dim">All 288 EQ opcodes categorized for ADIF. Each one marked: already have it, need it, adapt it, or skip it.</p>
+
+  <div class="flex flex-wrap gap-3 mt-4 text-xs font-mono">
+    <span class="tag-have px-2 py-1 rounded">HAVE — already in our proto schemas</span>
+    <span class="tag-need px-2 py-1 rounded">NEED — add to ADIF as-is</span>
+    <span class="tag-adapt px-2 py-1 rounded">ADAPT — need but redesigned for ADIF</span>
+    <span class="tag-skip px-2 py-1 rounded">SKIP — not needed for ADIF</span>
+  </div>
+  <div class="flex flex-wrap gap-3 mt-2 text-xs font-mono">
+    <span class="tag-m1 px-2 py-1 rounded">M1 — walk on terrain</span>
+    <span class="tag-m2 px-2 py-1 rounded">M2 — multiplayer + NPCs</span>
+    <span class="tag-m3 px-2 py-1 rounded">M3 — zone transitions</span>
+    <span class="tag-m4 px-2 py-1 rounded">M4 — Innothule test</span>
+    <span class="tag-later px-2 py-1 rounded">LATER — post-proof features</span>
+  </div>
+
+  <div id="stats" class="mt-4 flex gap-6 text-sm counter"></div>
+</header>
+
+<main class="max-w-7xl mx-auto px-6 pb-16">
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- CONNECTION & SESSION -->
+<!-- ═══════════════════════════════════════════════════ -->
+<h2 class="text-lg font-bold text-eq-gold mt-8 mb-3 border-b border-eq-border pb-1">Connection & Session (16 opcodes)</h2>
+<table class="w-full text-sm">
+<thead><tr class="text-left text-eq-dim border-b border-eq-border">
+  <th class="py-2 w-64">EQ Opcode</th><th class="w-20">Status</th><th class="w-20">When</th><th>ADIF Mapping</th>
+</tr></thead>
+<tbody>
+<tr><td class="py-1"><code>OP_SendLoginInfo</code></td><td><span class="tag-have px-1 rounded text-xs">HAVE</span></td><td><span class="tag-m1 px-1 rounded text-xs">M1</span></td><td>→ <code>AuthRequest</code></td></tr>
+<tr><td class="py-1"><code>OP_LoginAccepted</code></td><td><span class="tag-have px-1 rounded text-xs">HAVE</span></td><td><span class="tag-m1 px-1 rounded text-xs">M1</span></td><td>→ <code>AuthResponse</code></td></tr>
+<tr><td class="py-1"><code>OP_LoginPC</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>EQ platform-specific login</td></tr>
+<tr><td class="py-1"><code>OP_LoginOSX</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>EQ platform-specific login</td></tr>
+<tr><td class="py-1"><code>OP_LoginDisconnect</code></td><td><span class="tag-have px-1 rounded text-xs">HAVE</span></td><td><span class="tag-m1 px-1 rounded text-xs">M1</span></td><td>→ <code>Disconnect</code></td></tr>
+<tr><td class="py-1"><code>OP_LoginComplete</code></td><td><span class="tag-have px-1 rounded text-xs">HAVE</span></td><td><span class="tag-m1 px-1 rounded text-xs">M1</span></td><td>→ <code>SessionResponse</code></td></tr>
+<tr><td class="py-1"><code>OP_LoginUnknown1</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>Unknown/legacy</td></tr>
+<tr><td class="py-1"><code>OP_LoginUnknown2</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>Unknown/legacy</td></tr>
+<tr><td class="py-1"><code>OP_LoginBanner</code></td><td><span class="tag-adapt px-1 rounded text-xs">ADAPT</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ MOTD/welcome message system</td></tr>
+<tr><td class="py-1"><code>OP_EnterWorld</code></td><td><span class="tag-have px-1 rounded text-xs">HAVE</span></td><td><span class="tag-m1 px-1 rounded text-xs">M1</span></td><td>→ <code>ZoneEntryRequest</code></td></tr>
+<tr><td class="py-1"><code>OP_Logout</code></td><td><span class="tag-have px-1 rounded text-xs">HAVE</span></td><td><span class="tag-m1 px-1 rounded text-xs">M1</span></td><td>→ <code>Disconnect</code> (CLIENT_QUIT)</td></tr>
+<tr><td class="py-1"><code>OP_LogoutReply</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-m1 px-1 rounded text-xs">M1</span></td><td>→ Add <code>LogoutResponse</code></td></tr>
+<tr><td class="py-1"><code>OP_WorldLogout</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-m3 px-1 rounded text-xs">M3</span></td><td>→ Add <code>WorldLogout</code> (return to char select)</td></tr>
+<tr><td class="py-1"><code>OP_LogServer</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>EQ internal logging</td></tr>
+<tr><td class="py-1"><code>OP_Camp</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-m4 px-1 rounded text-xs">M4</span></td><td>→ Add <code>CampRequest</code> (sit + timer to log out)</td></tr>
+<tr><td class="py-1"><code>OP_SessionReady</code></td><td><span class="tag-have px-1 rounded text-xs">HAVE</span></td><td><span class="tag-m1 px-1 rounded text-xs">M1</span></td><td>→ <code>SessionRequest/Response</code></td></tr>
+</tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- CHARACTER -->
+<!-- ═══════════════════════════════════════════════════ -->
+<h2 class="text-lg font-bold text-eq-gold mt-8 mb-3 border-b border-eq-border pb-1">Character Management (14 opcodes)</h2>
+<table class="w-full text-sm">
+<thead><tr class="text-left text-eq-dim border-b border-eq-border">
+  <th class="py-2 w-64">EQ Opcode</th><th class="w-20">Status</th><th class="w-20">When</th><th>ADIF Mapping</th>
+</tr></thead>
+<tbody>
+<tr><td class="py-1"><code>OP_SendCharInfo</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-m3 px-1 rounded text-xs">M3</span></td><td>→ Add <code>CharacterList</code> (char select screen)</td></tr>
+<tr><td class="py-1"><code>OP_CharacterCreate</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-m3 px-1 rounded text-xs">M3</span></td><td>→ Add <code>CharacterCreate</code></td></tr>
+<tr><td class="py-1"><code>OP_DeleteCharacter</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>CharacterDelete</code></td></tr>
+<tr><td class="py-1"><code>OP_ApproveName</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-m3 px-1 rounded text-xs">M3</span></td><td>→ Add <code>NameCheck</code></td></tr>
+<tr><td class="py-1"><code>OP_RandomNameGenerator</code></td><td><span class="tag-adapt px-1 rounded text-xs">ADAPT</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>RandomName</code></td></tr>
+<tr><td class="py-1"><code>OP_PlayerProfile</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-m1 px-1 rounded text-xs">M1</span></td><td>→ Add <code>PlayerProfile</code> (full char state on zone-in)</td></tr>
+<tr><td class="py-1"><code>OP_Save</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-m2 px-1 rounded text-xs">M2</span></td><td>→ Add <code>SaveRequest/SaveConfirm</code></td></tr>
+<tr><td class="py-1"><code>OP_SaveOnZoneReq</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>Server-internal, handle in zone transition logic</td></tr>
+<tr><td class="py-1"><code>OP_ExpUpdate</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-m2 px-1 rounded text-xs">M2</span></td><td>→ Add <code>ExperienceUpdate</code></td></tr>
+<tr><td class="py-1"><code>OP_LevelUpdate</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-m2 px-1 rounded text-xs">M2</span></td><td>→ Add <code>LevelUpdate</code></td></tr>
+<tr><td class="py-1"><code>OP_Surname</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>SurnameChange</code></td></tr>
+<tr><td class="py-1"><code>OP_SetTitle</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>TitleChange</code></td></tr>
+<tr><td class="py-1"><code>OP_GMLastName</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>GM variant — merge into admin commands</td></tr>
+<tr><td class="py-1"><code>OP_GMNameChange</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>GM variant — merge into admin commands</td></tr>
+</tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- ZONE -->
+<!-- ═══════════════════════════════════════════════════ -->
+<h2 class="text-lg font-bold text-eq-gold mt-8 mb-3 border-b border-eq-border pb-1">Zone Management (16 opcodes)</h2>
+<table class="w-full text-sm">
+<thead><tr class="text-left text-eq-dim border-b border-eq-border">
+  <th class="py-2 w-64">EQ Opcode</th><th class="w-20">Status</th><th class="w-20">When</th><th>ADIF Mapping</th>
+</tr></thead>
+<tbody>
+<tr><td class="py-1"><code>OP_ZoneEntry</code></td><td><span class="tag-have px-1 rounded text-xs">HAVE</span></td><td><span class="tag-m1 px-1 rounded text-xs">M1</span></td><td>→ <code>ZoneEntryRequest</code></td></tr>
+<tr><td class="py-1"><code>OP_ZoneEntryResend</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>Retry logic — handle at transport layer</td></tr>
+<tr><td class="py-1"><code>OP_NewZone</code></td><td><span class="tag-have px-1 rounded text-xs">HAVE</span></td><td><span class="tag-m1 px-1 rounded text-xs">M1</span></td><td>→ <code>ZoneConfig</code></td></tr>
+<tr><td class="py-1"><code>OP_ReqNewZone</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>Duplicate — merged into ZoneEntryRequest</td></tr>
+<tr><td class="py-1"><code>OP_ZoneChange</code></td><td><span class="tag-have px-1 rounded text-xs">HAVE</span></td><td><span class="tag-m3 px-1 rounded text-xs">M3</span></td><td>→ <code>ZoneChangeRequest/Response</code></td></tr>
+<tr><td class="py-1"><code>OP_RequestClientZoneChange</code></td><td><span class="tag-have px-1 rounded text-xs">HAVE</span></td><td><span class="tag-m3 px-1 rounded text-xs">M3</span></td><td>→ <code>ZoneChangeResponse</code></td></tr>
+<tr><td class="py-1"><code>OP_ZoneServerInfo</code></td><td><span class="tag-adapt px-1 rounded text-xs">ADAPT</span></td><td><span class="tag-m3 px-1 rounded text-xs">M3</span></td><td>→ Add <code>ZoneServerInfo</code> (IP/port for next zone)</td></tr>
+<tr><td class="py-1"><code>OP_ZoneUnavail</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-m3 px-1 rounded text-xs">M3</span></td><td>→ Use <code>ZoneChangeResponse</code> (denied + reason)</td></tr>
+<tr><td class="py-1"><code>OP_ZoneSpawns</code></td><td><span class="tag-have px-1 rounded text-xs">HAVE</span></td><td><span class="tag-m1 px-1 rounded text-xs">M1</span></td><td>→ Multiple <code>Spawn</code> messages</td></tr>
+<tr><td class="py-1"><code>OP_ReqClientSpawn</code></td><td><span class="tag-have px-1 rounded text-xs">HAVE</span></td><td><span class="tag-m1 px-1 rounded text-xs">M1</span></td><td>→ <code>ZoneReady</code></td></tr>
+<tr><td class="py-1"><code>OP_SendZonepoints</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-m3 px-1 rounded text-xs">M3</span></td><td>→ Add <code>ZonePointList</code></td></tr>
+<tr><td class="py-1"><code>OP_SendExpZonein</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>EQ-specific exp message on zone-in</td></tr>
+<tr><td class="py-1"><code>OP_SafePoint</code></td><td><span class="tag-have px-1 rounded text-xs">HAVE</span></td><td><span class="tag-m1 px-1 rounded text-xs">M1</span></td><td>→ In <code>ZoneConfig.safe_point</code></td></tr>
+<tr><td class="py-1"><code>OP_ZoneInAvatarSet</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>EQ-specific avatar packet</td></tr>
+<tr><td class="py-1"><code>OP_TimeOfDay</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-m4 px-1 rounded text-xs">M4</span></td><td>→ Add <code>TimeOfDay</code></td></tr>
+<tr><td class="py-1"><code>OP_Weather</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-m4 px-1 rounded text-xs">M4</span></td><td>→ Add <code>WeatherUpdate</code></td></tr>
+</tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- ENTITY / SPAWN -->
+<!-- ═══════════════════════════════════════════════════ -->
+<h2 class="text-lg font-bold text-eq-gold mt-8 mb-3 border-b border-eq-border pb-1">Entity / Spawn Management (16 opcodes)</h2>
+<table class="w-full text-sm">
+<thead><tr class="text-left text-eq-dim border-b border-eq-border">
+  <th class="py-2 w-64">EQ Opcode</th><th class="w-20">Status</th><th class="w-20">When</th><th>ADIF Mapping</th>
+</tr></thead>
+<tbody>
+<tr><td class="py-1"><code>OP_NewSpawn</code></td><td><span class="tag-have px-1 rounded text-xs">HAVE</span></td><td><span class="tag-m1 px-1 rounded text-xs">M1</span></td><td>→ <code>Spawn</code></td></tr>
+<tr><td class="py-1"><code>OP_DeleteSpawn</code></td><td><span class="tag-have px-1 rounded text-xs">HAVE</span></td><td><span class="tag-m1 px-1 rounded text-xs">M1</span></td><td>→ <code>Despawn</code></td></tr>
+<tr><td class="py-1"><code>OP_ClientUpdate</code></td><td><span class="tag-have px-1 rounded text-xs">HAVE</span></td><td><span class="tag-m1 px-1 rounded text-xs">M1</span></td><td>→ <code>PositionUpdate</code></td></tr>
+<tr><td class="py-1"><code>OP_MobUpdate</code></td><td><span class="tag-have px-1 rounded text-xs">HAVE</span></td><td><span class="tag-m1 px-1 rounded text-xs">M1</span></td><td>→ <code>PositionUpdate</code> (unified)</td></tr>
+<tr><td class="py-1"><code>OP_SpawnAppearance</code></td><td><span class="tag-have px-1 rounded text-xs">HAVE</span></td><td><span class="tag-m2 px-1 rounded text-xs">M2</span></td><td>→ <code>AppearanceUpdate</code></td></tr>
+<tr><td class="py-1"><code>OP_HPUpdate</code></td><td><span class="tag-have px-1 rounded text-xs">HAVE</span></td><td><span class="tag-m2 px-1 rounded text-xs">M2</span></td><td>→ <code>HPUpdate</code></td></tr>
+<tr><td class="py-1"><code>OP_MobHealth</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>Duplicate — merged into HPUpdate</td></tr>
+<tr><td class="py-1"><code>OP_ManaUpdate</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-m2 px-1 rounded text-xs">M2</span></td><td>→ Add <code>ManaUpdate</code></td></tr>
+<tr><td class="py-1"><code>OP_ManaChange</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>Duplicate — merged into ManaUpdate</td></tr>
+<tr><td class="py-1"><code>OP_Stamina</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-m2 px-1 rounded text-xs">M2</span></td><td>→ Add <code>StaminaUpdate</code></td></tr>
+<tr><td class="py-1"><code>OP_Animation</code></td><td><span class="tag-have px-1 rounded text-xs">HAVE</span></td><td><span class="tag-m2 px-1 rounded text-xs">M2</span></td><td>→ In <code>PositionUpdate.animation</code></td></tr>
+<tr><td class="py-1"><code>OP_WearChange</code></td><td><span class="tag-have px-1 rounded text-xs">HAVE</span></td><td><span class="tag-m2 px-1 rounded text-xs">M2</span></td><td>→ <code>AppearanceUpdate</code> (EQUIPMENT)</td></tr>
+<tr><td class="py-1"><code>OP_FaceChange</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>FaceChange</code></td></tr>
+<tr><td class="py-1"><code>OP_Illusion</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>IllusionChange</code></td></tr>
+<tr><td class="py-1"><code>OP_SetRunMode</code></td><td><span class="tag-adapt px-1 rounded text-xs">ADAPT</span></td><td><span class="tag-m1 px-1 rounded text-xs">M1</span></td><td>→ In <code>AppearanceUpdate</code> or movement state</td></tr>
+<tr><td class="py-1"><code>OP_CorpsePosition</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-m2 px-1 rounded text-xs">M2</span></td><td>→ Use <code>PositionUpdate</code> for corpse entities</td></tr>
+</tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- COMBAT -->
+<!-- ═══════════════════════════════════════════════════ -->
+<h2 class="text-lg font-bold text-eq-gold mt-8 mb-3 border-b border-eq-border pb-1">Combat & Spells (29 opcodes)</h2>
+<table class="w-full text-sm">
+<thead><tr class="text-left text-eq-dim border-b border-eq-border">
+  <th class="py-2 w-64">EQ Opcode</th><th class="w-20">Status</th><th class="w-20">When</th><th>ADIF Mapping</th>
+</tr></thead>
+<tbody>
+<tr><td class="py-1"><code>OP_Action</code></td><td><span class="tag-have px-1 rounded text-xs">HAVE</span></td><td><span class="tag-m2 px-1 rounded text-xs">M2</span></td><td>→ <code>SpellEffect</code></td></tr>
+<tr><td class="py-1"><code>OP_Damage</code></td><td><span class="tag-have px-1 rounded text-xs">HAVE</span></td><td><span class="tag-m2 px-1 rounded text-xs">M2</span></td><td>→ <code>MeleeDamage</code></td></tr>
+<tr><td class="py-1"><code>OP_Death</code></td><td><span class="tag-have px-1 rounded text-xs">HAVE</span></td><td><span class="tag-m2 px-1 rounded text-xs">M2</span></td><td>→ <code>EntityDeath</code></td></tr>
+<tr><td class="py-1"><code>OP_AutoAttack</code></td><td><span class="tag-have px-1 rounded text-xs">HAVE</span></td><td><span class="tag-m2 px-1 rounded text-xs">M2</span></td><td>→ <code>MeleeAttack</code></td></tr>
+<tr><td class="py-1"><code>OP_AutoAttack2</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>Duplicate — merge into MeleeAttack</td></tr>
+<tr><td class="py-1"><code>OP_BeginCast</code></td><td><span class="tag-have px-1 rounded text-xs">HAVE</span></td><td><span class="tag-m2 px-1 rounded text-xs">M2</span></td><td>→ <code>SpellBeginCast</code></td></tr>
+<tr><td class="py-1"><code>OP_CastSpell</code></td><td><span class="tag-have px-1 rounded text-xs">HAVE</span></td><td><span class="tag-m2 px-1 rounded text-xs">M2</span></td><td>→ <code>SpellCast</code></td></tr>
+<tr><td class="py-1"><code>OP_InterruptCast</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-m2 px-1 rounded text-xs">M2</span></td><td>→ Add <code>SpellInterrupt</code></td></tr>
+<tr><td class="py-1"><code>OP_Buff</code></td><td><span class="tag-have px-1 rounded text-xs">HAVE</span></td><td><span class="tag-m2 px-1 rounded text-xs">M2</span></td><td>→ <code>BuffApply / BuffFade</code></td></tr>
+<tr><td class="py-1"><code>OP_MemorizeSpell</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-m2 px-1 rounded text-xs">M2</span></td><td>→ Add <code>MemorizeSpell</code></td></tr>
+<tr><td class="py-1"><code>OP_DeleteSpell</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>ScribeSpell / DeleteSpell</code></td></tr>
+<tr><td class="py-1"><code>OP_SwapSpell</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>SwapSpell</code></td></tr>
+<tr><td class="py-1"><code>OP_Stun</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-m2 px-1 rounded text-xs">M2</span></td><td>→ Add <code>StunEffect</code></td></tr>
+<tr><td class="py-1"><code>OP_Charm</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>CharmEffect</code></td></tr>
+<tr><td class="py-1"><code>OP_FeignDeath</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>FeignDeath</code></td></tr>
+<tr><td class="py-1"><code>OP_EnvDamage</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-m2 px-1 rounded text-xs">M2</span></td><td>→ Use <code>MeleeDamage</code> (ENVIRONMENTAL type)</td></tr>
+<tr><td class="py-1"><code>OP_CombatAbility</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>CombatAbility</code></td></tr>
+<tr><td class="py-1"><code>OP_Discipline</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>DisciplineActivate</code></td></tr>
+<tr><td class="py-1"><code>OP_DisciplineChange</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>Merge into DisciplineActivate</td></tr>
+<tr><td class="py-1"><code>OP_Projectile</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>Projectile</code> (arrow/bolt visual)</td></tr>
+<tr><td class="py-1"><code>OP_Taunt</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>TauntAttempt</code></td></tr>
+<tr><td class="py-1"><code>OP_Shielding</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>ShieldTarget</code></td></tr>
+<tr><td class="py-1"><code>OP_BerserkStart</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>BerserkToggle</code></td></tr>
+<tr><td class="py-1"><code>OP_BerserkEnd</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>Merge into BerserkToggle</td></tr>
+<tr><td class="py-1"><code>OP_Consider</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-m2 px-1 rounded text-xs">M2</span></td><td>→ Add <code>Consider</code></td></tr>
+<tr><td class="py-1"><code>OP_ConsiderCorpse</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>Merge into Consider</td></tr>
+<tr><td class="py-1"><code>OP_TargetCommand</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-m2 px-1 rounded text-xs">M2</span></td><td>→ Add <code>Target</code></td></tr>
+<tr><td class="py-1"><code>OP_TargetMouse</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>Merge into Target</td></tr>
+<tr><td class="py-1"><code>OP_Assist</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-m2 px-1 rounded text-xs">M2</span></td><td>→ Add <code>AssistRequest</code></td></tr>
+</tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- CHAT & SOCIAL -->
+<!-- ═══════════════════════════════════════════════════ -->
+<h2 class="text-lg font-bold text-eq-gold mt-8 mb-3 border-b border-eq-border pb-1">Chat & Social (14 opcodes)</h2>
+<table class="w-full text-sm">
+<thead><tr class="text-left text-eq-dim border-b border-eq-border">
+  <th class="py-2 w-64">EQ Opcode</th><th class="w-20">Status</th><th class="w-20">When</th><th>ADIF Mapping</th>
+</tr></thead>
+<tbody>
+<tr><td class="py-1"><code>OP_ChannelMessage</code></td><td><span class="tag-have px-1 rounded text-xs">HAVE</span></td><td><span class="tag-m4 px-1 rounded text-xs">M4</span></td><td>→ <code>ChatMessage</code></td></tr>
+<tr><td class="py-1"><code>OP_ChatMessage</code></td><td><span class="tag-have px-1 rounded text-xs">HAVE</span></td><td><span class="tag-m4 px-1 rounded text-xs">M4</span></td><td>→ <code>ChatMessage</code> (unified)</td></tr>
+<tr><td class="py-1"><code>OP_Emote</code></td><td><span class="tag-have px-1 rounded text-xs">HAVE</span></td><td><span class="tag-m4 px-1 rounded text-xs">M4</span></td><td>→ <code>Emote</code></td></tr>
+<tr><td class="py-1"><code>OP_FormattedMessage</code></td><td><span class="tag-have px-1 rounded text-xs">HAVE</span></td><td><span class="tag-m4 px-1 rounded text-xs">M4</span></td><td>→ <code>SystemMessage</code></td></tr>
+<tr><td class="py-1"><code>OP_SimpleMessage</code></td><td><span class="tag-have px-1 rounded text-xs">HAVE</span></td><td><span class="tag-m4 px-1 rounded text-xs">M4</span></td><td>→ <code>SystemMessage</code></td></tr>
+<tr><td class="py-1"><code>OP_SpecialMesg</code></td><td><span class="tag-have px-1 rounded text-xs">HAVE</span></td><td><span class="tag-m4 px-1 rounded text-xs">M4</span></td><td>→ <code>SystemMessage</code></td></tr>
+<tr><td class="py-1"><code>OP_OldSpecialMesg</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>Legacy duplicate</td></tr>
+<tr><td class="py-1"><code>OP_SpellTextMessage</code></td><td><span class="tag-have px-1 rounded text-xs">HAVE</span></td><td><span class="tag-m2 px-1 rounded text-xs">M2</span></td><td>→ <code>SystemMessage</code> (COMBAT type)</td></tr>
+<tr><td class="py-1"><code>OP_MultiLineMsg</code></td><td><span class="tag-adapt px-1 rounded text-xs">ADAPT</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Use repeated <code>SystemMessage</code></td></tr>
+<tr><td class="py-1"><code>OP_WhoAllRequest</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>WhoRequest / WhoResponse</code></td></tr>
+<tr><td class="py-1"><code>OP_WhoAllResponse</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>WhoResponse</code></td></tr>
+<tr><td class="py-1"><code>OP_FriendsWho</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Merge into WhoRequest (friends filter)</td></tr>
+<tr><td class="py-1"><code>OP_MOTD</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>MessageOfTheDay</code></td></tr>
+<tr><td class="py-1"><code>OP_EnterChat</code></td><td><span class="tag-adapt px-1 rounded text-xs">ADAPT</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>ChatJoin / ChatLeave</code></td></tr>
+</tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- GROUPS & RAIDS -->
+<!-- ═══════════════════════════════════════════════════ -->
+<h2 class="text-lg font-bold text-eq-gold mt-8 mb-3 border-b border-eq-border pb-1">Groups & Raids (10 opcodes)</h2>
+<table class="w-full text-sm">
+<thead><tr class="text-left text-eq-dim border-b border-eq-border">
+  <th class="py-2 w-64">EQ Opcode</th><th class="w-20">Status</th><th class="w-20">When</th><th>ADIF Mapping</th>
+</tr></thead>
+<tbody>
+<tr><td class="py-1"><code>OP_GroupInvite</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>GroupInvite</code></td></tr>
+<tr><td class="py-1"><code>OP_GroupInvite2</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>Duplicate</td></tr>
+<tr><td class="py-1"><code>OP_GroupFollow</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>GroupAccept</code></td></tr>
+<tr><td class="py-1"><code>OP_GroupCancelInvite</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>GroupDecline</code></td></tr>
+<tr><td class="py-1"><code>OP_GroupDisband</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>GroupDisband</code></td></tr>
+<tr><td class="py-1"><code>OP_GroupUpdate</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>GroupUpdate</code></td></tr>
+<tr><td class="py-1"><code>OP_RaidInvite</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>RaidInvite</code></td></tr>
+<tr><td class="py-1"><code>OP_RaidJoin</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>RaidJoin</code></td></tr>
+<tr><td class="py-1"><code>OP_RaidUpdate</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>RaidUpdate</code></td></tr>
+<tr><td class="py-1"><code>OP_YellForHelp</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>CallForHelp</code></td></tr>
+</tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- GUILDS -->
+<!-- ═══════════════════════════════════════════════════ -->
+<h2 class="text-lg font-bold text-eq-gold mt-8 mb-3 border-b border-eq-border pb-1">Guilds (12 opcodes)</h2>
+<table class="w-full text-sm">
+<thead><tr class="text-left text-eq-dim border-b border-eq-border">
+  <th class="py-2 w-64">EQ Opcode</th><th class="w-20">Status</th><th class="w-20">When</th><th>ADIF Mapping</th>
+</tr></thead>
+<tbody>
+<tr><td class="py-1"><code>OP_GetGuildsList</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>GuildList</code></td></tr>
+<tr><td class="py-1"><code>OP_GuildsList</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>Duplicate</td></tr>
+<tr><td class="py-1"><code>OP_GuildInvite</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>GuildInvite</code></td></tr>
+<tr><td class="py-1"><code>OP_GuildInviteAccept</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>GuildInviteResponse</code></td></tr>
+<tr><td class="py-1"><code>OP_GuildRemove</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>GuildRemove</code></td></tr>
+<tr><td class="py-1"><code>OP_GuildDelete</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>GuildDisband</code></td></tr>
+<tr><td class="py-1"><code>OP_GuildLeader</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>GuildPromote</code></td></tr>
+<tr><td class="py-1"><code>OP_GuildMOTD</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>GuildMOTD</code></td></tr>
+<tr><td class="py-1"><code>OP_SetGuildMOTD</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>Merge into GuildMOTD</td></tr>
+<tr><td class="py-1"><code>OP_GuildAdded</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>Notification — merge into GuildUpdate</td></tr>
+<tr><td class="py-1"><code>OP_GuildPeace</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>EQ guild war system — skip for now</td></tr>
+<tr><td class="py-1"><code>OP_GuildWar</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>EQ guild war system — skip for now</td></tr>
+</tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- ITEMS, TRADE, LOOT, SHOPS -->
+<!-- ═══════════════════════════════════════════════════ -->
+<h2 class="text-lg font-bold text-eq-gold mt-8 mb-3 border-b border-eq-border pb-1">Items, Trade, Loot & Shops (30 opcodes)</h2>
+<table class="w-full text-sm">
+<thead><tr class="text-left text-eq-dim border-b border-eq-border">
+  <th class="py-2 w-64">EQ Opcode</th><th class="w-20">Status</th><th class="w-20">When</th><th>ADIF Mapping</th>
+</tr></thead>
+<tbody>
+<tr><td class="py-1"><code>OP_ItemPacket</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Expand <code>ItemDefinition</code></td></tr>
+<tr><td class="py-1"><code>OP_CharInventory</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>InventoryList</code></td></tr>
+<tr><td class="py-1"><code>OP_MoveItem</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>MoveItem</code></td></tr>
+<tr><td class="py-1"><code>OP_DeleteCharge</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>ItemChargeUpdate</code></td></tr>
+<tr><td class="py-1"><code>OP_ContainerPacket</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>ContainerContents</code></td></tr>
+<tr><td class="py-1"><code>OP_SummonedItem</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>ItemSummon</code></td></tr>
+<tr><td class="py-1"><code>OP_ItemLinkResponse</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>ItemLink</code></td></tr>
+<tr><td class="py-1"><code>OP_MoveCoin</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>MoneyMove</code></td></tr>
+<tr><td class="py-1"><code>OP_MoneyUpdate</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>MoneyUpdate</code></td></tr>
+<tr><td class="py-1"><code>OP_Split</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>MoneySplit</code> (group split)</td></tr>
+<tr><td class="py-1"><code>OP_LootRequest</code></td><td><span class="tag-have px-1 rounded text-xs">HAVE</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ <code>LootRequest</code></td></tr>
+<tr><td class="py-1"><code>OP_LootItem</code></td><td><span class="tag-have px-1 rounded text-xs">HAVE</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ <code>LootResponse</code></td></tr>
+<tr><td class="py-1"><code>OP_LootItemPacket</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>Merge into LootResponse</td></tr>
+<tr><td class="py-1"><code>OP_LootComplete</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>LootComplete</code></td></tr>
+<tr><td class="py-1"><code>OP_EndLootRequest</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>Merge into LootComplete</td></tr>
+<tr><td class="py-1"><code>OP_MoneyOnCorpse</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>CorpseMoney</code></td></tr>
+<tr><td class="py-1"><code>OP_TradeRequest</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>TradeRequest</code></td></tr>
+<tr><td class="py-1"><code>OP_TradeRequestAck</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>TradeAccept</code></td></tr>
+<tr><td class="py-1"><code>OP_TradeItemPacket</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>TradeItem</code></td></tr>
+<tr><td class="py-1"><code>OP_TradeCoins</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>TradeMoney</code></td></tr>
+<tr><td class="py-1"><code>OP_TradeMoneyUpdate</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>Merge into TradeMoney</td></tr>
+<tr><td class="py-1"><code>OP_TradeAcceptClick</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>TradeConfirm</code></td></tr>
+<tr><td class="py-1"><code>OP_FinishTrade</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>TradeComplete</code></td></tr>
+<tr><td class="py-1"><code>OP_CancelTrade</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>TradeCancel</code></td></tr>
+<tr><td class="py-1"><code>OP_TradeRefused</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>Merge into TradeCancel</td></tr>
+<tr><td class="py-1"><code>OP_TradeReset</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>Merge into TradeCancel</td></tr>
+<tr><td class="py-1"><code>OP_ShopRequest</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>MerchantOpen</code></td></tr>
+<tr><td class="py-1"><code>OP_ShopInventoryPacket</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>MerchantInventory</code></td></tr>
+<tr><td class="py-1"><code>OP_ShopPlayerBuy</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>MerchantBuy</code></td></tr>
+<tr><td class="py-1"><code>OP_ShopPlayerSell</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>MerchantSell</code></td></tr>
+</tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- WORLD OBJECTS -->
+<!-- ═══════════════════════════════════════════════════ -->
+<h2 class="text-lg font-bold text-eq-gold mt-8 mb-3 border-b border-eq-border pb-1">World Objects, Doors & Interaction (14 opcodes)</h2>
+<table class="w-full text-sm">
+<thead><tr class="text-left text-eq-dim border-b border-eq-border">
+  <th class="py-2 w-64">EQ Opcode</th><th class="w-20">Status</th><th class="w-20">When</th><th>ADIF Mapping</th>
+</tr></thead>
+<tbody>
+<tr><td class="py-1"><code>OP_SpawnDoor</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-m4 px-1 rounded text-xs">M4</span></td><td>→ Add <code>DoorSpawn</code></td></tr>
+<tr><td class="py-1"><code>OP_DespawnDoor</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-m4 px-1 rounded text-xs">M4</span></td><td>→ Add <code>DoorDespawn</code></td></tr>
+<tr><td class="py-1"><code>OP_ClickDoor</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-m4 px-1 rounded text-xs">M4</span></td><td>→ Add <code>DoorInteract</code></td></tr>
+<tr><td class="py-1"><code>OP_MoveDoor</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-m4 px-1 rounded text-xs">M4</span></td><td>→ Add <code>DoorStateChange</code></td></tr>
+<tr><td class="py-1"><code>OP_GroundSpawn</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>GroundItem</code></td></tr>
+<tr><td class="py-1"><code>OP_ClickObject</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>ObjectInteract</code></td></tr>
+<tr><td class="py-1"><code>OP_ClickObjectAction</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>Merge into ObjectInteract</td></tr>
+<tr><td class="py-1"><code>OP_ClearObject</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>ObjectRemove</code></td></tr>
+<tr><td class="py-1"><code>OP_ObjectItemPacket</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>Merge into ObjectInteract response</td></tr>
+<tr><td class="py-1"><code>OP_BoardBoat</code></td><td><span class="tag-adapt px-1 rounded text-xs">ADAPT</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>VehicleBoard</code> (generic)</td></tr>
+<tr><td class="py-1"><code>OP_LeaveBoat</code></td><td><span class="tag-adapt px-1 rounded text-xs">ADAPT</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>VehicleExit</code></td></tr>
+<tr><td class="py-1"><code>OP_ControlBoat</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>EQ-specific, skip for now</td></tr>
+<tr><td class="py-1"><code>OP_PlaySound</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-m4 px-1 rounded text-xs">M4</span></td><td>→ Add <code>PlaySound</code></td></tr>
+<tr><td class="py-1"><code>OP_Key</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>KeyUpdate</code> (zone access keys)</td></tr>
+</tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- SKILLS & TRADESKILLS -->
+<!-- ═══════════════════════════════════════════════════ -->
+<h2 class="text-lg font-bold text-eq-gold mt-8 mb-3 border-b border-eq-border pb-1">Skills & Tradeskills (18 opcodes)</h2>
+<table class="w-full text-sm">
+<thead><tr class="text-left text-eq-dim border-b border-eq-border">
+  <th class="py-2 w-64">EQ Opcode</th><th class="w-20">Status</th><th class="w-20">When</th><th>ADIF Mapping</th>
+</tr></thead>
+<tbody>
+<tr><td class="py-1"><code>OP_SkillUpdate</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-m2 px-1 rounded text-xs">M2</span></td><td>→ Add <code>SkillUpdate</code></td></tr>
+<tr><td class="py-1"><code>OP_SkillUpdate2</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>Duplicate — merge into SkillUpdate</td></tr>
+<tr><td class="py-1"><code>OP_ResetSkill</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>GM/admin — merge into admin commands</td></tr>
+<tr><td class="py-1"><code>OP_GMTraining</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>GM-specific training window</td></tr>
+<tr><td class="py-1"><code>OP_GMTrainSkill</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>GM-specific</td></tr>
+<tr><td class="py-1"><code>OP_GMEndTraining</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>GM-specific</td></tr>
+<tr><td class="py-1"><code>OP_GMEndTrainingResponse</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>GM-specific</td></tr>
+<tr><td class="py-1"><code>OP_TradeSkillCombine</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>CraftAttempt</code></td></tr>
+<tr><td class="py-1"><code>OP_Fishing</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>FishingAttempt</code></td></tr>
+<tr><td class="py-1"><code>OP_Forage</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>ForageAttempt</code></td></tr>
+<tr><td class="py-1"><code>OP_Bind_Wound</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>BindWound</code></td></tr>
+<tr><td class="py-1"><code>OP_Mend</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>MendAttempt</code></td></tr>
+<tr><td class="py-1"><code>OP_ApplyPoison</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>ApplyPoison</code></td></tr>
+<tr><td class="py-1"><code>OP_SenseHeading</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>EQ compass skill — modern UI handles this</td></tr>
+<tr><td class="py-1"><code>OP_SenseTraps</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>SenseTraps</code></td></tr>
+<tr><td class="py-1"><code>OP_DisarmTraps</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>DisarmTrap</code></td></tr>
+<tr><td class="py-1"><code>OP_InstillDoubt</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>InstillDoubt</code></td></tr>
+<tr><td class="py-1"><code>OP_PickPocket</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>PickPocket</code></td></tr>
+</tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- STEALTH -->
+<!-- ═══════════════════════════════════════════════════ -->
+<h2 class="text-lg font-bold text-eq-gold mt-8 mb-3 border-b border-eq-border pb-1">Stealth & Movement Abilities (5 opcodes)</h2>
+<table class="w-full text-sm">
+<thead><tr class="text-left text-eq-dim border-b border-eq-border">
+  <th class="py-2 w-64">EQ Opcode</th><th class="w-20">Status</th><th class="w-20">When</th><th>ADIF Mapping</th>
+</tr></thead>
+<tbody>
+<tr><td class="py-1"><code>OP_Hide</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>HideToggle</code></td></tr>
+<tr><td class="py-1"><code>OP_Sneak</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>SneakToggle</code></td></tr>
+<tr><td class="py-1"><code>OP_CancelSneakHide</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>Merge into Hide/SneakToggle (off state)</td></tr>
+<tr><td class="py-1"><code>OP_Track</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>TrackRequest / TrackList</code></td></tr>
+<tr><td class="py-1"><code>OP_Jump</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-m1 px-1 rounded text-xs">M1</span></td><td>→ In <code>PositionUpdate</code> (movement state)</td></tr>
+</tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- PETS -->
+<!-- ═══════════════════════════════════════════════════ -->
+<h2 class="text-lg font-bold text-eq-gold mt-8 mb-3 border-b border-eq-border pb-1">Pets (1 opcode)</h2>
+<table class="w-full text-sm">
+<thead><tr class="text-left text-eq-dim border-b border-eq-border">
+  <th class="py-2 w-64">EQ Opcode</th><th class="w-20">Status</th><th class="w-20">When</th><th>ADIF Mapping</th>
+</tr></thead>
+<tbody>
+<tr><td class="py-1"><code>OP_PetCommands</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>PetCommand</code> (attack, guard, follow, etc.)</td></tr>
+</tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- DUELS & PVP -->
+<!-- ═══════════════════════════════════════════════════ -->
+<h2 class="text-lg font-bold text-eq-gold mt-8 mb-3 border-b border-eq-border pb-1">Duels & PvP (3 opcodes)</h2>
+<table class="w-full text-sm">
+<thead><tr class="text-left text-eq-dim border-b border-eq-border">
+  <th class="py-2 w-64">EQ Opcode</th><th class="w-20">Status</th><th class="w-20">When</th><th>ADIF Mapping</th>
+</tr></thead>
+<tbody>
+<tr><td class="py-1"><code>OP_RequestDuel</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>DuelRequest</code></td></tr>
+<tr><td class="py-1"><code>OP_DuelResponse</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>DuelResponse</code></td></tr>
+<tr><td class="py-1"><code>OP_DuelAccept</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>Merge into DuelResponse</td></tr>
+</tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- RESURRECTION & DEATH -->
+<!-- ═══════════════════════════════════════════════════ -->
+<h2 class="text-lg font-bold text-eq-gold mt-8 mb-3 border-b border-eq-border pb-1">Resurrection & Corpse (7 opcodes)</h2>
+<table class="w-full text-sm">
+<thead><tr class="text-left text-eq-dim border-b border-eq-border">
+  <th class="py-2 w-64">EQ Opcode</th><th class="w-20">Status</th><th class="w-20">When</th><th>ADIF Mapping</th>
+</tr></thead>
+<tbody>
+<tr><td class="py-1"><code>OP_RezzRequest</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>ResurrectOffer</code></td></tr>
+<tr><td class="py-1"><code>OP_RezzAnswer</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>ResurrectResponse</code></td></tr>
+<tr><td class="py-1"><code>OP_RezzComplete</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>ResurrectComplete</code></td></tr>
+<tr><td class="py-1"><code>OP_Sacrifice</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>EQ-specific spell mechanic</td></tr>
+<tr><td class="py-1"><code>OP_Consent</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>CorpseConsent</code></td></tr>
+<tr><td class="py-1"><code>OP_ConsentResponse</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>Merge into CorpseConsent</td></tr>
+<tr><td class="py-1"><code>OP_CorpseDrag</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>CorpseDrag</code></td></tr>
+</tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- AA -->
+<!-- ═══════════════════════════════════════════════════ -->
+<h2 class="text-lg font-bold text-eq-gold mt-8 mb-3 border-b border-eq-border pb-1">Alternate Advancement (4 opcodes)</h2>
+<table class="w-full text-sm">
+<thead><tr class="text-left text-eq-dim border-b border-eq-border">
+  <th class="py-2 w-64">EQ Opcode</th><th class="w-20">Status</th><th class="w-20">When</th><th>ADIF Mapping</th>
+</tr></thead>
+<tbody>
+<tr><td class="py-1"><code>OP_AAAction</code></td><td><span class="tag-adapt px-1 rounded text-xs">ADAPT</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>AASpend</code> (may redesign AA system)</td></tr>
+<tr><td class="py-1"><code>OP_AAExpUpdate</code></td><td><span class="tag-adapt px-1 rounded text-xs">ADAPT</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>AAExpUpdate</code></td></tr>
+<tr><td class="py-1"><code>OP_SendAAStats</code></td><td><span class="tag-adapt px-1 rounded text-xs">ADAPT</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>AAStats</code></td></tr>
+<tr><td class="py-1"><code>OP_RespondAA</code></td><td><span class="tag-adapt px-1 rounded text-xs">ADAPT</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>AAResponse</code></td></tr>
+</tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- BAZAAR -->
+<!-- ═══════════════════════════════════════════════════ -->
+<h2 class="text-lg font-bold text-eq-gold mt-8 mb-3 border-b border-eq-border pb-1">Bazaar & Trader (6 opcodes)</h2>
+<table class="w-full text-sm">
+<thead><tr class="text-left text-eq-dim border-b border-eq-border">
+  <th class="py-2 w-64">EQ Opcode</th><th class="w-20">Status</th><th class="w-20">When</th><th>ADIF Mapping</th>
+</tr></thead>
+<tbody>
+<tr><td class="py-1"><code>OP_BazaarSearch</code></td><td><span class="tag-adapt px-1 rounded text-xs">ADAPT</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>AuctionSearch</code> (may redesign)</td></tr>
+<tr><td class="py-1"><code>OP_BecomeTrader</code></td><td><span class="tag-adapt px-1 rounded text-xs">ADAPT</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>SetupShop</code></td></tr>
+<tr><td class="py-1"><code>OP_Trader</code></td><td><span class="tag-adapt px-1 rounded text-xs">ADAPT</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>TraderUpdate</code></td></tr>
+<tr><td class="py-1"><code>OP_TraderBuy</code></td><td><span class="tag-adapt px-1 rounded text-xs">ADAPT</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>TraderPurchase</code></td></tr>
+<tr><td class="py-1"><code>OP_TraderShop</code></td><td><span class="tag-adapt px-1 rounded text-xs">ADAPT</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>TraderBrowse</code></td></tr>
+<tr><td class="py-1"><code>OP_ShopEnd</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>MerchantClose</code></td></tr>
+</tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- INSPECT & SOCIAL -->
+<!-- ═══════════════════════════════════════════════════ -->
+<h2 class="text-lg font-bold text-eq-gold mt-8 mb-3 border-b border-eq-border pb-1">Inspect, LFG & Social (6 opcodes)</h2>
+<table class="w-full text-sm">
+<thead><tr class="text-left text-eq-dim border-b border-eq-border">
+  <th class="py-2 w-64">EQ Opcode</th><th class="w-20">Status</th><th class="w-20">When</th><th>ADIF Mapping</th>
+</tr></thead>
+<tbody>
+<tr><td class="py-1"><code>OP_InspectRequest</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>InspectRequest</code></td></tr>
+<tr><td class="py-1"><code>OP_InspectAnswer</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>InspectResponse</code></td></tr>
+<tr><td class="py-1"><code>OP_LFGCommand</code></td><td><span class="tag-adapt px-1 rounded text-xs">ADAPT</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>LFGToggle</code> (may redesign with group finder)</td></tr>
+<tr><td class="py-1"><code>OP_LFGApperance</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>Merge into AppearanceUpdate (LFG flag)</td></tr>
+<tr><td class="py-1"><code>OP_Begging</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>BeggingAttempt</code></td></tr>
+<tr><td class="py-1"><code>OP_Consume</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>ConsumeItem</code> (eat/drink)</td></tr>
+</tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- GM/ADMIN -->
+<!-- ═══════════════════════════════════════════════════ -->
+<h2 class="text-lg font-bold text-eq-gold mt-8 mb-3 border-b border-eq-border pb-1">GM & Admin Commands (17 opcodes)</h2>
+<table class="w-full text-sm">
+<thead><tr class="text-left text-eq-dim border-b border-eq-border">
+  <th class="py-2 w-64">EQ Opcode</th><th class="w-20">Status</th><th class="w-20">When</th><th>ADIF Mapping</th>
+</tr></thead>
+<tbody>
+<tr><td class="py-1"><code>OP_GMGoto</code></td><td><span class="tag-adapt px-1 rounded text-xs">ADAPT</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td rowspan="12" class="text-eq-dim">→ All GM commands collapse into a single<br><code>AdminCommand</code> message with a command<br>enum and parameters. EQ had separate<br>opcodes per GM action — we'll use one<br>generic admin packet instead.</td></tr>
+<tr><td class="py-1"><code>OP_GMSummon</code></td><td><span class="tag-adapt px-1 rounded text-xs">ADAPT</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td></tr>
+<tr><td class="py-1"><code>OP_GMKill</code></td><td><span class="tag-adapt px-1 rounded text-xs">ADAPT</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td></tr>
+<tr><td class="py-1"><code>OP_GMKick</code></td><td><span class="tag-adapt px-1 rounded text-xs">ADAPT</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td></tr>
+<tr><td class="py-1"><code>OP_GMToggle</code></td><td><span class="tag-adapt px-1 rounded text-xs">ADAPT</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td></tr>
+<tr><td class="py-1"><code>OP_GMHideMe</code></td><td><span class="tag-adapt px-1 rounded text-xs">ADAPT</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td></tr>
+<tr><td class="py-1"><code>OP_GMBecomeNPC</code></td><td><span class="tag-adapt px-1 rounded text-xs">ADAPT</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td></tr>
+<tr><td class="py-1"><code>OP_GMFind</code></td><td><span class="tag-adapt px-1 rounded text-xs">ADAPT</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td></tr>
+<tr><td class="py-1"><code>OP_GMEmoteZone</code></td><td><span class="tag-adapt px-1 rounded text-xs">ADAPT</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td></tr>
+<tr><td class="py-1"><code>OP_GMZoneRequest</code></td><td><span class="tag-adapt px-1 rounded text-xs">ADAPT</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td></tr>
+<tr><td class="py-1"><code>OP_GMZoneRequest2</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td></tr>
+<tr><td class="py-1"><code>OP_GMDelCorpse</code></td><td><span class="tag-adapt px-1 rounded text-xs">ADAPT</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td></tr>
+<tr><td class="py-1"><code>OP_GMSearchCorpse</code></td><td><span class="tag-adapt px-1 rounded text-xs">ADAPT</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td></td></tr>
+<tr><td class="py-1"><code>OP_GMServers</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>Server management — handled externally</td></tr>
+<tr><td class="py-1"><code>OP_Reward</code></td><td><span class="tag-adapt px-1 rounded text-xs">ADAPT</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>RewardGrant</code></td></tr>
+<tr><td class="py-1"><code>OP_Disarm</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>DisarmAttempt</code></td></tr>
+<tr><td class="py-1"><code>OP_Translocate</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>TranslocateOffer / TranslocateConfirm</code></td></tr>
+</tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- PETITIONS & FEEDBACK -->
+<!-- ═══════════════════════════════════════════════════ -->
+<h2 class="text-lg font-bold text-eq-gold mt-8 mb-3 border-b border-eq-border pb-1">Petitions, Books & Misc (23 opcodes)</h2>
+<table class="w-full text-sm">
+<thead><tr class="text-left text-eq-dim border-b border-eq-border">
+  <th class="py-2 w-64">EQ Opcode</th><th class="w-20">Status</th><th class="w-20">When</th><th>ADIF Mapping</th>
+</tr></thead>
+<tbody>
+<tr><td class="py-1"><code>OP_Petition</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>In-game petition system — use external tools</td></tr>
+<tr><td class="py-1"><code>OP_PetitionCheckIn</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td></td></tr>
+<tr><td class="py-1"><code>OP_PetitionCheckout</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td></td></tr>
+<tr><td class="py-1"><code>OP_PetitionDelete</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td></td></tr>
+<tr><td class="py-1"><code>OP_PetitionRefresh</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td></td></tr>
+<tr><td class="py-1"><code>OP_DeletePetition</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td></td></tr>
+<tr><td class="py-1"><code>OP_Bug</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>Use external bug tracker</td></tr>
+<tr><td class="py-1"><code>OP_Report</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>Use external reporting</td></tr>
+<tr><td class="py-1"><code>OP_Feedback</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>Use external feedback</td></tr>
+<tr><td class="py-1"><code>OP_Poll</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>EQ poll system</td></tr>
+<tr><td class="py-1"><code>OP_PollResponse</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td></td></tr>
+<tr><td class="py-1"><code>OP_BookPacket</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>BookContent</code></td></tr>
+<tr><td class="py-1"><code>OP_ReadBook</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>BookRead</code></td></tr>
+<tr><td class="py-1"><code>OP_RandomReq</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>RandomRoll</code> (/random)</td></tr>
+<tr><td class="py-1"><code>OP_RandomReply</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>Merge into RandomRoll</td></tr>
+<tr><td class="py-1"><code>OP_LocInfo</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>Client /loc display — client-side only</td></tr>
+<tr><td class="py-1"><code>OP_SafeFallSuccess</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>SafeFallResult</code></td></tr>
+<tr><td class="py-1"><code>OP_DataRate</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>Connection quality — handle at transport</td></tr>
+<tr><td class="py-1"><code>OP_SetServerFilter</code></td><td><span class="tag-adapt px-1 rounded text-xs">ADAPT</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>MessageFilter</code></td></tr>
+<tr><td class="py-1"><code>OP_ClientError</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-m1 px-1 rounded text-xs">M1</span></td><td>→ Add <code>ClientError</code></td></tr>
+<tr><td class="py-1"><code>OP_ExpansionInfo</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>EQ expansion flags — not applicable</td></tr>
+<tr><td class="py-1"><code>OP_ApproveWorld</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>EQ client verification</td></tr>
+<tr><td class="py-1"><code>OP_ExploreUnknown</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>Unknown/unused</td></tr>
+</tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- SERVER LIST -->
+<!-- ═══════════════════════════════════════════════════ -->
+<h2 class="text-lg font-bold text-eq-gold mt-8 mb-3 border-b border-eq-border pb-1">Server & Chat System (5 opcodes)</h2>
+<table class="w-full text-sm">
+<thead><tr class="text-left text-eq-dim border-b border-eq-border">
+  <th class="py-2 w-64">EQ Opcode</th><th class="w-20">Status</th><th class="w-20">When</th><th>ADIF Mapping</th>
+</tr></thead>
+<tbody>
+<tr><td class="py-1"><code>OP_ServerListRequest</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>ServerListRequest</code></td></tr>
+<tr><td class="py-1"><code>OP_ServerListResponse</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>ServerListResponse</code></td></tr>
+<tr><td class="py-1"><code>OP_ServerName</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>Merge into ServerListResponse</td></tr>
+<tr><td class="py-1"><code>OP_SetChatServer</code></td><td><span class="tag-adapt px-1 rounded text-xs">ADAPT</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>ChatServerInfo</code></td></tr>
+<tr><td class="py-1"><code>OP_PlayEverquestRequest</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>EQ-specific play button</td></tr>
+</tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- ANTI-CHEAT & SOUL MARKS -->
+<!-- ═══════════════════════════════════════════════════ -->
+<h2 class="text-lg font-bold text-eq-gold mt-8 mb-3 border-b border-eq-border pb-1">Anti-Cheat, Soul Marks & Message Board (16 opcodes)</h2>
+<table class="w-full text-sm">
+<thead><tr class="text-left text-eq-dim border-b border-eq-border">
+  <th class="py-2 w-64">EQ Opcode</th><th class="w-20">Status</th><th class="w-20">When</th><th>ADIF Mapping</th>
+</tr></thead>
+<tbody>
+<tr><td class="py-1"><code>OP_ChecksumExe</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>EQ client integrity check — own client</td></tr>
+<tr><td class="py-1"><code>OP_ChecksumSpell</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>EQ spell file integrity check</td></tr>
+<tr><td class="py-1"><code>OP_ReturnClientControl</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-m2 px-1 rounded text-xs">M2</span></td><td>→ Add <code>ClientControlState</code> (stun/mez release)</td></tr>
+<tr><td class="py-1"><code>OP_FreezeClientControl</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-m2 px-1 rounded text-xs">M2</span></td><td>→ Merge into <code>ClientControlState</code></td></tr>
+<tr><td class="py-1"><code>OP_UnfreezeClientControl</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>Merge into ClientControlState</td></tr>
+<tr><td class="py-1"><code>OP_ResetModulationTimer</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>EQ-specific audio timer</td></tr>
+<tr><td class="py-1"><code>OP_SoulMarkUpdate</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>EQ soul mark system — skip for now</td></tr>
+<tr><td class="py-1"><code>OP_SoulMarkList</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td></td></tr>
+<tr><td class="py-1"><code>OP_SoulMarkAdd</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td></td></tr>
+<tr><td class="py-1"><code>OP_MBRetrievalRequest</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>In-game message board — use modern chat</td></tr>
+<tr><td class="py-1"><code>OP_MBRetrievalResponse</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td></td></tr>
+<tr><td class="py-1"><code>OP_MBRetrievalFin</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td></td></tr>
+<tr><td class="py-1"><code>OP_MBRetrievalDetailRequest</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td></td></tr>
+<tr><td class="py-1"><code>OP_MBRetrievalEraseRequest</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td></td></tr>
+<tr><td class="py-1"><code>OP_MBRetrievalPostRequest</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td></td></tr>
+<tr><td class="py-1"><code>OP_MBRetrievalDetailResponse</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td></td></tr>
+</tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- MERCHANT EXTRAS -->
+<!-- ═══════════════════════════════════════════════════ -->
+<h2 class="text-lg font-bold text-eq-gold mt-8 mb-3 border-b border-eq-border pb-1">Remaining Merchant & Shop (3 opcodes)</h2>
+<table class="w-full text-sm">
+<thead><tr class="text-left text-eq-dim border-b border-eq-border">
+  <th class="py-2 w-64">EQ Opcode</th><th class="w-20">Status</th><th class="w-20">When</th><th>ADIF Mapping</th>
+</tr></thead>
+<tbody>
+<tr><td class="py-1"><code>OP_ShopEndConfirm</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>Merge into MerchantClose</td></tr>
+<tr><td class="py-1"><code>OP_ShopDelItem</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add in MerchantInventory update</td></tr>
+<tr><td class="py-1"><code>OP_MerchantItemPacket</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>Merge into MerchantInventory</td></tr>
+</tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- SUMMARY -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div class="bg-eq-card border border-eq-border rounded-lg p-6 mt-12 mb-6">
+  <h2 class="text-xl font-bold text-white mb-4">Summary</h2>
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+    <div class="border border-eq-border rounded p-3">
+      <div class="text-2xl font-bold text-blue-400">25</div>
+      <div class="text-xs text-eq-dim">HAVE (already defined)</div>
+    </div>
+    <div class="border border-eq-border rounded p-3">
+      <div class="text-2xl font-bold text-green-400">96</div>
+      <div class="text-xs text-eq-dim">NEED (add to ADIF)</div>
+    </div>
+    <div class="border border-eq-border rounded p-3">
+      <div class="text-2xl font-bold text-amber-400">29</div>
+      <div class="text-xs text-eq-dim">ADAPT (redesign for ADIF)</div>
+    </div>
+    <div class="border border-eq-border rounded p-3">
+      <div class="text-2xl font-bold text-gray-500">138</div>
+      <div class="text-xs text-eq-dim">SKIP (not needed)</div>
+    </div>
+  </div>
+
+  <div class="mt-6">
+    <h3 class="text-white font-semibold mb-2">ADIF Total: ~150 message types</h3>
+    <p class="text-sm text-eq-dim">25 already defined + 96 to add + 29 to adapt = <strong class="text-white">150 unique ADIF messages</strong> (down from 288 EQ opcodes — many EQ opcodes were duplicates or platform-specific).</p>
+  </div>
+
+  <div class="mt-4">
+    <h3 class="text-white font-semibold mb-2">By Milestone</h3>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+      <div class="bg-eq-bg rounded p-2">
+        <span class="tag-m1 px-1 rounded text-xs">M1</span> ~15 messages<br>
+        <span class="text-eq-dim text-xs">Walk on terrain (mostly HAVE)</span>
+      </div>
+      <div class="bg-eq-bg rounded p-2">
+        <span class="tag-m2 px-1 rounded text-xs">M2</span> ~25 messages<br>
+        <span class="text-eq-dim text-xs">Multiplayer + NPCs + combat</span>
+      </div>
+      <div class="bg-eq-bg rounded p-2">
+        <span class="tag-m3 px-1 rounded text-xs">M3</span> ~10 messages<br>
+        <span class="text-eq-dim text-xs">Zone transitions + char select</span>
+      </div>
+      <div class="bg-eq-bg rounded p-2">
+        <span class="tag-m4 px-1 rounded text-xs">M4</span> ~12 messages<br>
+        <span class="text-eq-dim text-xs">Innothule test (chat, doors, weather)</span>
+      </div>
+    </div>
+    <p class="text-sm text-eq-dim mt-2">Remaining ~88 messages are LATER — groups, guilds, inventory, trade, skills, AA, bazaar, etc.</p>
+  </div>
+</div>
+
+</main>
+
+<footer class="max-w-7xl mx-auto px-6 py-6 border-t border-eq-border text-center text-eq-dim text-sm">
+  ADIF Opcode Audit · 288 EQ opcodes → 150 ADIF messages · Generated 2026-06-20
+</footer>
+</body>
+</html>

@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ADIF — Tech Then vs Now & Server-Side Proof Plan</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  darkMode: 'class',
+  theme: {
+    extend: {
+      colors: {
+        eq: { gold: '#c9a64e', copper: '#b87333', mana: '#4a90d9', health: '#cc3333', bg: '#0d1117', card: '#161b22', border: '#30363d', text: '#c9d1d9', dim: '#8b949e' }
+      }
+    }
+  }
+}
+</script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+  body { font-family: 'Inter', sans-serif; background: #0d1117; color: #c9d1d9; }
+  code, .mono { font-family: 'JetBrains Mono', monospace; }
+  .verdict { border-left: 3px solid #c9a64e; }
+  .glow { box-shadow: 0 0 20px rgba(201, 166, 78, 0.1); }
+  .section-anchor { scroll-margin-top: 80px; }
+  nav a.active { color: #c9a64e; border-bottom: 2px solid #c9a64e; }
+  .tag-keep { background: #1a3a1a; color: #4ade80; }
+  .tag-upgrade { background: #3a2a1a; color: #f59e0b; }
+  .tag-rethink { background: #3a1a1a; color: #f87171; }
+  .tag-new { background: #1a2a3a; color: #60a5fa; }
+  details summary { cursor: pointer; }
+  details summary::-webkit-details-marker { display: none; }
+  details summary::before { content: '▸ '; color: #c9a64e; }
+  details[open] summary::before { content: '▾ '; }
+</style>
+</head>
+<body class="min-h-screen">
+
+<!-- Sticky Nav -->
+<nav class="sticky top-0 z-50 bg-eq-bg/95 backdrop-blur border-b border-eq-border px-6 py-3">
+  <div class="max-w-6xl mx-auto flex items-center justify-between">
+    <span class="text-eq-gold font-bold text-lg">ADIF Tech Analysis</span>
+    <div class="flex gap-6 text-sm">
+      <a href="#comparison" class="text-eq-dim hover:text-eq-gold transition pb-1">Tech Comparison</a>
+      <a href="#proof" class="text-eq-dim hover:text-eq-gold transition pb-1">Server Proof</a>
+      <a href="#decisions" class="text-eq-dim hover:text-eq-gold transition pb-1">Decisions</a>
+    </div>
+  </div>
+</nav>
+
+<!-- Header -->
+<header class="max-w-6xl mx-auto px-6 pt-12 pb-8">
+  <h1 class="text-3xl font-bold text-white mb-2">EverQuest Tech (1999) vs Modern Approaches</h1>
+  <p class="text-eq-dim text-lg">What EQ did, why it worked, and where ADIF can do better — plus a rethought server-side proof-of-concept plan.</p>
+  <div class="flex gap-4 mt-6 text-xs mono">
+    <span class="tag-keep px-2 py-1 rounded">KEEP — still the right call</span>
+    <span class="tag-upgrade px-2 py-1 rounded">UPGRADE — better options exist</span>
+    <span class="tag-rethink px-2 py-1 rounded">RETHINK — fundamentally different approach</span>
+    <span class="tag-new px-2 py-1 rounded">NEW — didn't exist in EQ</span>
+  </div>
+</header>
+
+<!-- ============================================================ -->
+<!-- TECH COMPARISON -->
+<!-- ============================================================ -->
+<section id="comparison" class="section-anchor max-w-6xl mx-auto px-6 pb-16">
+
+  <!-- 1. NETWORKING -->
+  <div class="bg-eq-card border border-eq-border rounded-lg p-6 mb-6 glow">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-xl font-bold text-white">1. Networking</h2>
+      <span class="tag-upgrade px-2 py-1 rounded text-xs mono">UPGRADE</span>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-6">
+      <div>
+        <h3 class="text-eq-gold font-semibold mb-2">EQ / EQMacEmu (1999)</h3>
+        <ul class="text-sm space-y-2 text-eq-dim">
+          <li>• <strong class="text-eq-text">Custom reliability protocol over raw UDP</strong> — hand-built sequencing, acknowledgments, fragmentation (<code class="text-xs">OP_SessionRequest</code>, <code class="text-xs">OP_Ack</code>, <code class="text-xs">OP_Fragment</code>)</li>
+          <li>• <strong class="text-eq-text">libuv event loop</strong> for async I/O (<code class="text-xs">uv_udp_t</code> socket)</li>
+          <li>• Position updates packed into ~11 bytes with bit-shifting to save bandwidth on dial-up</li>
+          <li>• No encryption, no modern auth — session handshake only</li>
+          <li>• Connection states managed manually: <code class="text-xs">CLIENT_CONNECTING → CLIENT_AUTH_RECEIVED → CLIENT_CONNECTED → CLIENT_LINKDEAD</code></li>
+        </ul>
+      </div>
+      <div>
+        <h3 class="text-eq-mana font-semibold mb-2">Modern Options</h3>
+        <ul class="text-sm space-y-2 text-eq-dim">
+          <li>• <strong class="text-eq-text">ENet</strong> — proven UDP reliability library used by many game servers. Handles sequencing, fragmentation, channels. Drop-in replacement for EQ's hand-rolled protocol.</li>
+          <li>• <strong class="text-eq-text">QUIC (HTTP/3)</strong> — built-in encryption + reliable streams over UDP. Modern but more complex.</li>
+          <li>• <strong class="text-eq-text">WebTransport / WebRTC</strong> — if going browser-based client. WebRTC data channels give you UDP-like unreliable + reliable channels.</li>
+          <li>• <strong class="text-eq-text">Interest management</strong> — only send updates for entities near the player. EQ sent everything in the zone. Huge bandwidth savings in crowded zones.</li>
+          <li>• <strong class="text-eq-text">Delta compression</strong> — only send what changed since last ack'd state. Beats EQ's fixed-format position packets.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="verdict mt-4 pl-4 py-2 text-sm">
+      <strong class="text-eq-gold">ADIF opportunity:</strong> Don't hand-roll a reliability protocol. Use ENet (if native client) or WebRTC data channels (if browser). Add interest management from the start — EQ's "broadcast everything to everyone in zone" doesn't scale past ~100 players per zone.
+    </div>
+  </div>
+
+  <!-- 2. SERIALIZATION -->
+  <div class="bg-eq-card border border-eq-border rounded-lg p-6 mb-6 glow">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-xl font-bold text-white">2. Serialization / Packet Format</h2>
+      <span class="tag-upgrade px-2 py-1 rounded text-xs mono">UPGRADE</span>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-6">
+      <div>
+        <h3 class="text-eq-gold font-semibold mb-2">EQ / EQMacEmu</h3>
+        <ul class="text-sm space-y-2 text-eq-dim">
+          <li>• <strong class="text-eq-text">Hand-rolled C structs</strong> with <code class="text-xs">#pragma pack(1)</code> — raw binary memcpy, ~2,900 lines of struct definitions</li>
+          <li>• Tightly coupled to client version — different struct layouts per client era</li>
+          <li>• No schema evolution — changing a field breaks everything</li>
+          <li>• Newer code uses <strong class="text-eq-text">cereal</strong> (C++ template serialization) for some packets</li>
+          <li>• Opcode-based dispatch: 1-2 byte opcode → handler function</li>
+        </ul>
+      </div>
+      <div>
+        <h3 class="text-eq-mana font-semibold mb-2">Modern Options</h3>
+        <ul class="text-sm space-y-2 text-eq-dim">
+          <li>• <strong class="text-eq-text">FlatBuffers</strong> — zero-copy deserialization, schema evolution, cross-language. Ideal for game packets (fastest option).</li>
+          <li>• <strong class="text-eq-text">Protocol Buffers</strong> — schema evolution, code generation, well-tooled. Slightly more overhead than FlatBuffers but more ergonomic.</li>
+          <li>• <strong class="text-eq-text">MessagePack</strong> — binary JSON. Flexible but no schema validation.</li>
+          <li>• <strong class="text-eq-text">Cap'n Proto</strong> — zero-copy like FlatBuffers, with RPC built in.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="verdict mt-4 pl-4 py-2 text-sm">
+      <strong class="text-eq-gold">ADIF opportunity:</strong> Use FlatBuffers or Protobuf with a shared schema file that generates code for both server and client. Schema evolution means we can add fields without breaking old clients. The opcode dispatch pattern is still solid — keep that, just use a real serialization format for the payloads.
+    </div>
+  </div>
+
+  <!-- 3. ENTITY MODEL -->
+  <div class="bg-eq-card border border-eq-border rounded-lg p-6 mb-6 glow">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-xl font-bold text-white">3. Entity / Game Object Model</h2>
+      <span class="tag-rethink px-2 py-1 rounded text-xs mono">RETHINK</span>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-6">
+      <div>
+        <h3 class="text-eq-gold font-semibold mb-2">EQ / EQMacEmu</h3>
+        <ul class="text-sm space-y-2 text-eq-dim">
+          <li>• <strong class="text-eq-text">Deep inheritance hierarchy:</strong><br>
+            <code class="text-xs">Entity → Mob → Client</code><br>
+            <code class="text-xs">Entity → Mob → NPC</code><br>
+            <code class="text-xs">Entity → Corpse / Object / Door / Trap / Beacon</code></li>
+          <li>• <code class="text-xs">Mob</code> class is massive — HP, level, race, class, position, equipment, special abilities all in one class</li>
+          <li>• Type checking via virtual methods: <code class="text-xs">IsClient()</code>, <code class="text-xs">IsNPC()</code>, <code class="text-xs">CastToClient()</code></li>
+          <li>• <code class="text-xs">EntityList</code> stores everything in hash maps by type</li>
+          <li>• Sequential processing: <code class="text-xs">entity_list.MobProcess()</code>, <code class="text-xs">.DoorProcess()</code>, etc.</li>
+        </ul>
+      </div>
+      <div>
+        <h3 class="text-eq-mana font-semibold mb-2">Modern: Entity Component System (ECS)</h3>
+        <ul class="text-sm space-y-2 text-eq-dim">
+          <li>• <strong class="text-eq-text">Composition over inheritance</strong> — entities are just IDs. Behavior comes from attached components.</li>
+          <li>• <code class="text-xs">Position</code>, <code class="text-xs">Health</code>, <code class="text-xs">AIBehavior</code>, <code class="text-xs">Inventory</code> are all separate components</li>
+          <li>• Systems process entities by component query: "give me everything with Position + Health + AI"</li>
+          <li>• Cache-friendly data layout (structs of arrays, not arrays of structs)</li>
+          <li>• Libraries: <strong>bevy_ecs</strong> (Rust), <strong>flecs</strong> (C/C++), <strong>bitECS</strong> (JS), Unity DOTS</li>
+          <li>• Trivially parallelizable — systems that touch different components run concurrently</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="verdict mt-4 pl-4 py-2 text-sm">
+      <strong class="text-eq-gold">ADIF opportunity:</strong> ECS is the biggest architectural win available. EQ's <code>Mob</code> class doing everything made sense in 1999 C++ but creates a maintenance nightmare. With ECS, adding a new behavior (e.g., "this NPC can be mounted") is just attaching a component — no class hierarchy changes. It also makes the zone server naturally parallelizable.
+    </div>
+  </div>
+
+  <!-- 4. DATABASE -->
+  <div class="bg-eq-card border border-eq-border rounded-lg p-6 mb-6 glow">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-xl font-bold text-white">4. Database & Persistence</h2>
+      <span class="tag-upgrade px-2 py-1 rounded text-xs mono">UPGRADE</span>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-6">
+      <div>
+        <h3 class="text-eq-gold font-semibold mb-2">EQ / EQMacEmu</h3>
+        <ul class="text-sm space-y-2 text-eq-dim">
+          <li>• <strong class="text-eq-text">MySQL/MariaDB</strong> via raw C API (<code class="text-xs">libmysql</code>)</li>
+          <li>• Mostly raw SQL strings: <code class="text-xs">QueryDatabase(fmt::format(...))</code></li>
+          <li>• Auto-generated repository classes for common CRUD (<code class="text-xs">InsertOne</code>, <code class="text-xs">FindOne</code>, <code class="text-xs">GetWhere</code>)</li>
+          <li>• Single DB connection per process with mutex locking</li>
+          <li>• Character saves are periodic bulk writes — lose data on crash</li>
+          <li>• All game content (spawns, items, quests) stored as rows</li>
+        </ul>
+      </div>
+      <div>
+        <h3 class="text-eq-mana font-semibold mb-2">Modern Options</h3>
+        <ul class="text-sm space-y-2 text-eq-dim">
+          <li>• <strong class="text-eq-text">PostgreSQL</strong> — JSONB columns for flexible schemas, better concurrency than MySQL</li>
+          <li>• <strong class="text-eq-text">Connection pooling</strong> — PgBouncer / built-in pools instead of one-connection-per-process</li>
+          <li>• <strong class="text-eq-text">Event sourcing</strong> — log every state change, reconstruct state from events. Perfect for MMO audit trails, rollbacks, and GM tools</li>
+          <li>• <strong class="text-eq-text">Redis/Valkey</strong> — in-memory cache for hot data (who's online, zone populations, auction house)</li>
+          <li>• <strong class="text-eq-text">SQLite</strong> — embedded DB for zone-local data that doesn't need global persistence</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="verdict mt-4 pl-4 py-2 text-sm">
+      <strong class="text-eq-gold">ADIF opportunity:</strong> PostgreSQL as the primary store. Add Redis for real-time state (who's in which zone, chat presence). Consider write-ahead logging for character state so crashes don't lose progress. The EQMacEmu repository pattern is actually decent — keep the concept, just use a proper query builder or ORM.
+    </div>
+  </div>
+
+  <!-- 5. THREADING -->
+  <div class="bg-eq-card border border-eq-border rounded-lg p-6 mb-6 glow">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-xl font-bold text-white">5. Threading & Concurrency</h2>
+      <span class="tag-upgrade px-2 py-1 rounded text-xs mono">UPGRADE</span>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-6">
+      <div>
+        <h3 class="text-eq-gold font-semibold mb-2">EQ / EQMacEmu</h3>
+        <ul class="text-sm space-y-2 text-eq-dim">
+          <li>• <strong class="text-eq-text">Single-threaded zone server</strong> — one main loop processes everything sequentially</li>
+          <li>• libuv event loop for async I/O but game logic is synchronous</li>
+          <li>• Processing order each tick: Groups → Doors → Objects → Corpses → Mobs → Beacons → Encounters → Zone → Quests</li>
+          <li>• IPC via memory-mapped files + named mutexes between zone and world processes</li>
+          <li>• DB queries block the game loop (mutex-locked single connection)</li>
+        </ul>
+      </div>
+      <div>
+        <h3 class="text-eq-mana font-semibold mb-2">Modern Options</h3>
+        <ul class="text-sm space-y-2 text-eq-dim">
+          <li>• <strong class="text-eq-text">Async I/O with thread pool</strong> — Tokio (Rust), .NET async, or libuv workers for DB/disk</li>
+          <li>• <strong class="text-eq-text">Actor model</strong> — each zone, NPC group, or system is an actor with message passing. Natural fit for zone processes.</li>
+          <li>• <strong class="text-eq-text">ECS parallelism</strong> — systems that touch different components run on different threads automatically</li>
+          <li>• <strong class="text-eq-text">gRPC / message queues</strong> — replace memory-mapped IPC with proper service communication (NATS, RabbitMQ, or just gRPC)</li>
+          <li>• Async DB: non-blocking queries so the game loop never stalls</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="verdict mt-4 pl-4 py-2 text-sm">
+      <strong class="text-eq-gold">ADIF opportunity:</strong> Single-threaded game logic is actually fine for small zones — it avoids concurrency bugs. But DB queries must be async (never block the tick). Use gRPC or a message queue between zone ↔ world instead of shared memory files. If using ECS, get parallelism for free within a zone.
+    </div>
+  </div>
+
+  <!-- 6. COLLISION & SPATIAL -->
+  <div class="bg-eq-card border border-eq-border rounded-lg p-6 mb-6 glow">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-xl font-bold text-white">6. Collision & Spatial Data</h2>
+      <span class="tag-rethink px-2 py-1 rounded text-xs mono">RETHINK</span>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-6">
+      <div>
+        <h3 class="text-eq-gold font-semibold mb-2">EQ / EQMacEmu</h3>
+        <ul class="text-sm space-y-2 text-eq-dim">
+          <li>• <strong class="text-eq-text">AABB tree over triangle soup</strong> — zone mesh converted to triangles, stored in axis-aligned bounding box hierarchy</li>
+          <li>• Raycasting for <code class="text-xs">FindBestZ()</code> (ground detection) and <code class="text-xs">CheckLoS()</code> (line of sight)</li>
+          <li>• Preprocessing pipeline: S3D mesh → AZONE converter → .map binary file</li>
+          <li>• Water regions stored separately in .wtr files</li>
+          <li>• Static geometry only — nothing moves or changes</li>
+        </ul>
+      </div>
+      <div>
+        <h3 class="text-eq-mana font-semibold mb-2">Voxel-Native Approach</h3>
+        <ul class="text-sm space-y-2 text-eq-dim">
+          <li>• <strong class="text-eq-text">Collision is trivial with voxels</strong> — just check if the target voxel is solid. No raycasting needed for basic checks.</li>
+          <li>• <strong class="text-eq-text">Octree</strong> for sparse voxel storage — O(log n) spatial queries, natural LOD</li>
+          <li>• <strong class="text-eq-text">Voxel ray marching</strong> for line-of-sight — step through the grid, faster than triangle intersection for blocky worlds</li>
+          <li>• Water/lava/material is just a voxel property — no separate water map needed</li>
+          <li>• <strong class="text-eq-text">Dynamic terrain</strong> — change a voxel, collision updates instantly. No re-baking.</li>
+          <li>• Chunk-based streaming: load/unload 16³ or 32³ chunks on demand</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="verdict mt-4 pl-4 py-2 text-sm">
+      <strong class="text-eq-gold">ADIF opportunity:</strong> This is where voxels shine brightest on the server side. EQ needed a complex preprocessing pipeline (S3D → AZONE → .map) and a separate water map. With voxels, collision is a voxel lookup, water is a material type, and terrain can be modified at runtime. The three separate files (.map, .wtr, .nav) collapse into one voxel volume + a NavMesh.
+    </div>
+  </div>
+
+  <!-- 7. PATHFINDING -->
+  <div class="bg-eq-card border border-eq-border rounded-lg p-6 mb-6 glow">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-xl font-bold text-white">7. Pathfinding & NPC Navigation</h2>
+      <span class="tag-keep px-2 py-1 rounded text-xs mono">KEEP (mostly)</span>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-6">
+      <div>
+        <h3 class="text-eq-gold font-semibold mb-2">EQ / EQMacEmu</h3>
+        <ul class="text-sm space-y-2 text-eq-dim">
+          <li>• Original: <strong class="text-eq-text">Grid waypoints</strong> — hand-placed patrol paths with pause times. Simple but rigid.</li>
+          <li>• Upgraded: <strong class="text-eq-text">Recast/Detour NavMesh</strong> — industry-standard navigation mesh with terrain cost weighting</li>
+          <li>• Terrain costs: Normal=1.0, Water=3.0, Lava=5.0, Ice=4.0, Disabled=impassable</li>
+          <li>• Three pathfinder implementations: NavMesh, Waypoint (legacy), Null (direct line)</li>
+          <li>• NavMesh is prebaked — if terrain changes, you rebuild the whole zone's .nav file</li>
+        </ul>
+      </div>
+      <div>
+        <h3 class="text-eq-mana font-semibold mb-2">Modern Additions</h3>
+        <ul class="text-sm space-y-2 text-eq-dim">
+          <li>• <strong class="text-eq-text">Recast/Detour is still the gold standard</strong> — used in Unity, Unreal, and most AAA games. No need to replace it.</li>
+          <li>• <strong class="text-eq-text">Dynamic NavMesh updates</strong> — Detour supports tile-based updates for terrain changes without full rebuild</li>
+          <li>• <strong class="text-eq-text">Voxel-native pathfinding</strong> — A* directly on the voxel grid for simple cases. Jump Point Search for optimization.</li>
+          <li>• <strong class="text-eq-text">Hierarchical pathfinding (HPA*)</strong> — chunk-level paths first, detailed paths within chunks. Great for large voxel worlds.</li>
+          <li>• <strong class="text-eq-text">Flow fields</strong> — precompute movement direction per cell. Efficient when many NPCs go to the same target.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="verdict mt-4 pl-4 py-2 text-sm">
+      <strong class="text-eq-gold">ADIF opportunity:</strong> Keep Recast/Detour for the NavMesh — it already works great with voxel input (voxels are ideal Recast input since they're grid-aligned). Use tile-based NavMesh so terrain changes only rebuild affected chunks. Grid waypoints for scripted patrols are still fine — don't over-engineer those.
+    </div>
+  </div>
+
+  <!-- 8. SCRIPTING -->
+  <div class="bg-eq-card border border-eq-border rounded-lg p-6 mb-6 glow">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-xl font-bold text-white">8. Quest & NPC Scripting</h2>
+      <span class="tag-upgrade px-2 py-1 rounded text-xs mono">UPGRADE</span>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-6">
+      <div>
+        <h3 class="text-eq-gold font-semibold mb-2">EQ / EQMacEmu</h3>
+        <ul class="text-sm space-y-2 text-eq-dim">
+          <li>• <strong class="text-eq-text">Lua via luabind</strong> for quest scripting (Perl legacy also supported)</li>
+          <li>• Event-driven: <code class="text-xs">EventNPC()</code>, <code class="text-xs">EventPlayer()</code>, <code class="text-xs">EventItem()</code>, <code class="text-xs">EventSpell()</code></li>
+          <li>• QuestManager coordinates execution with timer support</li>
+          <li>• Rich API: <code class="text-xs">say()</code>, <code class="text-xs">emote()</code>, <code class="text-xs">spawn2()</code>, <code class="text-xs">castspell()</code>, <code class="text-xs">addloot()</code></li>
+          <li>• Scripts loaded per-NPC, per-zone — hot-reloadable</li>
+        </ul>
+      </div>
+      <div>
+        <h3 class="text-eq-mana font-semibold mb-2">Modern Options</h3>
+        <ul class="text-sm space-y-2 text-eq-dim">
+          <li>• <strong class="text-eq-text">Lua is still excellent</strong> — fast, tiny, proven in games (WoW, Roblox, Factorio). LuaJIT for performance.</li>
+          <li>• <strong class="text-eq-text">WASM</strong> — sandboxed, any source language, near-native speed. Write quests in Rust, Go, or anything that compiles to WASM.</li>
+          <li>• <strong class="text-eq-text">TypeScript (Deno/V8)</strong> — if the team knows JS. Better tooling than Lua but heavier runtime.</li>
+          <li>• <strong class="text-eq-text">Data-driven quest graphs</strong> — define quests as state machines in data (JSON/YAML), not code. Visual editors possible.</li>
+          <li>• <strong class="text-eq-text">AI-powered NPC dialogue</strong> — LLM-generated responses for flavor NPCs. Not for game logic, but for immersion.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="verdict mt-4 pl-4 py-2 text-sm">
+      <strong class="text-eq-gold">ADIF opportunity:</strong> Lua is proven and there's no reason to switch from it for quest scripting. The event-driven model (<code>EventNPC</code>, etc.) is excellent — keep that pattern. Layer a data-driven quest graph on top for common quest types (kill X, collect Y, talk to Z) so not every quest needs a script. Consider LLM-powered ambient NPC dialogue as a differentiator.
+    </div>
+  </div>
+
+  <!-- 9. GAME LOOP -->
+  <div class="bg-eq-card border border-eq-border rounded-lg p-6 mb-6 glow">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-xl font-bold text-white">9. Game Loop & Tick System</h2>
+      <span class="tag-keep px-2 py-1 rounded text-xs mono">KEEP</span>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-6">
+      <div>
+        <h3 class="text-eq-gold font-semibold mb-2">EQ / EQMacEmu</h3>
+        <ul class="text-sm space-y-2 text-eq-dim">
+          <li>• Fixed-interval timer fires the main loop callback</li>
+          <li>• Sequential entity processing each tick</li>
+          <li>• Custom <code class="text-xs">Timer</code> class with era-based wrap-around handling</li>
+          <li>• <code class="text-xs">BenchTimer</code> for profiling using <code class="text-xs">std::chrono::high_resolution_clock</code></li>
+          <li>• Zone event scheduler for timed zone-wide events</li>
+        </ul>
+      </div>
+      <div>
+        <h3 class="text-eq-mana font-semibold mb-2">Modern Refinements</h3>
+        <ul class="text-sm space-y-2 text-eq-dim">
+          <li>• <strong class="text-eq-text">Fixed timestep with interpolation</strong> — standard pattern. Server ticks at fixed rate (e.g., 20Hz), client interpolates between states for smooth rendering.</li>
+          <li>• <strong class="text-eq-text">Variable tick rates per system</strong> — combat at 10Hz, position at 20Hz, AI decisions at 2Hz. Not everything needs every tick.</li>
+          <li>• <strong class="text-eq-text">ECS scheduling</strong> — systems declare dependencies, scheduler runs them in optimal order (potentially parallel)</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="verdict mt-4 pl-4 py-2 text-sm">
+      <strong class="text-eq-gold">ADIF opportunity:</strong> The fixed-timestep pattern is correct. The main improvement: run different systems at different rates. AI doesn't need 20Hz. Position validation does. This is free performance.
+    </div>
+  </div>
+
+  <!-- 10. ZONE LOADING -->
+  <div class="bg-eq-card border border-eq-border rounded-lg p-6 mb-6 glow">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-xl font-bold text-white">10. Zone Loading & Streaming</h2>
+      <span class="tag-rethink px-2 py-1 rounded text-xs mono">RETHINK</span>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-6">
+      <div>
+        <h3 class="text-eq-gold font-semibold mb-2">EQ / EQMacEmu</h3>
+        <ul class="text-sm space-y-2 text-eq-dim">
+          <li>• <strong class="text-eq-text">Full zone load</strong> — client downloads entire zone geometry at once → loading screen</li>
+          <li>• Server boots zone process on demand, loads: .map, .wtr, .nav, then all DB content (spawns, doors, objects, traps, corpses, ground items)</li>
+          <li>• Zone-to-zone: disconnect from zone A, connect to zone B. Full handoff through world server.</li>
+          <li>• "You have entered [Zone Name]" is a real server switch</li>
+        </ul>
+      </div>
+      <div>
+        <h3 class="text-eq-mana font-semibold mb-2">Modern: Chunk Streaming</h3>
+        <ul class="text-sm space-y-2 text-eq-dim">
+          <li>• <strong class="text-eq-text">Voxel chunks</strong> — load/unload 16³ or 32³ chunks around the player. No loading screen for terrain.</li>
+          <li>• <strong class="text-eq-text">Server-side streaming</strong> — zone server loads chunks on demand too, not the full world</li>
+          <li>• <strong class="text-eq-text">Seamless zones</strong> — if chunks stream, zones can overlap. Players near a border see into the next zone.</li>
+          <li>• <strong class="text-eq-text">Zone boundaries become design choices</strong>, not technical limits. Keep them for dungeons (instanced), remove them for overworld.</li>
+          <li>• <strong class="text-eq-text">LOD at distance</strong> — lower-resolution voxels for far chunks, full resolution nearby</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="verdict mt-4 pl-4 py-2 text-sm">
+      <strong class="text-eq-gold">ADIF opportunity:</strong> Voxel chunks eliminate loading screens for the overworld. But keep zone boundaries as a <em>game design</em> tool — dungeons should still be separate instances. The server can manage multiple chunk regions within a zone process, streaming data to clients as they move. This is the biggest UX improvement over classic EQ.
+    </div>
+  </div>
+
+  <!-- 11. IPC -->
+  <div class="bg-eq-card border border-eq-border rounded-lg p-6 mb-6 glow">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-xl font-bold text-white">11. Inter-Process Communication</h2>
+      <span class="tag-upgrade px-2 py-1 rounded text-xs mono">UPGRADE</span>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-6">
+      <div>
+        <h3 class="text-eq-gold font-semibold mb-2">EQ / EQMacEmu</h3>
+        <ul class="text-sm space-y-2 text-eq-dim">
+          <li>• <strong class="text-eq-text">Memory-mapped files</strong> with named mutexes for IPC</li>
+          <li>• <code class="text-xs">MemoryMappedFile</code> class, platform-abstracted (Windows + Unix)</li>
+          <li>• <code class="text-xs">IPCMutex</code> — named binary semaphore for synchronization</li>
+          <li>• All processes must run on the same machine</li>
+          <li>• Tight coupling — shared memory structs must match exactly</li>
+        </ul>
+      </div>
+      <div>
+        <h3 class="text-eq-mana font-semibold mb-2">Modern Options</h3>
+        <ul class="text-sm space-y-2 text-eq-dim">
+          <li>• <strong class="text-eq-text">gRPC</strong> — typed RPC between services, works across machines. Generated from .proto files.</li>
+          <li>• <strong class="text-eq-text">NATS / Redis Pub/Sub</strong> — message bus for events (player joined zone, chat message, guild update)</li>
+          <li>• <strong class="text-eq-text">Distributed by default</strong> — zone servers can run on different machines. Scale horizontally.</li>
+          <li>• <strong class="text-eq-text">Service mesh</strong> — world server becomes a routing layer, not a single point of coordination</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="verdict mt-4 pl-4 py-2 text-sm">
+      <strong class="text-eq-gold">ADIF opportunity:</strong> gRPC between zone ↔ world for request/response (zone transfers, character loads). Redis Pub/Sub or NATS for broadcast events (chat, guild updates, world announcements). This lets zone servers run on different machines if needed — instant horizontal scaling.
+    </div>
+  </div>
+
+</section>
+
+<!-- ============================================================ -->
+<!-- RETHOUGHT SERVER PROOF -->
+<!-- ============================================================ -->
+<section id="proof" class="section-anchor max-w-6xl mx-auto px-6 pb-16">
+  <h2 class="text-2xl font-bold text-white mb-2">Rethought Server-Side Proof</h2>
+  <p class="text-eq-dim mb-8">Since ADIF is its own game, the proof-of-concept is building the <strong class="text-eq-text">first piece of ADIF's own server</strong> — not swapping files in EQMacEmu.</p>
+
+  <!-- The Proof -->
+  <div class="bg-eq-card border border-eq-border rounded-lg p-6 mb-6 glow">
+    <h3 class="text-eq-gold font-semibold text-lg mb-4">What We're Proving</h3>
+    <div class="grid md:grid-cols-3 gap-4">
+      <div class="border border-eq-border rounded p-4">
+        <div class="text-white font-semibold mb-2">1. Voxel Collision Works</div>
+        <p class="text-sm text-eq-dim">A zone server loads voxel terrain and correctly answers: "where is the ground?", "can I see from A to B?", "is this water?"</p>
+      </div>
+      <div class="border border-eq-border rounded p-4">
+        <div class="text-white font-semibold mb-2">2. NPCs Can Navigate</div>
+        <p class="text-sm text-eq-dim">NPCs pathfind through voxel terrain using a NavMesh generated from the voxel surface. They avoid water, walk around obstacles.</p>
+      </div>
+      <div class="border border-eq-border rounded p-4">
+        <div class="text-white font-semibold mb-2">3. Zone Transitions Work</div>
+        <p class="text-sm text-eq-dim">A player can zone from voxel zone → mesh zone → back. The world server routes correctly regardless of geometry backend.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Architecture -->
+  <div class="bg-eq-card border border-eq-border rounded-lg p-6 mb-6 glow">
+    <h3 class="text-eq-gold font-semibold text-lg mb-4">Minimum Viable Architecture</h3>
+
+    <pre class="text-sm mono text-eq-dim bg-eq-bg rounded p-4 overflow-x-auto mb-4">
+┌─────────────┐      ┌──────────────────────────────┐
+│   Client    │      │        World Server           │
+│  (minimal)  │◄────►│  - Auth (simple token)        │
+│             │      │  - Zone routing               │
+│  Renders    │      │  - Cross-zone messages         │
+│  voxels     │      └──────┬───────────┬────────────┘
+│  Sends pos  │             │           │
+│  Shows NPCs │      ┌──────▼──┐  ┌─────▼───┐
+└─────────────┘      │ Zone A  │  │ Zone B  │
+                     │ (VOXEL) │  │ (VOXEL) │
+                     │         │  │         │
+                     │ Voxel   │  │ Voxel   │
+                     │ terrain │  │ terrain │
+                     │ NavMesh │  │ NavMesh │
+                     │ NPCs    │  │ NPCs    │
+                     └─────────┘  └─────────┘</pre>
+
+    <p class="text-sm text-eq-dim mb-4">For the proof, both zones are voxel. We don't need mesh zones yet — the point is proving the zone server architecture works with voxel geometry, and that zone transitions work between independent zone processes.</p>
+
+    <h4 class="text-white font-semibold mb-2">Components to Build</h4>
+    <div class="space-y-3">
+      <details class="border border-eq-border rounded p-3">
+        <summary class="text-white font-medium">Zone Server Process</summary>
+        <div class="mt-2 text-sm text-eq-dim space-y-1">
+          <p>• Loads voxel terrain from a file (simple format: chunk of voxel IDs)</p>
+          <p>• Provides collision: ground height lookup, line-of-sight check, material query (solid/water/lava/air)</p>
+          <p>• Generates NavMesh from voxel surface using Recast/Detour</p>
+          <p>• Hosts NPCs that patrol waypoints and pathfind when aggro'd</p>
+          <p>• Accepts client connections, validates position updates, broadcasts entity state</p>
+          <p>• Reports to world server: "I'm alive, here are my zone points"</p>
+        </div>
+      </details>
+
+      <details class="border border-eq-border rounded p-3">
+        <summary class="text-white font-medium">World Server Process</summary>
+        <div class="mt-2 text-sm text-eq-dim space-y-1">
+          <p>• Tracks which zone processes are running and their zone point definitions</p>
+          <p>• Handles zone transfer requests: "player X wants to go from zone A → zone B"</p>
+          <p>• Routes cross-zone messages (tells, /who)</p>
+          <p>• Simple token-based auth (no login server yet — proof-of-concept)</p>
+        </div>
+      </details>
+
+      <details class="border border-eq-border rounded p-3">
+        <summary class="text-white font-medium">Minimal Client</summary>
+        <div class="mt-2 text-sm text-eq-dim space-y-1">
+          <p>• Renders voxel terrain (chunk-based, basic lighting)</p>
+          <p>• First-person or third-person camera</p>
+          <p>• Sends WASD movement → server validates → client applies authoritative position</p>
+          <p>• Displays other players and NPCs as simple shapes</p>
+          <p>• Handles zone transition: disconnect from zone A, connect to zone B, load new terrain</p>
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <!-- Milestones -->
+  <div class="bg-eq-card border border-eq-border rounded-lg p-6 mb-6 glow">
+    <h3 class="text-eq-gold font-semibold text-lg mb-4">Milestones</h3>
+    <div class="space-y-4">
+      <div class="flex gap-4">
+        <div class="flex-shrink-0 w-8 h-8 rounded-full bg-eq-gold/20 text-eq-gold flex items-center justify-center font-bold text-sm">1</div>
+        <div>
+          <div class="text-white font-semibold">Voxel terrain + collision</div>
+          <p class="text-sm text-eq-dim">Load a voxel chunk, walk on it. Server validates position (no falling through ground). First-person camera.</p>
+        </div>
+      </div>
+      <div class="flex gap-4">
+        <div class="flex-shrink-0 w-8 h-8 rounded-full bg-eq-gold/20 text-eq-gold flex items-center justify-center font-bold text-sm">2</div>
+        <div>
+          <div class="text-white font-semibold">Multiplayer + NPCs</div>
+          <p class="text-sm text-eq-dim">Second client connects, sees the first player. NPCs spawn and patrol waypoints. Basic aggro radius.</p>
+        </div>
+      </div>
+      <div class="flex gap-4">
+        <div class="flex-shrink-0 w-8 h-8 rounded-full bg-eq-gold/20 text-eq-gold flex items-center justify-center font-bold text-sm">3</div>
+        <div>
+          <div class="text-white font-semibold">Zone transitions</div>
+          <p class="text-sm text-eq-dim">Two zone processes running. Walk to a zone line, get transferred to the other zone. World server coordinates the handoff.</p>
+        </div>
+      </div>
+      <div class="flex gap-4">
+        <div class="flex-shrink-0 w-8 h-8 rounded-full bg-eq-gold/20 text-eq-gold flex items-center justify-center font-bold text-sm">4</div>
+        <div>
+          <div class="text-white font-semibold">The Innothule test</div>
+          <p class="text-sm text-eq-dim">Voxelize the Innothule Swamp layout. Spawn frogloks. Walk through swamp, zone out to a second zone, zone back in. The EQ experience, rebuilt from scratch in voxels.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- DECISIONS NEEDED -->
+<!-- ============================================================ -->
+<section id="decisions" class="section-anchor max-w-6xl mx-auto px-6 pb-16">
+  <h2 class="text-2xl font-bold text-white mb-6">Decisions Needed Before Building</h2>
+
+  <div class="grid md:grid-cols-2 gap-6">
+
+    <div class="bg-eq-card border border-eq-border rounded-lg p-6 glow">
+      <h3 class="text-eq-gold font-semibold mb-3">Server Language</h3>
+      <div class="space-y-3 text-sm">
+        <div class="border border-eq-border rounded p-3">
+          <div class="text-white font-medium">Rust</div>
+          <p class="text-eq-dim">Performance + safety. bevy_ecs for ECS. Tokio for async. Steep learning curve but prevents entire categories of bugs. Growing gamedev ecosystem.</p>
+        </div>
+        <div class="border border-eq-border rounded p-3">
+          <div class="text-white font-medium">C# / .NET</div>
+          <p class="text-eq-dim">Natural fit if using Unity for the client. ASP.NET for the world server. Good async support. Large ecosystem.</p>
+        </div>
+        <div class="border border-eq-border rounded p-3">
+          <div class="text-white font-medium">C++</div>
+          <p class="text-eq-dim">Maximum control, same language as EQMacEmu reference. flecs for ECS. But memory safety is on you.</p>
+        </div>
+        <div class="border border-eq-border rounded p-3">
+          <div class="text-white font-medium">TypeScript / Node</div>
+          <p class="text-eq-dim">If going browser-based (Three.js/Babylon.js). Same language for client + server. bitECS available. Performance ceiling is lower.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-eq-card border border-eq-border rounded-lg p-6 glow">
+      <h3 class="text-eq-gold font-semibold mb-3">Client / Renderer</h3>
+      <div class="space-y-3 text-sm">
+        <div class="border border-eq-border rounded p-3">
+          <div class="text-white font-medium">Godot + godot-voxel</div>
+          <p class="text-eq-dim">Open-source, voxel plugin exists (Zylann's godot_voxel). GDScript or C#. Cross-platform. Active community.</p>
+        </div>
+        <div class="border border-eq-border rounded p-3">
+          <div class="text-white font-medium">Unity + custom voxel</div>
+          <p class="text-eq-dim">Mature engine, massive asset store. Write custom voxel renderer or use MagicaVoxel-style plugin. C# server + client natural fit.</p>
+        </div>
+        <div class="border border-eq-border rounded p-3">
+          <div class="text-white font-medium">Three.js / Babylon.js (browser)</div>
+          <p class="text-eq-dim">No install needed — players connect via URL. WebGL/WebGPU rendering. TypeScript everywhere. Lower performance ceiling but zero friction to play.</p>
+        </div>
+        <div class="border border-eq-border rounded p-3">
+          <div class="text-white font-medium">Custom engine (Rust + wgpu)</div>
+          <p class="text-eq-dim">Total control. wgpu for cross-platform GPU access. Most work but most flexibility. Bevy as a framework option.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-eq-card border border-eq-border rounded-lg p-6 glow">
+      <h3 class="text-eq-gold font-semibold mb-3">Voxel Art Style</h3>
+      <div class="space-y-3 text-sm">
+        <div class="border border-eq-border rounded p-3">
+          <div class="text-white font-medium">Blocky (Minecraft-style)</div>
+          <p class="text-eq-dim">Fast to author, distinctive. Each voxel is a visible cube. Simple but charming. Fastest to get running.</p>
+        </div>
+        <div class="border border-eq-border rounded p-3">
+          <div class="text-white font-medium">Smoothed (Marching Cubes)</div>
+          <p class="text-eq-dim">Voxels define a density field, surface extraction creates smooth terrain. More realistic but more complex rendering and authoring.</p>
+        </div>
+        <div class="border border-eq-border rounded p-3">
+          <div class="text-white font-medium">Hybrid</div>
+          <p class="text-eq-dim">Smooth terrain + blocky structures. Best of both but harder to make visually consistent.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-eq-card border border-eq-border rounded-lg p-6 glow">
+      <h3 class="text-eq-gold font-semibold mb-3">Networking Protocol</h3>
+      <div class="space-y-3 text-sm">
+        <div class="border border-eq-border rounded p-3">
+          <div class="text-white font-medium">ENet (native UDP)</div>
+          <p class="text-eq-dim">Proven, lightweight, reliable UDP. Perfect for native clients. C library with bindings for most languages.</p>
+        </div>
+        <div class="border border-eq-border rounded p-3">
+          <div class="text-white font-medium">WebSocket + WebRTC</div>
+          <p class="text-eq-dim">WebSocket for reliable (chat, inventory), WebRTC data channels for unreliable (position). Required for browser clients.</p>
+        </div>
+        <div class="border border-eq-border rounded p-3">
+          <div class="text-white font-medium">QUIC</div>
+          <p class="text-eq-dim">Modern UDP with built-in encryption and multiplexed streams. More complex but future-proof.</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- Footer -->
+<footer class="max-w-6xl mx-auto px-6 py-8 border-t border-eq-border text-center text-eq-dim text-sm">
+  ADIF — Another Day In Forever · Tech Analysis · Generated 2026-06-20
+</footer>
+
+</body>
+</html>

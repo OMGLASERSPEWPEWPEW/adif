@@ -3,3 +3,7 @@ reference/
 
 # OS / editor cruft
 .DS_Store
+
+# .NET build output
+tests/**/bin/
+tests/**/obj/

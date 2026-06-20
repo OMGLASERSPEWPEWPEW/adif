@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net7.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Google.Protobuf" Version="3.28.*" />
+    <PackageReference Include="Grpc.Tools" Version="2.68.*" PrivateAssets="All" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Protobuf Include="..\..\proto\adif\common.proto" ProtoRoot="..\..\proto" />
+    <Protobuf Include="..\..\proto\adif\connection.proto" ProtoRoot="..\..\proto" />
+    <Protobuf Include="..\..\proto\adif\zone.proto" ProtoRoot="..\..\proto" />
+    <Protobuf Include="..\..\proto\adif\entity.proto" ProtoRoot="..\..\proto" />
+    <Protobuf Include="..\..\proto\adif\combat.proto" ProtoRoot="..\..\proto" />
+    <Protobuf Include="..\..\proto\adif\chat.proto" ProtoRoot="..\..\proto" />
+    <Protobuf Include="..\..\proto\adif\inventory.proto" ProtoRoot="..\..\proto" />
+    <Protobuf Include="..\..\proto\adif\packet.proto" ProtoRoot="..\..\proto" />
+  </ItemGroup>
+
+</Project>

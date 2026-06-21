@@ -17,10 +17,12 @@ SOUNDS=(
 NOTIFICATION_TITLE="Claude Code"
 # === END CONFIGURATION ===
 
-PICK="${SOUNDS[$((RANDOM % ${#SOUNDS[@]}))]}"
-
-afplay "/System/Library/Sounds/${PICK}.aiff" &
-
-osascript -e "display notification \"${PICK} chime - Claude needs your attention\" with title \"${NOTIFICATION_TITLE}\" sound name \"${PICK}\""
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  PICK="${SOUNDS[$((RANDOM % ${#SOUNDS[@]}))]}"
+  afplay "/System/Library/Sounds/${PICK}.aiff" &
+  osascript -e "display notification \"${PICK} chime - Claude needs your attention\" with title \"${NOTIFICATION_TITLE}\" sound name \"${PICK}\""
+elif [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" || "$OSTYPE" == "win32" ]]; then
+  powershell.exe -NoProfile -Command "[System.Media.SystemSounds]::Asterisk.Play()" 2>/dev/null &
+fi
 
 echo '{"continue": true}'

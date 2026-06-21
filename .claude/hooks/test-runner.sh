@@ -37,5 +37,5 @@ if [ -z "$TEST_FILES" ]; then
 fi
 
 RESULTS=$($TEST_COMMAND 2>&1 | tail -"$OUTPUT_LINES")
-ESCAPED=$(echo "$RESULTS" | python3 -c 'import sys,json; print(json.dumps(sys.stdin.read()))')
+ESCAPED=$(echo "$RESULTS" | python -c 'import sys,json; print(json.dumps(sys.stdin.read()))')
 printf '{"continue":true,"systemMessage":"[Hook: Test Results]\\n%s"}\n' "$(echo "$ESCAPED" | sed 's/^"//;s/"$//' )"

@@ -22,7 +22,7 @@ MARKER="/tmp/${PROJECT_NAME}-ripple-checked"
 git rev-parse --is-inside-work-tree &>/dev/null || { echo '{"continue": true}'; exit 0; }
 
 if [ -f "$MARKER" ]; then
-  CHANGED=$(git log --since="$(stat -f '%Sm' -t '%Y-%m-%dT%H:%M:%S' "$MARKER" 2>/dev/null || date -r "$MARKER" '+%Y-%m-%dT%H:%M:%S' 2>/dev/null)" --oneline 2>/dev/null | head -1)
+  CHANGED=$(git log --since="$(stat -c '%y' "$MARKER" 2>/dev/null || date -r "$MARKER" '+%Y-%m-%dT%H:%M:%S' 2>/dev/null)" --oneline 2>/dev/null | head -1)
   if [ -z "$CHANGED" ]; then
     echo '{"continue": true}'
     exit 0

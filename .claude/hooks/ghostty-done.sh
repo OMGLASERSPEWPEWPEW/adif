@@ -11,7 +11,7 @@
 #
 # Hook type: Stop
 # Terminal: Ghostty (uses OSC escape sequences)
-# Requires: python3
+# Requires: python
 # =============================================================================
 
 # === CONFIGURATION ===
@@ -19,10 +19,13 @@ DONE_BG="#0d1a14"      # dark green-slate tint when done/waiting
 OVERRIDE_DELAY=1       # seconds to wait before overriding Claude Code's title
 # === END CONFIGURATION ===
 
+# Skip if not running in Ghostty
+[ -z "$GHOSTTY_RESOURCES_DIR" ] && echo '{"continue": true}' && exit 0
+
 INPUT=$(cat)
 TITLE_FILE=$(mktemp /tmp/ghostty-title.XXXXXX)
 
-python3 - "$INPUT" "$TITLE_FILE" << 'PYTHON'
+python - "$INPUT" "$TITLE_FILE" << 'PYTHON'
 import json, sys, os
 
 hook_raw = sys.argv[1] if len(sys.argv) > 1 else "{}"

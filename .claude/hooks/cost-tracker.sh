@@ -7,12 +7,12 @@
 #
 # Hook type: Stop
 # Lifecycle: Runs after every agent response
-# Requires: python3
+# Requires: python
 # =============================================================================
 
 hook_data=$(cat)
 
-python3 - "$hook_data" << 'PYTHON'
+python - "$hook_data" << 'PYTHON'
 import json, sys, os
 
 # === CONFIGURATION ===

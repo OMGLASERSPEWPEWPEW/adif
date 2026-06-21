@@ -12,11 +12,14 @@
 WORKING_BG="#0d1220"   # dark blue-slate tint while working
 # === END CONFIGURATION ===
 
+# Skip if not running in Ghostty
+[ -z "$GHOSTTY_RESOURCES_DIR" ] && echo '{"decision":"approve"}' && exit 0
+
 PROJECT_NAME=$(basename "$(pwd)")
 
 # Read hook input to get the tool name
 INPUT=$(cat)
-TOOL_NAME=$(echo "$INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('tool_name',''))" 2>/dev/null)
+TOOL_NAME=$(echo "$INPUT" | python -c "import sys,json; print(json.load(sys.stdin).get('tool_name',''))" 2>/dev/null)
 
 if [ -n "$TOOL_NAME" ]; then
   printf '\033]2;⚡ %s - %s\007' "$PROJECT_NAME" "$TOOL_NAME" > /dev/tty 2>/dev/null

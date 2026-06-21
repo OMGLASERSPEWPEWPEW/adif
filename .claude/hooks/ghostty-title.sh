@@ -8,6 +8,9 @@
 # Terminal: Ghostty (uses OSC escape sequences)
 # =============================================================================
 
+# Skip if not running in Ghostty
+[ -z "$GHOSTTY_RESOURCES_DIR" ] && echo '{"continue": true}' && exit 0
+
 PROJECT_NAME=$(basename "$(pwd)")
 
 # Set title

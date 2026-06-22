@@ -271,25 +271,32 @@ Converted 2026-06-22 manually. 15 files modified, 462 backticks stripped from 37
 
 ### Zone Server (`zone/*.cpp`) — ~10 files
 
+Converted 2026-06-22 via parallel agents. Backticks stripped from 27+ zone files.
+
 | Issue | Count | Location | Status |
 |-------|-------|----------|--------|
-| `REPLACE INTO` | ~12 | mob, questmgr, raids, task_manager, task_client_state, tradeskills, zonedb, bot_database | TODO |
-| `UPDATE...LIMIT 1` | 10 | groups.cpp | TODO |
-| `UPDATE...LIMIT 1` | 2 | raids.cpp | TODO |
-| `ON DUPLICATE KEY UPDATE` | 2 | exp.cpp, tradeskills.cpp | TODO |
-| `UNIX_TIMESTAMP()` / `MOD()` | 3 | exp.cpp, client.cpp, zonedb.cpp | TODO |
+| `REPLACE INTO` → `INSERT...ON CONFLICT` | 12 | mob, questmgr, raids, task_manager, task_client_state, tradeskills, zonedb, bot_database | **DONE** |
+| `UPDATE...LIMIT 1` → remove LIMIT | 14 | groups(10), raids(4) | **DONE** |
+| `ON DUPLICATE KEY UPDATE` → `ON CONFLICT` | 3 | exp, tradeskills, zonedb | **DONE** |
+| `UNIX_TIMESTAMP()`/`MOD()` → `EXTRACT`/`%` | 6 | exp, client, zonedb, mob, questmgr, show_who | **DONE** |
+| Backtick quoting → stripped | 500+ | 27+ zone files | **DONE** |
 
 ### Common/World/Login — ~8 files
 
+Converted 2026-06-22 via parallel agents. 424 backticks stripped from 11 common files.
+World and login server files had no MySQL-isms (already clean).
+
 | Issue | Count | Location | Status |
 |-------|-------|----------|--------|
-| `ON DUPLICATE KEY UPDATE` | 1 | database.cpp | TODO |
-| `SHOW TABLE STATUS` | 1 | database.cpp | TODO |
-| `REPLACE INTO` | 3 | profanity_manager, ptimer, shareddb | TODO |
-| `INTERVAL N DAY` | 2 | database.cpp, player_event_logs.cpp | TODO |
-| `IFNULL()` | 1 | database_instances.cpp | TODO |
-| `GROUP_CONCAT()` | 4 | database_update_manifest.h | TODO |
-| `UNIX_TIMESTAMP()` | ~5 | database.cpp, shareddb.cpp, database_instances.cpp | TODO |
+| `ON DUPLICATE KEY UPDATE` → `ON CONFLICT` | 1 | database.cpp (account_ip) | **DONE** |
+| `INSERT...SET` → `INSERT INTO...VALUES` | 1 | database.cpp (account_ip) | **DONE** |
+| `SHOW TABLE STATUS` → `pg_class` query | 1 | database.cpp | **DONE** |
+| `REPLACE INTO` → `INSERT...ON CONFLICT` | 4 | database.cpp, profanity_manager, ptimer, shareddb | **DONE** |
+| `IFNULL()` → `COALESCE()` | 1 | database_instances.cpp | **DONE** |
+| `UNIX_TIMESTAMP()` → `EXTRACT(EPOCH FROM)::int` | 6 | database.cpp(3), shareddb(2), database_instances(1) | **DONE** |
+| Backtick quoting → stripped | 424 | 11 common files | **DONE** |
+| `GROUP_CONCAT()` in manifests | 4 | database_update_manifest.h | SKIPPED (legacy MySQL DDL, not runtime) |
+| `SHOW TABLES` in manifests | ~70 | database_update_manifest*.h | SKIPPED (legacy MySQL DDL, not runtime) |
 
 ### Other
 
@@ -297,8 +304,8 @@ Converted 2026-06-22 manually. 15 files modified, 462 backticks stripped from 37
 |-------|-------|----------|--------|
 | `AUTO_INCREMENT` | Migrations | Table DDL | → `SERIAL` / `GENERATED` |
 | `GetVariableInt` for port | 1 | `loginserver/main.cpp:50` | **DONE** (fixed in prior session) |
-| Perl generator outputs MySQL | 1 | `utils/scripts/generators/repository-generator.pl` | TODO |
-| `RewriteQuery()` runtime layer | 1 | `common/dbcore.cpp` | TODO (remove after all conversions) |
+| Perl generator outputs MySQL | 1 | `utils/scripts/generators/repository-generator.pl` + `template/base_repository.template` | **DONE** — outputs PG-native SQL |
+| `RewriteQuery()` runtime layer | 1 | `common/dbcore.cpp` | **DONE** — gutted to passthrough |
 
 ## Migration Approach
 

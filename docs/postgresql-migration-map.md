@@ -241,14 +241,64 @@ These may be ADIF-custom tables or legacy names. Review before removing.
 
 ## C++ Code Issues (MySQL-isms)
 
-| Issue | Count | Location | Fix |
-|-------|-------|----------|-----|
-| `REPLACE INTO` | ~250 files | `common/repositories/base/*.h` | → `INSERT ... ON CONFLICT DO UPDATE` |
-| Backtick quoting | Throughout | Column names like `` `class` ``, `` `int` `` | → double-quote `"class"`, `"int"` |
+### Base Repositories (`common/repositories/base/*.h`) — 250 files
+
+Converted 2026-06-22 via `scripts/convert-repos-to-pg.py`. 244 files modified,
+6 files had no MySQL-isms (bot_group_members, bot_groups, bot_guild_members,
+keyring, launcher, tool_game_objects).
+
+| Issue | Count | Status | Notes |
+|-------|-------|--------|-------|
+| `REPLACE INTO` → `INSERT...ON CONFLICT DO UPDATE` | 244 files | **DONE** | BaseReplace→BaseUpsert, added BaseUpsertSet() |
+| `FROM_UNIXTIME()` → `TO_TIMESTAMP()` | 270 instances | **DONE** | In InsertOne/Many, UpdateOne, ReplaceOne/Many |
+| `UNIX_TIMESTAMP()` → `EXTRACT(EPOCH FROM)::int` | 54 instances | **DONE** | In SelectColumns arrays (39 files) |
+| Backtick → double-quote identifier quoting | 40 instances | **DONE** | Reserved words: class, int, interval, rank, key, range, group |
+
+### Custom Repositories (`common/repositories/*.h`) — ~27 files
+
+Converted 2026-06-22 manually. 15 files modified, 462 backticks stripped from 37 files.
+
+| Issue | Count | Location | Status |
+|-------|-------|----------|--------|
+| `ON DUPLICATE KEY UPDATE` → `ON CONFLICT DO UPDATE/NOTHING` | 10 | expedition_lockouts, dynamic_zone_*, instance_list_player, char_recipe_list, character_instance_safereturns | **DONE** |
+| `FROM_UNIXTIME()` → `TO_TIMESTAMP()` | 4 | expedition_lockouts, dynamic_zone_lockouts | **DONE** |
+| `UNIX_TIMESTAMP()` → `EXTRACT(EPOCH FROM)::int` | 8 | character_corpses, character_data, dynamic_zones, instance_list, respawn_times | **DONE** |
+| `REPLACE INTO` → `INSERT...ON CONFLICT` | 3 | account_flags, instance_list_player, rule_values | **DONE** |
+| `TIMESTAMPDIFF()` → `EXTRACT(EPOCH FROM)::int` | 1 | account_repository | **DONE** |
+| `IFNULL()` → `COALESCE()` | 1 | login_accounts_repository | **DONE** |
+| `FIELD()` → `array_position()/CASE` | 2 | expedition_lockouts | **DONE** |
+| Backtick quoting → stripped | 462 | 37 files | **DONE** |
+
+### Zone Server (`zone/*.cpp`) — ~10 files
+
+| Issue | Count | Location | Status |
+|-------|-------|----------|--------|
+| `REPLACE INTO` | ~12 | mob, questmgr, raids, task_manager, task_client_state, tradeskills, zonedb, bot_database | TODO |
+| `UPDATE...LIMIT 1` | 10 | groups.cpp | TODO |
+| `UPDATE...LIMIT 1` | 2 | raids.cpp | TODO |
+| `ON DUPLICATE KEY UPDATE` | 2 | exp.cpp, tradeskills.cpp | TODO |
+| `UNIX_TIMESTAMP()` / `MOD()` | 3 | exp.cpp, client.cpp, zonedb.cpp | TODO |
+
+### Common/World/Login — ~8 files
+
+| Issue | Count | Location | Status |
+|-------|-------|----------|--------|
+| `ON DUPLICATE KEY UPDATE` | 1 | database.cpp | TODO |
+| `SHOW TABLE STATUS` | 1 | database.cpp | TODO |
+| `REPLACE INTO` | 3 | profanity_manager, ptimer, shareddb | TODO |
+| `INTERVAL N DAY` | 2 | database.cpp, player_event_logs.cpp | TODO |
+| `IFNULL()` | 1 | database_instances.cpp | TODO |
+| `GROUP_CONCAT()` | 4 | database_update_manifest.h | TODO |
+| `UNIX_TIMESTAMP()` | ~5 | database.cpp, shareddb.cpp, database_instances.cpp | TODO |
+
+### Other
+
+| Issue | Count | Location | Status |
+|-------|-------|----------|--------|
 | `AUTO_INCREMENT` | Migrations | Table DDL | → `SERIAL` / `GENERATED` |
-| `IFNULL()` | Queries | Various | → `COALESCE()` (compat function exists) |
-| `UNIX_TIMESTAMP()` | Queries | Various | → `EXTRACT(EPOCH FROM ...)` (compat function exists) |
-| `GetVariableInt` for port | `loginserver/main.cpp:50` | Default 3306 | login.json port must be integer |
+| `GetVariableInt` for port | 1 | `loginserver/main.cpp:50` | **DONE** (fixed in prior session) |
+| Perl generator outputs MySQL | 1 | `utils/scripts/generators/repository-generator.pl` | TODO |
+| `RewriteQuery()` runtime layer | 1 | `common/dbcore.cpp` | TODO (remove after all conversions) |
 
 ## Migration Approach
 

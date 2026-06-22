@@ -9,6 +9,10 @@
 # Requires: python
 # =============================================================================
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+cd "$PROJECT_DIR" 2>/dev/null || true
+
 hook_data=$(cat)
 
 python - "$hook_data" << 'PYTHON'

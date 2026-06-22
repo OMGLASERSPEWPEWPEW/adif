@@ -300,3 +300,65 @@ Proceed? [yes / abort]
 
 ---
 
+## 2026-06-22_09-05-23 (session 6d855ae2)
+
+**assistant**: All 6 phases done and pushed. Here's the final tally:
+
+| Phase | What | Files | Status |
+|-------|------|-------|--------|
+| 1 | Base repositories (script) | 244 | **DONE** |
+| 2 | Custom repositories (manual) | 15 + 37 backtick-stripped | **DONE** |
+| 3 | Zone server (parallel agents) | ~12 + 27 backtick-stripped | **DONE** |
+| 4 | Common/world/login (parallel agents) | ~8 + 11 backtick-stripped | **DONE** |
+| 5 | Perl generator + template | 2 | **DONE** |
+| 6 | RewriteQuery() removed | 1 | **D...
+
+**user**: <command-message>cap</command-message>
+<command-name>/cap</command-name>
+
+**user**: Base directory for this skill: E:\development\adif\.claude\skills\cap
+
+# /c&p — Commit and Push
+
+Group changes into logical commits with machine-readable messages, then push.
+
+## Commit Convention
+
+### Message format
+
+```
+type(scope): imperative summary (72 chars max)
+
+Why: one or two sentences explaining reasoning, not the diff
+Files: key-file-1.ts, key-file-2.ts, key-file-3.ts
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+```
+
+**Rules:**
+- Summary: imperative mood ("Add",...
+
+**assistant**: [tool: Bash]
+
+**assistant**: [tool: Bash]
+
+**assistant**: Just session tracking files. One commit:
+
+**1. `chore(infra): update session journals and memory heaps`**
+
+> Files: .claude/journals/*, .claude/memory/*
+
+**Excluded:** `du.exe.stackdump`
+
+Proceed? [yes / abort]
+
+**user**: yes
+
+**assistant**: [tool: Bash]
+
+**assistant**: [tool: Bash]
+
+**assistant**: Done. `25d3c48` pushed, working tree clean (just `du.exe.stackdump` remaining).
+
+---
+

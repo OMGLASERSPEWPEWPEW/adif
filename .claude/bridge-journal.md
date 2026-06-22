@@ -60,3 +60,57 @@ SESSION 2026-06-21 evening: Major progress on PostgreSQL migration for EQEmu ser
 > .claude/hooks/*              | Windows 10 compat fixes
 > database/docker-compose.yml  | port 5432→5433
 > ```
+
+### 2026-06-22 09:56
+
+SESSION 2026-06-22: Massive C++ MySQL→PostgreSQL conversion completed.
+
+## What Happened
+- Converted all 290+ C++ source files from MySQL SQL to native PostgreSQL
+- Phase 1: 250 base repository files via conversion script (REPLACE INTO, FROM_UNIXTIME, UNIX_TIMESTAMP, backticks)
+- Phase 2: 27 custom repository files manually (ON DUPLICATE KEY, timestamps, IFNULL)
+- Phase 3: ~12 zone server files via parallel agents (groups, raids, mob, quests, tasks, tradeskills, exp, client, zonedb)
+- Phase 4: ~8 common/world/login files via parallel agents (database.cpp, shareddb, profanity, ptimer)
+- Phase 5: Fixed Perl generator + template to output PG-native SQL
+- Phase 6: Gutted RewriteQuery() runtime translation layer (kept minimal shim for legacy manifest)
+- Fixed 2 compile errors (backtick strip hit C++ char literals in database.cpp and strings_legacy.cpp)
+- First successful build + server test: boots, loads 618 zones, connects to login server
+
+## Server Test Results
+- Login works, character select loads
+- ~30 tables still missing from PostgreSQL (Tier 2 from migration map)
+- character_data needs rebuilding (51 cols vs 106 expected)
+- INTERVAL syntax + ON CONFLICT composite key fixed in shim
+- Name filter broken (missing id column) — blocks character creation
+
+## What's Next
+- Step 2: Migration 030 — fix column mismatches (character_data rebuild, guilds, data_buckets, name_filter)
+- Step 3: Migrations 031-033 — create ~30 missing tables
+- Then: character creation → zone entry → combat testing
+
+> **Session context** *(auto-gathered)*
+>
+> **What happened:**
+> - Converted 290+ C++ files from MySQL to native PostgreSQL SQL across 6 phases
+> - Built conversion script for 250 base repos, manually converted 27 custom repos
+> - Parallel agents converted zone/common/world files simultaneously
+> - Fixed Perl generator, gutted RewriteQuery, first successful server boot on PG
+>
+> **Commits since last entry:**
+> ```
+> 25d3c48 chore(infra): update session journals and memory heaps
+> fc8f469 chore(infra): update session journals and memory heaps
+> fc03819 docs(database): mark all C++ conversion phases complete in migration map
+> 5e9357c chore(infra): update session journals and memory heaps
+> 918c75a feat(database): add Python script for bulk MySQL→PG repo conversion
+> 37b7e76 docs(database): update migration map with C++ conversion progress
+> 989f55c docs(database): add PostgreSQL migration map tracking 250 EQEmu tables
+> ```
+>
+> **Files touched:**
+> ```
+> docs/postgresql-migration-map.md   |   71 +-
+> scripts/convert-repos-to-pg.py     |  256 +++++
+> .claude/memory/heaps/*             | 2412 +++
+> .claude/journals/*                 | 1043 ++
+> ```

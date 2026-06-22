@@ -131,3 +131,61 @@ Proposed commits (3):
 
 ---
 
+## 2026-06-22_08-48-13 (session 6d855ae2)
+
+**assistant**: [tool: Grep]
+
+**assistant**: [tool: Grep]
+
+**assistant**: [tool: Grep]
+
+**assistant**: [tool: Grep]
+
+**assistant**: World and login are clean already. Phase 4 is just `common/*.cpp` files. Let me strip backticks first, then convert the 13 specific patterns.
+
+**assistant**: [tool: PowerShell]
+
+**assistant**: Now let me do the actual SQL conversions with parallel agents.
+
+**assistant**: [tool: Agent]
+
+**assistant**: [tool: Agent]
+
+**assistant**: Two agents working on Phase 4 — database.cpp (6 conversions) and the remaining common files (7 conversions). Waiting for them to finish.
+
+Note: The `database_update_manifest.h` files contain ~70 `SHOW TABLES LIKE` checks and some `REPLACE INTO`/`GROUP_CONCAT` in embedded DDL migration scripts. These are MySQL migration manifests that won't apply to our PostgreSQL setup (we have our own `database/migrations/`), so I'm leaving them as-is. They'll become dead code once we remove the RewriteQuery ...
+
+---
+
+## 2026-06-22_08-48-38 (session 6d855ae2)
+
+**assistant**: [tool: Grep]
+
+**assistant**: [tool: Grep]
+
+**assistant**: World and login are clean already. Phase 4 is just `common/*.cpp` files. Let me strip backticks first, then convert the 13 specific patterns.
+
+**assistant**: [tool: PowerShell]
+
+**assistant**: Now let me do the actual SQL conversions with parallel agents.
+
+**assistant**: [tool: Agent]
+
+**assistant**: [tool: Agent]
+
+**assistant**: Two agents working on Phase 4 — database.cpp (6 conversions) and the remaining common files (7 conversions). Waiting for them to finish.
+
+Note: The `database_update_manifest.h` files contain ~70 `SHOW TABLES LIKE` checks and some `REPLACE INTO`/`GROUP_CONCAT` in embedded DDL migration scripts. These are MySQL migration manifests that won't apply to our PostgreSQL setup (we have our own `database/migrations/`), so I'm leaving them as-is. They'll become dead code once we remove the RewriteQuery ...
+
+**user**: <task-notification>
+<task-id>a7c72629ec45222b7</task-id>
+<tool-use-id>toolu_01Q7euFmqS7QyEbPBpeSwviA</tool-use-id>
+<output-file>C:\Users\OMGLAS~1\AppData\Local\Temp\claude\E--development-adif\6d855ae2-6046-4d80-8b40-48298c9d8ee9\tasks\a7c72629ec45222b7.output</output-file>
+<status>completed</status>
+<summary>Agent "Convert database.cpp MySQL" came to rest</summary>
+<note>A task-notification fires each time this agent comes to rest with no live background children of its own. The user can send it...
+
+**assistant**: database.cpp done — 6 conversions. Waiting on the common misc agent.
+
+---
+

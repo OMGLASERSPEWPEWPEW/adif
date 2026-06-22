@@ -48,3 +48,86 @@ Could you point me to where you think i...
 
 ---
 
+## 2026-06-22_08-39-41 (session 6d855ae2)
+
+**assistant**: [tool: Read]
+
+**assistant**: [tool: Edit]
+
+**assistant**: [tool: Edit]
+
+**assistant**: Now let me verify there are no remaining MySQL-isms in the custom repos.
+
+**assistant**: [tool: Grep]
+
+**assistant**: Only the comment remains — the actual SQL is all converted. Let me also check for remaining backticks.
+
+**assistant**: [tool: PowerShell]
+
+**assistant**: Phase 2 complete — zero MySQL-isms remaining in all custom repository files. Let me update the migration map.
+
+**assistant**: [tool: Edit]
+
+**assistant**: **Phase 2 done.** 4 phases left. Want to keep going with Phase 3 (zone server — ~10 `.cpp` files)?
+
+---
+
+## 2026-06-22_08-40-30 (session 6d855ae2)
+
+**user**: let's /c&p what we have
+
+**assistant**: [tool: Skill]
+
+**user**: Base directory for this skill: E:\development\adif\.claude\skills\cap
+
+# /c&p — Commit and Push
+
+Group changes into logical commits with machine-readable messages, then push.
+
+## Commit Convention
+
+### Message format
+
+```
+type(scope): imperative summary (72 chars max)
+
+Why: one or two sentences explaining reasoning, not the diff
+Files: key-file-1.ts, key-file-2.ts, key-file-3.ts
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+```
+
+**Rules:**
+- Summary: imperative mood ("Add",...
+
+**assistant**: Running the /cap snapshot.
+
+**assistant**: [tool: Bash]
+
+**assistant**: [tool: Bash]
+
+**assistant**: [tool: Bash]
+
+**assistant**: [tool: Bash]
+
+**assistant**: [tool: Bash]
+
+**assistant**: **Phase 3: PROPOSE**
+
+Proposed commits (3):
+
+**1. `docs(database): update migration map with C++ conversion progress`**
+
+> Files: docs/postgresql-migration-map.md
+
+**2. `feat(database): add Python script for bulk MySQL→PG repo conversion`**
+
+> Why: 250 auto-generated base repository files share identical MySQL patterns
+> — a script converts REPLACE INTO, FROM_UNIXTIME, UNIX_TIMESTAMP, and backtick
+> quoting to native PostgreSQL in one pass.
+> Files: scripts/convert-repos-to-pg.py
+
+**3. `chor...
+
+---
+

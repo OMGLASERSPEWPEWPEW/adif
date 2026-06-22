@@ -46,3 +46,43 @@
 
 ---
 
+## 2026-06-22_08-30-48 (session 6d855ae2)
+
+**assistant**: [tool: Read]
+
+**assistant**: That's clean. Let me also verify the timestamp-heavy account repo and the backtick-heavy character_data repo.
+
+**assistant**: [tool: Read]
+
+**assistant**: [tool: Read]
+
+**assistant**: [tool: Read]
+
+**assistant**: [tool: Read]
+
+**assistant**: All conversions look correct:
+
+- **UNIX_TIMESTAMP** → `EXTRACT(EPOCH FROM suspendeduntil)::int` (line 123)
+- **FROM_UNIXTIME** → `TO_TIMESTAMP(...)` (line 306)
+- **Backtick `class`** → `"class"` with PG double-quote quoting (line 169)
+- **REPLACE INTO** → `INSERT INTO ... ON CONFLICT ... DO UPDATE SET` (verified earlier)
+
+Now let me update the migration map to track this progress.
+
+**assistant**: [tool: Read]
+
+**assistant**: [tool: Edit]
+
+**assistant**: Phase 1 is complete. Here's the summary:
+
+**244 base repository files converted to native PostgreSQL:**
+- 244 `REPLACE INTO` → `INSERT INTO ... ON CONFLICT (pk) DO UPDATE SET`
+- 270 `FROM_UNIXTIME()` → `TO_TIMESTAMP()`
+- 54 `UNIX_TIMESTAMP()` → `EXTRACT(EPOCH FROM ...)::int`
+- 40 backtick identifiers → PostgreSQL double-quote identifiers
+- `BaseUpsertSet()` method added to all 244 files for the ON CONFLICT SET clause
+
+6 files were untouched (no MySQL-isms): bot_group_members, bot_groups,...
+
+---
+

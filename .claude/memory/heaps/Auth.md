@@ -139,3 +139,126 @@ Here's what I see:
 
 ---
 
+## 2026-06-22_07-24-42 (session 6d855ae2)
+
+**assistant**: [tool: Bash]
+
+**assistant**: [tool: Bash]
+
+**assistant**: [tool: Bash]
+
+**assistant**: [tool: Bash]
+
+**assistant**: [tool: Bash]
+
+**assistant**: [tool: Bash]
+
+**assistant**: All 3 committed. Pushing now.
+
+**assistant**: [tool: Bash]
+
+**assistant**: [tool: Bash]
+
+**assistant**: All clean. 3 commits pushed to main:
+
+- `989f55c` docs(database): add PostgreSQL migration map tracking 250 EQEmu tables
+- `25f71a4` fix(infra): use absolute paths for session-journal hook
+- `d975e43` chore(infra): add bridge journal, session journals, and memory heaps
+
+Only `du.exe.stackdump` remains in the working tree (untracked) — you can delete it or add it to `.gitignore` whenever.
+
+---
+
+## 2026-06-22_07-27-11 (session 6d855ae2)
+
+**assistant**: [tool: Bash]
+
+**assistant**: [tool: Bash]
+
+**assistant**: [tool: Bash]
+
+**assistant**: [tool: Bash]
+
+**assistant**: All 3 committed. Pushing now.
+
+**assistant**: [tool: Bash]
+
+**assistant**: [tool: Bash]
+
+**assistant**: All clean. 3 commits pushed to main:
+
+- `989f55c` docs(database): add PostgreSQL migration map tracking 250 EQEmu tables
+- `25f71a4` fix(infra): use absolute paths for session-journal hook
+- `d975e43` chore(infra): add bridge journal, session journals, and memory heaps
+
+Only `du.exe.stackdump` remains in the working tree (untracked) — you can delete it or add it to `.gitignore` whenever.
+
+**user**: Ok thank you. Let's talk about the migration map. What are we actually doing. Are we creating a view or are we changing the server's hardcoded mysql statements to postgres?
+
+**assistant**: Both, actually — but at different layers.
+
+**The database side** is mostly done. We've created ~129 PostgreSQL tables via migration files in `database/migrations/`. The remaining work there is the 146 missing tables and 9 name mismatches (like `zones` vs `zone`, `spells` vs `spells_new`). For the name mismatches, the simplest fix is just renaming our PG tables to match what the C++ expects — no views needed.
+
+**The C++ side** is the bigger beast. The EQEmu server code at `reference/eqemu-ser...
+
+---
+
+## 2026-06-22_08-40-30 (session 6d855ae2)
+
+**user**: let's /c&p what we have
+
+**assistant**: [tool: Skill]
+
+**user**: Base directory for this skill: E:\development\adif\.claude\skills\cap
+
+# /c&p — Commit and Push
+
+Group changes into logical commits with machine-readable messages, then push.
+
+## Commit Convention
+
+### Message format
+
+```
+type(scope): imperative summary (72 chars max)
+
+Why: one or two sentences explaining reasoning, not the diff
+Files: key-file-1.ts, key-file-2.ts, key-file-3.ts
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+```
+
+**Rules:**
+- Summary: imperative mood ("Add",...
+
+**assistant**: Running the /cap snapshot.
+
+**assistant**: [tool: Bash]
+
+**assistant**: [tool: Bash]
+
+**assistant**: [tool: Bash]
+
+**assistant**: [tool: Bash]
+
+**assistant**: [tool: Bash]
+
+**assistant**: **Phase 3: PROPOSE**
+
+Proposed commits (3):
+
+**1. `docs(database): update migration map with C++ conversion progress`**
+
+> Files: docs/postgresql-migration-map.md
+
+**2. `feat(database): add Python script for bulk MySQL→PG repo conversion`**
+
+> Why: 250 auto-generated base repository files share identical MySQL patterns
+> — a script converts REPLACE INTO, FROM_UNIXTIME, UNIX_TIMESTAMP, and backtick
+> quoting to native PostgreSQL in one pass.
+> Files: scripts/convert-repos-to-pg.py
+
+**3. `chor...
+
+---
+

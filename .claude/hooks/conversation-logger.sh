@@ -17,18 +17,10 @@ import json, sys, os, re
 from datetime import datetime
 
 # === CONFIGURATION ===
-# Directory for logs, relative to project root
 LOG_DIR = ".claude/memory"
+MAX_SNIPPETS = 50
+MAX_SNIPPET_LENGTH = 2000
 
-# Maximum number of recent snippets to include in a daily log entry
-MAX_SNIPPETS = 20
-
-# Maximum character length per snippet before truncation
-MAX_SNIPPET_LENGTH = 500
-
-# Topic categories and their keyword patterns (regex, case-insensitive).
-# Matching snippets are appended to <heaps>/<TopicName>.md for long-term
-# thematic memory. Customize these for your project domain.
 CONCEPTS = {
     "Architecture": r"module|import|export|build|typescript|webpack|vite",
     "Testing": r"test|spec|assert|mock|fixture|coverage",
@@ -40,6 +32,11 @@ CONCEPTS = {
     "Docs": r"readme|documentation|comment|changelog|guide",
 }
 # === END CONFIGURATION ===
+
+SYSTEM_REMINDER_RE = re.compile(r"<system-reminder>.*?</system-reminder>", re.DOTALL)
+
+def strip_system_reminders(text):
+    return SYSTEM_REMINDER_RE.sub("", text).strip()
 
 hook_data_raw = sys.argv[1] if len(sys.argv) > 1 else "{}"
 try:
@@ -54,10 +51,8 @@ if not transcript_path or not os.path.exists(transcript_path):
     print('{"continue": true}')
     sys.exit(0)
 
-# Determine the project root directory
 project_dir = os.environ.get("CLAUDE_PROJECT_DIR", "")
 if not project_dir:
-    # Fall back: walk up from the transcript path to find the project root
     project_dir = os.path.dirname(
         os.path.dirname(os.path.dirname(os.path.dirname(transcript_path)))
     )
@@ -73,7 +68,6 @@ now = datetime.now()
 timestamp = now.strftime("%Y-%m-%d_%H-%M-%S")
 date_str = now.strftime("%Y-%m-%d")
 
-# Track how far we have already read so we only process new lines
 state_file = f"/tmp/claude-logger-{session_id}.json"
 last_line = 0
 try:
@@ -85,7 +79,15 @@ except Exception:
     pass
 
 snippets = []
+pending_tools = []
 current_line = 0
+
+def flush_pending_tools():
+    """Collapse consecutive tool-only assistant turns into one line."""
+    if pending_tools:
+        names = ", ".join(pending_tools)
+        snippets.append(f"**assistant**: [tools: {names}]")
+        pending_tools.clear()
 
 try:
     with open(transcript_path, "r") as f:
@@ -102,30 +104,59 @@ try:
                 if role not in ("user", "assistant"):
                     continue
                 content = msg.get("content", "")
+
                 if isinstance(content, list):
                     text_parts = []
+                    tool_names = []
                     for block in content:
                         if isinstance(block, dict):
                             if block.get("type") == "text":
                                 text_parts.append(block.get("text", ""))
                             elif block.get("type") == "tool_use":
-                                text_parts.append(
-                                    f"[tool: {block.get('name', '?')}]"
-                                )
+                                tool_names.append(block.get("name", "?"))
                         elif isinstance(block, str):
                             text_parts.append(block)
-                    content = " ".join(text_parts)
-                if content and len(content.strip()) > 0:
-                    if len(content) > MAX_SNIPPET_LENGTH:
-                        content = content[:MAX_SNIPPET_LENGTH] + "..."
-                    snippets.append(f"**{role}**: {content.strip()}")
+
+                    text_content = " ".join(t for t in text_parts if t.strip())
+
+                    if role == "user":
+                        flush_pending_tools()
+                        text_content = strip_system_reminders(text_content)
+                        if text_content:
+                            if len(text_content) > MAX_SNIPPET_LENGTH:
+                                text_content = text_content[:MAX_SNIPPET_LENGTH] + "..."
+                            snippets.append(f"**user**: {text_content}")
+
+                    elif role == "assistant":
+                        if text_content.strip():
+                            flush_pending_tools()
+                            if tool_names:
+                                text_content += f" [tools: {', '.join(tool_names)}]"
+                            if len(text_content) > MAX_SNIPPET_LENGTH:
+                                text_content = text_content[:MAX_SNIPPET_LENGTH] + "..."
+                            snippets.append(f"**assistant**: {text_content}")
+                        elif tool_names:
+                            pending_tools.extend(tool_names)
+                        # else: empty assistant message, skip
+
+                elif isinstance(content, str) and content.strip():
+                    flush_pending_tools()
+                    if role == "user":
+                        content = strip_system_reminders(content)
+                    if content:
+                        if len(content) > MAX_SNIPPET_LENGTH:
+                            content = content[:MAX_SNIPPET_LENGTH] + "..."
+                        snippets.append(f"**{role}**: {content.strip()}")
+
             except Exception:
                 continue
+
+    flush_pending_tools()
+
 except Exception:
     print('{"continue": true}')
     sys.exit(0)
 
-# Persist read-position so the next invocation starts where we left off
 try:
     with open(state_file, "w") as f:
         json.dump({"last_line": current_line}, f)
@@ -154,9 +185,9 @@ for concept_name, pattern in CONCEPTS.items():
     if re.search(pattern, transcript, re.IGNORECASE):
         heap_file = os.path.join(heap_dir, f"{concept_name}.md")
         try:
-            summary = "\n\n".join(snippets[-10:])
-            if len(summary) > 2000:
-                summary = summary[:2000] + "..."
+            summary = "\n\n".join(snippets[-20:])
+            if len(summary) > 4000:
+                summary = summary[:4000] + "..."
             with open(heap_file, "a") as f:
                 f.write(f"## {timestamp} (session {session_id[:8]})\n\n")
                 f.write(summary)

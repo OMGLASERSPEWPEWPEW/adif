@@ -114,3 +114,60 @@ SESSION 2026-06-22: Massive C++ MySQL→PostgreSQL conversion completed.
 > .claude/memory/heaps/*             | 2412 +++
 > .claude/journals/*                 | 1043 ++
 > ```
+
+### 2026-06-23 20:54
+
+SESSION 2026-06-23: Massive PostgreSQL migration progress — character creation works, zone boot works, first zone entry attempt.
+
+## What Happened
+- Applied migrations 030-034: table renames, schema fixes, missing Tier 1+2 tables
+- Fixed character name rejection (3 bugs: deleted_at type, id=0 auto-increment, missing RETURNING id)
+- Added RETURNING id to all 250 base repository InsertOne methods + clean C++ rebuild
+- Fixed zone server crash (missing quest plugin stubs for CheckHandin)
+- Disabled tutorial zone, set racial starting cities
+- Fixed 5+ column name mismatches (starting_items, group_id, respawn_times, etc.)
+- Created ~30 missing tables (Tier 2 gameplay systems)
+- Dropped composite PK constraints blocking ON CONFLICT upserts
+
+## Current State
+- Login → character select → character creation: WORKS
+- Character enters Grobb (zone boots with maps/water/navmesh): WORKS
+- BUT: "Zone bootup timer expired" — zone boots too slowly or ON CONFLICT errors prevent bind/skills from saving
+- ON CONFLICT composite PK issue remains: character_bind, character_skills, character_languages use ON CONFLICT (id) but need ON CONFLICT (id, slot/skill_id/lang_id) — requires C++ fix in custom repos + rebuild
+- rule_values ON CONFLICT (ruleset_id) needs ON CONFLICT (ruleset_id, rule_name) — same pattern
+- Error inventory at docs/postgresql-errors-inventory.md is comprehensive
+
+## What's Next
+- Fix ON CONFLICT composite PK targets in C++ custom repository files (character_bind, character_skills, character_languages, rule_values) — this is the LAST blocker for zone entry
+- Rebuild after fixing
+- Test zone entry end-to-end
+- Then: movement, NPCs, combat testing
+
+## Key Files
+- Migrations: database/migrations/030-034_*.sql
+- Error inventory: docs/postgresql-errors-inventory.md
+- C++ repos with RETURNING id: reference/eqemu-server/common/repositories/base/*.h
+- Quest stubs: reference/eqemu-server/build/bin/RelWithDebInfo/lua_modules/check_handin.lua + plugins/check_handin.pl
+- auto_id_on_zero() trigger on character_data (in PG, not in migration files)
+
+> **Session context** *(auto-gathered)*
+>
+> **What happened:**
+> - Fixed 13 blockers preventing character creation and zone entry
+> - Added RETURNING id to 250 C++ repository files, clean rebuilt server
+> - Created 30+ missing PostgreSQL tables (Tier 1 + Tier 2)
+> - First successful zone boot: Grobb loaded with maps/water/navmesh
+>
+> **Commits since last entry:**
+> ```
+> (no commits — all changes are uncommitted: 5 new migrations, C++ repo edits, quest stubs, DB triggers)
+> ```
+>
+> **Files touched:**
+> ```
+> database/migrations/030-034_*.sql                              | 5 new migration files
+> docs/postgresql-errors-inventory.md                            | comprehensive error catalog
+> reference/eqemu-server/common/repositories/base/*.h            | 250 files (RETURNING id)
+> reference/eqemu-server/build/bin/RelWithDebInfo/lua_modules/   | quest stub
+> reference/eqemu-server/build/bin/RelWithDebInfo/plugins/       | quest stub
+> ```

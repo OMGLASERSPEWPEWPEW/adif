@@ -415,3 +415,156 @@ Note: The `database_update_manifest.h` files contain ~70 `SHOW TABLES LIKE` chec
 
 ---
 
+## 2026-06-22_10-04-53 (session 6d855ae2)
+
+**assistant**: [tool: Read]
+
+**assistant**: [tool: Read]
+
+**assistant**: Now let me check what columns our PG table actually has, and add the missing ones.
+
+**assistant**: [tool: PowerShell]
+
+**assistant**: The table needs a full rebuild — column names don't match at all. Let me drop and recreate it with the exact schema EQEmu expects, plus fix the other broken tables. I'll run it directly against PG.
+
+**assistant**: [tool: PowerShell]
+
+**assistant**: Almost clean — just the `account_ip` constraint syntax (PG doesn't support `IF NOT EXISTS` on `ADD CONSTRAINT`). Let me fix that.
+
+**assistant**: [tool: PowerShell]
+
+**assistant**: [tool: PowerShell]
+
+**assistant**: All fixes applied:
+- `character_data` — rebuilt with full 106-column EQEmu schema
+- `name_filter` — added `id` column
+- `data_buckets` — added missing columns (account_id, character_id, etc.)
+- `account_ip` — added unique constraint on (accid, ip)
+- `character_pet_name` — created
+
+Try creating a character again — it should get past name approval and the INSERT should work now. The servers are still running with the old binaries (which already have the fixed SQL), so just try in the c...
+
+---
+
+## 2026-06-22_10-08-44 (session 6d855ae2)
+
+**assistant**: Almost clean — just the `account_ip` constraint syntax (PG doesn't support `IF NOT EXISTS` on `ADD CONSTRAINT`). Let me fix that.
+
+**assistant**: [tool: PowerShell]
+
+**assistant**: [tool: PowerShell]
+
+**assistant**: All fixes applied:
+- `character_data` — rebuilt with full 106-column EQEmu schema
+- `name_filter` — added `id` column
+- `data_buckets` — added missing columns (account_id, character_id, etc.)
+- `account_ip` — added unique constraint on (accid, ip)
+- `character_pet_name` — created
+
+Try creating a character again — it should get past name approval and the INSERT should work now. The servers are still running with the old binaries (which already have the fixed SQL), so just try in the c...
+
+**user**: E 1: ...T id FROM character_data WHERE account_id = 1 AND deleted_at...
+                                                             ^
+] Query [SELECT id FROM character_data WHERE account_id = 1 AND deleted_at IS NULL]
+ World |    Info    | operator () New [EverQuest Client] connection from IP [127.0.0.1:50913]
+ World |    Info    | operator () New connection from [127.0.0.1:50913,] processing connection
+ World |    Info    | HandleSendLoginInfoPacket Account (darklight) Logging (in) to characte...
+
+**user**: E 1: ...T id FROM character_data WHERE account_id = 1 AND deleted_at...
+                                                             ^
+] Query [SELECT id FROM character_data WHERE account_id = 1 AND deleted_at IS NULL]
+ World |    Info    | operator () New [EverQuest Client] connection from IP [127.0.0.1:50913]
+ World |    Info    | operator () New connection from [127.0.0.1:50913,] processing connection
+ World |    Info    | HandleSendLoginInfoPacket Account (darklight) Logging (in) to characte...
+
+**assistant**: The `RestTimer` error is a PostgreSQL case-sensitivity issue — the column was created as `"RestTimer"` (quoted, preserving case) but queries reference it unquoted, so PG looks for `resttimer` (lowercase). Quick fix ...
+
+---
+
+## 2026-06-24_08-52-03 (session e62794d9)
+
+**user**: hello can you look at our journals and git and stuff where are we at
+
+**assistant**: Let me pull up the bridge journal, recent sessions, and git state to give you a full recap.
+
+**assistant**: [tools: Read, Bash]
+
+**assistant**: [tools: Read]
+
+**assistant**: [tools: Read]
+
+**assistant**: Let me also check the TODOs and the error inventory from last session.
+
+**assistant**: [tools: Bash, Read]
+
+**assistant**: [tools: Read]
+
+**assistant**: ---
+
+## ZEPHYR RECAP
+
+**The big picture: you've been on a MySQL-to-PostgreSQL conversion marathon for the EQEmu reference server, and you're tantalizingly close to zoning in.**
+
+Over the last 3 sessions (June 21-23), you went from a crash-looping MariaDB to a fully PostgreSQL-backed EQEmu server. The arc:
+
+1. **June 21** — Fixed MariaDB, stood up PG-backed server, got to character select for the first time on PostgreSQL. Hit a wall of missing/mismatched table schemas.
+
+2. **June 22** — The big one. Converted **290+ C++ source files** from MySQL SQL to native PostgreSQL. Bulk conversion script for 250 base repos, manual work on 27 custom repos, parallel agents on zone/world files. Gutted the `RewriteQuery()` runtime shim. First successful server boot on PG — 618 zones loaded.
+
+3. **June 23** — Applied migrations 030-034, fixed 13 blockers (name rejection, column mismatches, missing tables, quest plugin stubs). **Character creation works. Zone boots with maps/water/navmesh.** But zone entry itself times out — the last blocker is **ON CONFLICT composite PK mismatches** in character_bind, character_skills, character_languages, and rule_values. The C++ uses `ON CONFLICT (id)` but these tables have composite PKs like `(id, slot)`.
+
+**What's still broken (documented in `docs/postgresql-errors-inventory.md`):**
+- 5 ON CONFLICT composite PK fixes needed in C++ custom repos
+- 5 column name mismatches to fix
+- 3 missing tables (spawn2_disabled, global_loot, ldon_trap_*)
+- 8 hardcoded MySQL syntax remnants in C++ (backticks, REGEXP, LIMIT)
+- ~25 non-fatal missing tables (Tier 2 gameplay systems)
+
+**None of these changes are committed** — the migrations (030-034), C++ edits, quest stubs, and DB triggers are all uncommitted. That's a lot of work sitting in the working tree.
+
+**The immediate next step** per the bridge journal: fix those ON CONFLICT composite PK targets in the C++ custom repos, rebuild, and test zone entry end-to-end. That's the last gate before you can...
+
+**user**: <command-message>cap</command-message>
+<command-name>/cap</command-name>
+
+**user**: Base directory for this skill: E:\development\adif\.claude\skills\cap
+
+# /c&p — Commit and Push
+
+Group changes into logical commits with machine-readable messages, then push.
+
+## Commit Convention
+
+### Message format
+
+```
+type(scope): imperative summary (72 chars max)
+
+Why: one or two sentences explaining reasoning, not the diff
+Files: key-file-1.ts, key-file-2.ts, key-file-3.ts
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+```
+
+**Rules:**
+- Summary: imperative mood ("Add", "Fix", "Extract" — not "Added", "Fixing"), 72 chars max
+- `Why:` trailer: required for all types except `chore` and `docs`
+- `Files:` trailer: required, list the 2-5 most significant files touched
+- `Co-Authored-By:` footer: always present
+- Multi-scope: if genuinely equal, list both: `feat(palette,shared): extract helper`
+
+### Exempt types
+
+`Evolve:` and `Promote:` are ritual commit types produced by `/evolution` and `/promote`. They use their own format. **Never rewrite, absorb, or duplicate these.** If detected in today's git log, exclude their files from grouping.
+
+### Change types
+
+| Type | When to use | Example |
+|------|------------|---------|
+| `feat` | New user-facing capability | `feat(palette): add per-pane model selection` |
+| `fix` | Corrects a bug | `fix(agendas): prevent stale cache on day rollover` |
+| `refactor` | Restructuring without behavior change | `refactor(palette): extract pane registry` |
+|...
+
+---
+

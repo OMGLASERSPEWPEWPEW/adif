@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PostgreSQL Migration Postmortem — ADIF</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0a0e17;
+            color: #c9d1d9;
+            margin: 0;
+            padding: 0;
+        }
+        code, pre, .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .card {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+        }
+        .stat-pill {
+            background: #21262d;
+            border: 1px solid #30363d;
+            border-radius: 999px;
+            padding: 6px 16px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .accent-blue { color: #58a6ff; }
+        .accent-red { color: #f85149; }
+        .accent-green { color: #3fb950; }
+        .accent-orange { color: #f0883e; }
+        .accent-purple { color: #d2a8ff; }
+        .dim { color: #8b949e; }
+
+        /* Timeline */
+        .timeline {
+            position: relative;
+            padding-left: 32px;
+        }
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 11px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: #30363d;
+        }
+        .timeline-node {
+            position: relative;
+            margin-bottom: 32px;
+        }
+        .timeline-node:last-child {
+            margin-bottom: 0;
+        }
+        .timeline-dot {
+            position: absolute;
+            left: -32px;
+            top: 6px;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            border: 2px solid #30363d;
+            background: #161b22;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1;
+        }
+        .timeline-dot .inner {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #58a6ff;
+        }
+        .timeline-node.milestone .timeline-dot {
+            border-color: #3fb950;
+        }
+        .timeline-node.milestone .timeline-dot .inner {
+            background: #3fb950;
+        }
+        .timeline-node.finale .timeline-dot {
+            border-color: #f0883e;
+            width: 28px;
+            height: 28px;
+            left: -35px;
+            top: 3px;
+        }
+        .timeline-node.finale .timeline-dot .inner {
+            background: #f0883e;
+            width: 14px;
+            height: 14px;
+        }
+
+        .session-tag {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* Stats grid */
+        .stat-card {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 24px;
+            text-align: center;
+        }
+        .stat-card .number {
+            font-size: 2.5rem;
+            font-weight: 800;
+            line-height: 1;
+            margin-bottom: 8px;
+        }
+        .stat-card .label {
+            font-size: 0.875rem;
+            color: #8b949e;
+        }
+
+        /* Bug cards */
+        .bug-card {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 24px;
+            border-left: 3px solid #f85149;
+        }
+        .bug-card .bug-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: rgba(248, 81, 73, 0.15);
+            color: #f85149;
+            font-size: 0.875rem;
+            font-weight: 700;
+            margin-right: 10px;
+            flex-shrink: 0;
+        }
+
+        /* Code block */
+        .code-block {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 20px;
+            overflow-x: auto;
+            font-size: 0.8125rem;
+            line-height: 1.6;
+        }
+
+        /* Section headers */
+        .section-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 700;
+            margin-right: 12px;
+            flex-shrink: 0;
+        }
+
+        /* Highlight marker */
+        .highlight-item::before {
+            content: '';
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            margin-right: 10px;
+            flex-shrink: 0;
+        }
+        .highlight-item.blue::before { background: #58a6ff; }
+        .highlight-item.red::before { background: #f85149; }
+        .highlight-item.green::before { background: #3fb950; }
+        .highlight-item.orange::before { background: #f0883e; }
+
+        /* Smooth scroll */
+        html { scroll-behavior: smooth; }
+
+        /* Nav */
+        .nav-link {
+            color: #8b949e;
+            text-decoration: none;
+            padding: 8px 0;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+            font-size: 0.875rem;
+        }
+        .nav-link:hover {
+            color: #c9d1d9;
+            border-bottom-color: #30363d;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <header class="border-b border-[#30363d]">
+        <div class="max-w-6xl mx-auto px-6 py-4">
+            <a href="/" class="text-sm dim hover:text-[#c9d1d9] transition-colors" style="text-decoration: none;">
+                &larr; Back to ADIF Docs
+            </a>
+        </div>
+    </header>
+
+    <!-- Hero -->
+    <section class="max-w-6xl mx-auto px-6 pt-16 pb-12">
+        <div class="flex items-center gap-3 mb-4">
+            <span class="text-xs font-semibold uppercase tracking-widest accent-red">Postmortem</span>
+            <span class="dim">/</span>
+            <span class="text-xs font-semibold uppercase tracking-widest dim">June 2026</span>
+        </div>
+
+        <h1 class="text-4xl md:text-5xl font-extrabold mb-4" style="line-height: 1.1;">
+            PostgreSQL Migration<br>
+            <span class="accent-blue">Postmortem</span>
+        </h1>
+
+        <p class="text-lg dim max-w-3xl mb-8" style="line-height: 1.7;">
+            How we moved an MMORPG server from MySQL to PostgreSQL in 6 sessions &mdash;
+            290+ C++ files, 44 migrations, 231 tables, 100% parity.
+        </p>
+
+        <div class="flex flex-wrap gap-3">
+            <span class="stat-pill"><span class="accent-blue font-bold">6</span> sessions</span>
+            <span class="stat-pill"><span class="accent-blue font-bold">44</span> migrations</span>
+            <span class="stat-pill"><span class="accent-blue font-bold">290+</span> C++ files</span>
+            <span class="stat-pill"><span class="accent-red font-bold">231</span> tables</span>
+            <span class="stat-pill"><span class="accent-green font-bold">100.0%</span> parity</span>
+        </div>
+    </section>
+
+    <!-- Nav -->
+    <nav class="sticky top-0 z-10 border-b border-[#30363d]" style="background: rgba(10, 14, 23, 0.9); backdrop-filter: blur(12px);">
+        <div class="max-w-6xl mx-auto px-6 flex gap-6 overflow-x-auto">
+            <a href="#starting-point" class="nav-link whitespace-nowrap py-3">Starting Point</a>
+            <a href="#timeline" class="nav-link whitespace-nowrap py-3">Timeline</a>
+            <a href="#numbers" class="nav-link whitespace-nowrap py-3">By The Numbers</a>
+            <a href="#bugs" class="nav-link whitespace-nowrap py-3">Hardest Bugs</a>
+            <a href="#comparison" class="nav-link whitespace-nowrap py-3">Comparison Script</a>
+        </div>
+    </nav>
+
+    <!-- Section 1: The Starting Point -->
+    <section id="starting-point" class="max-w-6xl mx-auto px-6 py-16">
+        <div class="flex items-center mb-8">
+            <span class="section-number" style="background: rgba(88, 166, 255, 0.15); color: #58a6ff;">1</span>
+            <h2 class="text-2xl font-bold">The Starting Point</h2>
+        </div>
+
+        <div class="card p-8">
+            <div class="grid md:grid-cols-2 gap-8">
+                <div>
+                    <h3 class="text-lg font-semibold mb-4 accent-red">What We Started With</h3>
+                    <ul class="space-y-3 text-sm" style="line-height: 1.7;">
+                        <li class="flex items-start highlight-item red">
+                            <span><strong class="text-[#c9d1d9]">EQEmu server</strong> &mdash; a C++ MMORPG emulator built entirely around MySQL. Every query, every schema assumption, every string escape function: MySQL.</span>
+                        </li>
+                        <li class="flex items-start highlight-item red">
+                            <span><strong class="text-[#c9d1d9]">250 repository files</strong> generating MySQL-specific SQL &mdash; <code class="text-xs accent-orange">REPLACE INTO</code>, <code class="text-xs accent-orange">FROM_UNIXTIME</code>, backtick quoting, <code class="text-xs accent-orange">AUTO_INCREMENT</code>, MySQL-flavored type casts everywhere.</span>
+                        </li>
+                        <li class="flex items-start highlight-item red">
+                            <span><strong class="text-[#c9d1d9]">akk-stack deployment</strong> running MariaDB 10.11 with a live game database &mdash; 231 tables, 1.8M+ rows of content data (NPCs, items, spells, zones).</span>
+                        </li>
+                        <li class="flex items-start highlight-item red">
+                            <span><strong class="text-[#c9d1d9]">Runtime translation layer</strong> &mdash; a <code class="text-xs accent-orange">RewriteQuery()</code> function that tried to patch MySQL syntax at runtime. Fragile and incomplete.</span>
+                        </li>
+                    </ul>
+                </div>
+                <div>
+                    <h3 class="text-lg font-semibold mb-4 accent-green">What We Wanted</h3>
+                    <ul class="space-y-3 text-sm" style="line-height: 1.7;">
+                        <li class="flex items-start highlight-item green">
+                            <span><strong class="text-[#c9d1d9]">PostgreSQL-native</strong> &mdash; no translation layers, no compatibility shims. Real PostgreSQL queries with proper types, <code class="text-xs accent-green">ON CONFLICT</code>, <code class="text-xs accent-green">RETURNING</code>, and JSONB.</span>
+                        </li>
+                        <li class="flex items-start highlight-item green">
+                            <span><strong class="text-[#c9d1d9]">Full schema parity</strong> &mdash; every table from the MySQL database present in PostgreSQL with matching columns, types, and primary keys.</span>
+                        </li>
+                        <li class="flex items-start highlight-item green">
+                            <span><strong class="text-[#c9d1d9]">Server boots and runs</strong> &mdash; login, character creation, zone entry, NPC spawning. The full gameplay loop on PostgreSQL.</span>
+                        </li>
+                        <li class="flex items-start highlight-item green">
+                            <span><strong class="text-[#c9d1d9]">Foundation for ADIF</strong> &mdash; PostgreSQL gives us JSONB for flexible schemas, better type safety, and a modern database to build the real game on.</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section 2: Timeline -->
+    <section id="timeline" class="max-w-6xl mx-auto px-6 py-16">
+        <div class="flex items-center mb-8">
+            <span class="section-number" style="background: rgba(210, 168, 255, 0.15); color: #d2a8ff;">2</span>
+            <h2 class="text-2xl font-bold">Timeline</h2>
+        </div>
+
+        <div class="timeline">
+
+            <!-- Session 1 -->
+            <div class="timeline-node">
+                <div class="timeline-dot"><div class="inner"></div></div>
+                <div class="card p-6">
+                    <div class="flex items-center gap-3 mb-3">
+                        <span class="session-tag" style="background: rgba(88, 166, 255, 0.15); color: #58a6ff;">Session 1</span>
+                        <span class="dim text-sm">June 21 &mdash; First Contact</span>
+                    </div>
+                    <ul class="space-y-2 text-sm" style="line-height: 1.7;">
+                        <li class="flex items-start">
+                            <span class="accent-red mr-2 mt-1 flex-shrink-0">&bull;</span>
+                            <span>Fixed MariaDB crash-loop &mdash; InnoDB redo log version mismatch was preventing the existing database from starting</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="accent-blue mr-2 mt-1 flex-shrink-0">&bull;</span>
+                            <span>Set up PostgreSQL container on port 5433 alongside the existing MariaDB</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="accent-green mr-2 mt-1 flex-shrink-0">&bull;</span>
+                            <span><strong>First successful login on PostgreSQL</strong></span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="accent-orange mr-2 mt-1 flex-shrink-0">&bull;</span>
+                            <span>Hit wall: <code class="text-xs">character_data</code> table has 51 columns, but EQEmu expects 106</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Session 2 -->
+            <div class="timeline-node milestone">
+                <div class="timeline-dot"><div class="inner"></div></div>
+                <div class="card p-6" style="border-color: #238636;">
+                    <div class="flex items-center gap-3 mb-3">
+                        <span class="session-tag" style="background: rgba(63, 185, 80, 0.15); color: #3fb950;">Session 2</span>
+                        <span class="dim text-sm">June 22 &mdash; The Big Conversion</span>
+                    </div>
+                    <ul class="space-y-2 text-sm" style="line-height: 1.7;">
+                        <li class="flex items-start">
+                            <span class="accent-blue mr-2 mt-1 flex-shrink-0">&bull;</span>
+                            <span>Wrote Python conversion script for 250 base repository files &mdash; automated the mechanical translation</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="accent-blue mr-2 mt-1 flex-shrink-0">&bull;</span>
+                            <span>Converted <code class="text-xs">REPLACE INTO</code> &rarr; <code class="text-xs">INSERT...ON CONFLICT</code>, <code class="text-xs">FROM_UNIXTIME</code> &rarr; <code class="text-xs">TO_TIMESTAMP</code>, backticks &rarr; stripped</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="accent-blue mr-2 mt-1 flex-shrink-0">&bull;</span>
+                            <span>Manually converted 27 custom repository files that the script couldn't handle</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="accent-purple mr-2 mt-1 flex-shrink-0">&bull;</span>
+                            <span>Parallel agents converted zone, common, and world server files simultaneously</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="accent-blue mr-2 mt-1 flex-shrink-0">&bull;</span>
+                            <span>Fixed Perl generator to output PostgreSQL-native SQL for future code generation</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="accent-red mr-2 mt-1 flex-shrink-0">&bull;</span>
+                            <span>Gutted <code class="text-xs">RewriteQuery()</code> runtime translation layer &mdash; no more runtime patching</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="accent-green mr-2 mt-1 flex-shrink-0">&bull;</span>
+                            <span><strong>First successful build + boot on PostgreSQL</strong></span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Session 3 -->
+            <div class="timeline-node milestone">
+                <div class="timeline-dot"><div class="inner"></div></div>
+                <div class="card p-6" style="border-color: #238636;">
+                    <div class="flex items-center gap-3 mb-3">
+                        <span class="session-tag" style="background: rgba(63, 185, 80, 0.15); color: #3fb950;">Session 3</span>
+                        <span class="dim text-sm">June 23 &mdash; Character Creation Works</span>
+                    </div>
+                    <ul class="space-y-2 text-sm" style="line-height: 1.7;">
+                        <li class="flex items-start">
+                            <span class="accent-blue mr-2 mt-1 flex-shrink-0">&bull;</span>
+                            <span>Migrations 030&ndash;034: table renames, column fixes, missing tables to align with EQEmu expectations</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="accent-red mr-2 mt-1 flex-shrink-0">&bull;</span>
+                            <span>Fixed character name rejection &mdash; 3 bugs: <code class="text-xs">deleted_at</code> type mismatch, <code class="text-xs">id=0</code> auto-increment conflict, missing <code class="text-xs">RETURNING id</code></span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="accent-blue mr-2 mt-1 flex-shrink-0">&bull;</span>
+                            <span>Added <code class="text-xs">RETURNING id</code> to all 250 base repository <code class="text-xs">InsertOne</code> methods</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="accent-blue mr-2 mt-1 flex-shrink-0">&bull;</span>
+                            <span>Created quest plugin stubs for <code class="text-xs">CheckHandin</code></span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="accent-green mr-2 mt-1 flex-shrink-0">&bull;</span>
+                            <span><strong>Character creation works!</strong> But zone boot times out.</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Session 4 -->
+            <div class="timeline-node">
+                <div class="timeline-dot"><div class="inner"></div></div>
+                <div class="card p-6">
+                    <div class="flex items-center gap-3 mb-3">
+                        <span class="session-tag" style="background: rgba(88, 166, 255, 0.15); color: #58a6ff;">Session 4</span>
+                        <span class="dim text-sm">June 24 &mdash; ON CONFLICT Fixes</span>
+                    </div>
+                    <ul class="space-y-2 text-sm" style="line-height: 1.7;">
+                        <li class="flex items-start">
+                            <span class="accent-red mr-2 mt-1 flex-shrink-0">&bull;</span>
+                            <span>Fixed 4 composite primary key <code class="text-xs">ON CONFLICT</code> issues &mdash; <code class="text-xs">character_bind</code>, <code class="text-xs">character_skills</code>, <code class="text-xs">character_languages</code>, <code class="text-xs">rule_values</code></span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="accent-blue mr-2 mt-1 flex-shrink-0">&bull;</span>
+                            <span>Cleaned MySQL syntax remnants from 8+ files: <code class="text-xs">UPDATE...LIMIT</code>, <code class="text-xs">REGEXP</code>, backticks, timestamp formatting</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Session 5 -->
+            <div class="timeline-node milestone">
+                <div class="timeline-dot"><div class="inner"></div></div>
+                <div class="card p-6" style="border-color: #238636;">
+                    <div class="flex items-center gap-3 mb-3">
+                        <span class="session-tag" style="background: rgba(63, 185, 80, 0.15); color: #3fb950;">Session 5</span>
+                        <span class="dim text-sm">June 25 &mdash; ZONE ENTRY WORKS</span>
+                    </div>
+                    <ul class="space-y-2 text-sm" style="line-height: 1.7;">
+                        <li class="flex items-start">
+                            <span class="accent-blue mr-2 mt-1 flex-shrink-0">&bull;</span>
+                            <span>Fixed zone boot timer (5s &rarr; 30s) &mdash; PostgreSQL queries slightly slower on first run</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="accent-blue mr-2 mt-1 flex-shrink-0">&bull;</span>
+                            <span>Fixed "already booted" handler in world server</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="accent-blue mr-2 mt-1 flex-shrink-0">&bull;</span>
+                            <span>Fixed <code class="text-xs">ContentFilterCriteria</code> MySQL syntax</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="accent-red mr-2 mt-1 flex-shrink-0">&bull;</span>
+                            <span><strong>Found and fixed <code class="text-xs">FindReplace("", "-")</code> infinite loop</strong> &mdash; this was hanging zone boot entirely</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="accent-green mr-2 mt-1 flex-shrink-0">&bull;</span>
+                            <span><strong>Character enters Grobb with 121 NPCs spawned!</strong></span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="accent-blue mr-2 mt-1 flex-shrink-0">&bull;</span>
+                            <span>Created migrations 035&ndash;042 for remaining schema gaps discovered during gameplay</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Session 6 -->
+            <div class="timeline-node finale">
+                <div class="timeline-dot"><div class="inner"></div></div>
+                <div class="card p-6" style="border-color: #f0883e;">
+                    <div class="flex items-center gap-3 mb-3">
+                        <span class="session-tag" style="background: rgba(240, 136, 62, 0.15); color: #f0883e;">Session 6</span>
+                        <span class="dim text-sm">June 26 &mdash; 100% PARITY</span>
+                    </div>
+                    <ul class="space-y-2 text-sm" style="line-height: 1.7;">
+                        <li class="flex items-start">
+                            <span class="accent-blue mr-2 mt-1 flex-shrink-0">&bull;</span>
+                            <span>Built comparison script (<code class="text-xs">scripts/compare-pg-to-mysql.py</code>) &mdash; connects to both databases for ground-truth comparison</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="accent-red mr-2 mt-1 flex-shrink-0">&bull;</span>
+                            <span>Initial score: <strong>119/231 (51.5%)</strong> &mdash; 48 missing tables, 73 with column issues</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="accent-blue mr-2 mt-1 flex-shrink-0">&bull;</span>
+                            <span>Migration 043: created all 48 missing tables in one pass</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="accent-blue mr-2 mt-1 flex-shrink-0">&bull;</span>
+                            <span>Migration 044: fixed all column mismatches &mdash; type widening, missing columns, PK corrections</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="accent-blue mr-2 mt-1 flex-shrink-0">&bull;</span>
+                            <span>Cleaned all debug logging from 7 C++ zone files, rebuilt server &mdash; clean compile</span>
+                        </li>
+                        <li class="flex items-start">
+                            <span class="accent-green mr-2 mt-1 flex-shrink-0">&bull;</span>
+                            <span><strong class="text-lg">Final score: 231/231 (100.0%)</strong></span>
+                        </li>
+                    </ul>
+
+                    <!-- Parity bar -->
+                    <div class="mt-6 pt-4 border-t border-[#30363d]">
+                        <div class="flex justify-between text-xs mb-2">
+                            <span class="dim">Schema Parity</span>
+                            <span class="accent-green font-bold">231 / 231</span>
+                        </div>
+                        <div class="w-full h-3 rounded-full" style="background: #21262d;">
+                            <div class="h-3 rounded-full" style="background: linear-gradient(90deg, #238636, #3fb950); width: 100%;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- Section 3: By The Numbers -->
+    <section id="numbers" class="max-w-6xl mx-auto px-6 py-16">
+        <div class="flex items-center mb-8">
+            <span class="section-number" style="background: rgba(63, 185, 80, 0.15); color: #3fb950;">3</span>
+            <h2 class="text-2xl font-bold">By The Numbers</h2>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="stat-card">
+                <div class="number accent-blue">44</div>
+                <div class="label">migration files</div>
+                <div class="dim text-xs mt-1">3,500+ lines of SQL</div>
+            </div>
+            <div class="stat-card">
+                <div class="number accent-blue">290<span class="text-lg">+</span></div>
+                <div class="label">C++ files converted</div>
+            </div>
+            <div class="stat-card">
+                <div class="number accent-purple">250</div>
+                <div class="label">RETURNING id additions</div>
+            </div>
+            <div class="stat-card">
+                <div class="number accent-red">48</div>
+                <div class="label">tables created in final push</div>
+            </div>
+            <div class="stat-card">
+                <div class="number accent-orange">900<span class="text-lg">+</span></div>
+                <div class="label">backtick instances stripped</div>
+            </div>
+            <div class="stat-card">
+                <div class="number accent-blue">6</div>
+                <div class="label">sessions over 6 days</div>
+            </div>
+            <div class="stat-card">
+                <div class="number accent-green">0</div>
+                <div class="label">missing tables remaining</div>
+            </div>
+            <div class="stat-card">
+                <div class="number accent-green">100<span class="text-lg">.0%</span></div>
+                <div class="label">parity score</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section 4: Hardest Bugs -->
+    <section id="bugs" class="max-w-6xl mx-auto px-6 py-16">
+        <div class="flex items-center mb-8">
+            <span class="section-number" style="background: rgba(248, 81, 73, 0.15); color: #f85149;">4</span>
+            <h2 class="text-2xl font-bold">Hardest Bugs</h2>
+        </div>
+
+        <div class="space-y-4">
+
+            <!-- Bug 1 -->
+            <div class="bug-card">
+                <div class="flex items-start mb-3">
+                    <span class="bug-number">1</span>
+                    <h3 class="text-lg font-semibold">FindReplace("", "-") Infinite Loop</h3>
+                </div>
+                <p class="text-sm dim mb-3" style="line-height: 1.7;">
+                    NPC name formatting called <code class="accent-orange text-xs">FindReplace</code> with an empty search string,
+                    causing an infinite loop that hung zone boot completely. The zone process would start, load map data,
+                    connect to the database, begin spawning NPCs &mdash; and then freeze. No error, no crash, no log output. Just silence.
+                </p>
+                <div class="code-block mono text-xs">
+                    <span class="accent-red">// The culprit: empty string search = infinite loop</span><br>
+                    <span class="dim">FindReplace(npc_name,</span> <span class="accent-orange">""</span><span class="dim">,</span> <span class="accent-green">"-"</span><span class="dim">);</span><br><br>
+                    <span class="accent-green">// Found by adding timing instrumentation to Zone::Init</span><br>
+                    <span class="dim">// Each init phase logged its duration &mdash; "SpawnNPCs" never completed</span>
+                </div>
+            </div>
+
+            <!-- Bug 2 -->
+            <div class="bug-card">
+                <div class="flex items-start mb-3">
+                    <span class="bug-number">2</span>
+                    <h3 class="text-lg font-semibold">RETURNING id Across 250 Files</h3>
+                </div>
+                <p class="text-sm dim mb-3" style="line-height: 1.7;">
+                    PostgreSQL <code class="accent-orange text-xs">INSERT</code> doesn't return <code class="accent-orange text-xs">last_insert_id()</code> like MySQL.
+                    Every <code class="accent-orange text-xs">InsertOne</code> method across 250 auto-generated repository files needed
+                    <code class="accent-green text-xs">RETURNING id</code> appended to its INSERT statement. Without it, character creation
+                    would succeed in the database but the server would get back id=0, causing every subsequent operation to fail silently.
+                </p>
+                <div class="code-block mono text-xs">
+                    <span class="accent-red">// MySQL: implicit last_insert_id()</span><br>
+                    <span class="dim">INSERT INTO characters (name, ...) VALUES (...);</span><br>
+                    <span class="dim">auto id = database.LastInsertId();</span><br><br>
+                    <span class="accent-green">// PostgreSQL: explicit RETURNING</span><br>
+                    <span class="dim">INSERT INTO characters (name, ...) VALUES (...) <span class="accent-green">RETURNING id</span>;</span><br>
+                    <span class="dim">auto id = row[0]; </span><span class="accent-green">// returned in the result set</span>
+                </div>
+            </div>
+
+            <!-- Bug 3 -->
+            <div class="bug-card">
+                <div class="flex items-start mb-3">
+                    <span class="bug-number">3</span>
+                    <h3 class="text-lg font-semibold">Boolean DEFAULT Cast Failures</h3>
+                </div>
+                <p class="text-sm dim mb-3" style="line-height: 1.7;">
+                    PostgreSQL refuses to <code class="accent-orange text-xs">ALTER COLUMN</code> from <code class="accent-orange text-xs">BOOLEAN</code>
+                    to <code class="accent-orange text-xs">SMALLINT</code> if the column has a boolean DEFAULT value. The migration would fail with a
+                    type cast error. The fix required a three-step dance for every affected column:
+                    drop the default, alter the type, then re-set the default as an integer.
+                </p>
+                <div class="code-block mono text-xs">
+                    <span class="accent-red">-- This fails:</span><br>
+                    <span class="dim">ALTER COLUMN is_active TYPE SMALLINT USING is_active::integer;</span><br>
+                    <span class="accent-red">-- ERROR: default for column "is_active" cannot be cast to SMALLINT</span><br><br>
+                    <span class="accent-green">-- Three-step fix:</span><br>
+                    <span class="dim">ALTER COLUMN is_active <span class="accent-orange">DROP DEFAULT</span>,</span><br>
+                    <span class="dim">ALTER COLUMN is_active <span class="accent-orange">TYPE SMALLINT</span> USING is_active::integer,</span><br>
+                    <span class="dim">ALTER COLUMN is_active <span class="accent-orange">SET DEFAULT 0</span>;</span>
+                </div>
+            </div>
+
+            <!-- Bug 4 -->
+            <div class="bug-card">
+                <div class="flex items-start mb-3">
+                    <span class="bug-number">4</span>
+                    <h3 class="text-lg font-semibold">Account ID Zero</h3>
+                </div>
+                <p class="text-sm dim mb-3" style="line-height: 1.7;">
+                    The migrated account had <code class="accent-orange text-xs">id=0</code>, but EQEmu treats <code class="accent-orange text-xs">id=0</code> as "not found."
+                    First login worked &mdash; the login server found the account by username. But every subsequent operation queried by account ID,
+                    got back zero, and failed silently. Character list empty. Character creation succeeds but doesn't attach to the account.
+                    A phantom user in a phantom world.
+                </p>
+                <div class="code-block mono text-xs">
+                    <span class="accent-red">// EQEmu pattern throughout the codebase:</span><br>
+                    <span class="dim">auto account_id = GetAccountID(username);</span><br>
+                    <span class="dim">if (account_id == <span class="accent-red">0</span>) {</span><br>
+                    <span class="dim">&nbsp;&nbsp;return "Account not found";</span><br>
+                    <span class="dim">}</span><br><br>
+                    <span class="accent-green">// Fix: PostgreSQL SERIAL starts at 1, but migrated data kept id=0</span><br>
+                    <span class="accent-green">// Solution: UPDATE account SET id = nextval('account_id_seq');</span>
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- Section 5: The Comparison Script -->
+    <section id="comparison" class="max-w-6xl mx-auto px-6 py-16">
+        <div class="flex items-center mb-8">
+            <span class="section-number" style="background: rgba(240, 136, 62, 0.15); color: #f0883e;">5</span>
+            <h2 class="text-2xl font-bold">The Comparison Script</h2>
+        </div>
+
+        <div class="card p-6 mb-6">
+            <p class="text-sm dim mb-4" style="line-height: 1.7;">
+                The permanent ground truth for schema parity. <code class="accent-orange text-xs">scripts/compare-pg-to-mysql.py</code>
+                connects to both MariaDB (port 3306, database <code class="text-xs">peq</code>) and PostgreSQL (port 5433, database <code class="text-xs">adif</code>),
+                enumerates every table and column, and produces a detailed comparison report. It's rerunnable at any time &mdash;
+                run it after any migration to verify nothing regressed.
+            </p>
+
+            <h4 class="text-sm font-semibold mb-3">What it checks:</h4>
+            <div class="grid md:grid-cols-2 gap-3 mb-4">
+                <div class="flex items-center text-sm">
+                    <span class="w-2 h-2 rounded-full mr-3 flex-shrink-0" style="background: #58a6ff;"></span>
+                    <span>Table presence in both databases</span>
+                </div>
+                <div class="flex items-center text-sm">
+                    <span class="w-2 h-2 rounded-full mr-3 flex-shrink-0" style="background: #58a6ff;"></span>
+                    <span>Column names and order</span>
+                </div>
+                <div class="flex items-center text-sm">
+                    <span class="w-2 h-2 rounded-full mr-3 flex-shrink-0" style="background: #58a6ff;"></span>
+                    <span>Column types (with MySQL &rarr; PG type mapping)</span>
+                </div>
+                <div class="flex items-center text-sm">
+                    <span class="w-2 h-2 rounded-full mr-3 flex-shrink-0" style="background: #58a6ff;"></span>
+                    <span>Primary key definitions</span>
+                </div>
+                <div class="flex items-center text-sm">
+                    <span class="w-2 h-2 rounded-full mr-3 flex-shrink-0" style="background: #58a6ff;"></span>
+                    <span>Missing columns in either direction</span>
+                </div>
+                <div class="flex items-center text-sm">
+                    <span class="w-2 h-2 rounded-full mr-3 flex-shrink-0" style="background: #58a6ff;"></span>
+                    <span>Extra PG-only tables (ADIF additions)</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="card p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h4 class="text-sm font-semibold">Final Output</h4>
+                <span class="stat-pill text-xs"><span class="accent-green font-bold">PASS</span></span>
+            </div>
+            <div class="code-block mono">
+<span class="dim">$ python scripts/compare-pg-to-mysql.py</span>
+
+<span class="accent-blue font-bold">╔══════════════════════════════════════════════════╗</span>
+<span class="accent-blue font-bold">║        MariaDB vs PostgreSQL Schema Compare       ║</span>
+<span class="accent-blue font-bold">╚══════════════════════════════════════════════════╝</span>
+
+<span class="accent-blue">MariaDB tables:</span>  231
+<span class="accent-blue">PostgreSQL tables:</span>  243   <span class="dim">(12 ADIF-only additions)</span>
+
+<span class="accent-green">━━━ SUMMARY ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+<span class="accent-green">Perfect matches:</span>    231
+<span class="accent-red">Missing from PG:</span>      0
+<span class="accent-orange">Column mismatches:</span>    0
+<span class="accent-purple">PG-only tables:</span>      12
+
+<span class="accent-green font-bold">════════════════════════════════════════════════════</span>
+<span class="accent-green font-bold">  PARITY SCORE:  231 / 231  (100.0%)</span>
+<span class="accent-green font-bold">════════════════════════════════════════════════════</span>
+            </div>
+        </div>
+
+        <div class="card p-4 mt-4" style="border-color: #30363d;">
+            <div class="flex items-start gap-3">
+                <span class="accent-orange text-lg flex-shrink-0">&#9432;</span>
+                <p class="text-sm dim" style="line-height: 1.7;">
+                    The script also supports <code class="accent-orange text-xs">--generate-ddl</code> to output <code class="text-xs">CREATE TABLE</code>
+                    statements for any missing tables, automatically mapping MySQL types to their PostgreSQL equivalents
+                    (<code class="text-xs">TINYINT</code> &rarr; <code class="text-xs">SMALLINT</code>,
+                    <code class="text-xs">DATETIME</code> &rarr; <code class="text-xs">TIMESTAMP</code>,
+                    <code class="text-xs">JSON</code> &rarr; <code class="text-xs">JSONB</code>,
+                    <code class="text-xs">AUTO_INCREMENT</code> &rarr; <code class="text-xs">SERIAL</code>, etc.).
+                    This was used to generate migration 043 in one shot.
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="border-t border-[#30363d] mt-8">
+        <div class="max-w-6xl mx-auto px-6 py-12 text-center">
+            <p class="dim text-sm">Built during the ADIF architecture study phase, June 2026</p>
+            <div class="flex items-center justify-center gap-2 mt-3">
+                <span class="w-2 h-2 rounded-full" style="background: #f85149;"></span>
+                <span class="w-2 h-2 rounded-full" style="background: #58a6ff;"></span>
+                <span class="w-2 h-2 rounded-full" style="background: #3fb950;"></span>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Active nav highlight -->
+    <script>
+        const sections = document.querySelectorAll('section[id]');
+        const navLinks = document.querySelectorAll('.nav-link');
+
+        function updateActiveNav() {
+            let current = '';
+            sections.forEach(section => {
+                const rect = section.getBoundingClientRect();
+                if (rect.top <= 100) {
+                    current = section.getAttribute('id');
+                }
+            });
+
+            navLinks.forEach(link => {
+                link.style.borderBottomColor = 'transparent';
+                link.style.color = '#8b949e';
+                if (link.getAttribute('href') === '#' + current) {
+                    link.style.borderBottomColor = '#58a6ff';
+                    link.style.color = '#c9d1d9';
+                }
+            });
+        }
+
+        window.addEventListener('scroll', updateActiveNav);
+        updateActiveNav();
+    </script>
+
+</body>
+</html>

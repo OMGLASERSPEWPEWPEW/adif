@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ADIF — What ADIF Changes</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  darkMode: 'class',
+  theme: {
+    extend: {
+      colors: {
+        adif: {
+          bg: '#0a0e17',
+          card: '#161b22',
+          border: '#30363d',
+          text: '#c9d1d9',
+          dim: '#8b949e',
+          blue: '#58a6ff',
+          accent: '#58a6ff'
+        }
+      }
+    }
+  }
+}
+</script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+  body { font-family: 'Inter', sans-serif; background: #0a0e17; color: #c9d1d9; }
+  code, .mono { font-family: 'JetBrains Mono', monospace; }
+  .tag-keep { background: #1a3a1a; color: #4ade80; border: 1px solid #2d5a2d; }
+  .tag-upgrade { background: #3a2a1a; color: #f59e0b; border: 1px solid #5a3a1a; }
+  .tag-rethink { background: #3a1a1a; color: #f87171; border: 1px solid #5a2a2a; }
+  .tag-new { background: #1a2a3a; color: #60a5fa; border: 1px solid #2a3a5a; }
+  .card { background: #161b22; border: 1px solid #30363d; }
+  .card:hover { border-color: #58a6ff33; }
+  .why-callout { background: #0d1520; border-left: 3px solid #58a6ff; }
+  .section-anchor { scroll-margin-top: 80px; }
+  .timeline-dot { width: 16px; height: 16px; border-radius: 50%; }
+  .timeline-dot-complete { background: #4ade80; box-shadow: 0 0 12px rgba(74, 222, 128, 0.4); }
+  .timeline-dot-pending { background: #30363d; border: 2px solid #58a6ff; }
+  .timeline-line { height: 3px; background: linear-gradient(90deg, #4ade80 25%, #30363d 25%); }
+  .glow { transition: box-shadow 0.3s ease; }
+  .glow:hover { box-shadow: 0 0 24px rgba(88, 166, 255, 0.08); }
+  .area-number {
+    width: 32px; height: 32px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 700;
+    background: #1a2a3a; color: #58a6ff; border: 1px solid #2a3a5a;
+    flex-shrink: 0;
+  }
+</style>
+</head>
+<body class="min-h-screen">
+
+<!-- Sticky Nav -->
+<nav class="sticky top-0 z-50 bg-adif-bg/95 backdrop-blur border-b border-adif-border px-6 py-3">
+  <div class="max-w-5xl mx-auto flex items-center justify-between">
+    <a href="/" class="text-adif-dim hover:text-adif-blue transition text-sm">&larr; Back to ADIF Docs</a>
+    <span class="text-adif-blue font-bold text-lg">ADIF Roadmap</span>
+    <div class="flex gap-4 text-sm">
+      <a href="#areas" class="text-adif-dim hover:text-adif-blue transition">Changes</a>
+      <a href="#roadmap" class="text-adif-dim hover:text-adif-blue transition">Roadmap</a>
+    </div>
+  </div>
+</nav>
+
+<!-- Header -->
+<header class="max-w-5xl mx-auto px-6 pt-16 pb-10">
+  <h1 class="text-4xl font-extrabold text-white mb-3 tracking-tight">What ADIF Changes</h1>
+  <p class="text-adif-dim text-lg max-w-3xl">11 areas where ADIF modernizes EverQuest's 1999 architecture &mdash; and why each change matters for players.</p>
+  <div class="flex flex-wrap gap-3 mt-8 text-xs mono">
+    <span class="tag-keep px-3 py-1.5 rounded-md font-medium">KEEP &mdash; still the right call</span>
+    <span class="tag-upgrade px-3 py-1.5 rounded-md font-medium">UPGRADE &mdash; better options exist</span>
+    <span class="tag-rethink px-3 py-1.5 rounded-md font-medium">RETHINK &mdash; fundamentally different approach</span>
+    <span class="tag-new px-3 py-1.5 rounded-md font-medium">NEW &mdash; didn't exist in EQ</span>
+  </div>
+</header>
+
+<!-- ============================================================ -->
+<!-- 11 IMPROVEMENT AREAS                                          -->
+<!-- ============================================================ -->
+<section id="areas" class="section-anchor max-w-5xl mx-auto px-6 pb-16">
+
+  <!-- 1. NETWORKING -->
+  <div class="card rounded-lg p-6 mb-5 glow">
+    <div class="flex items-center gap-3 mb-5">
+      <div class="area-number">1</div>
+      <h2 class="text-xl font-bold text-white flex-1">Networking</h2>
+      <span class="tag-upgrade px-3 py-1 rounded-md text-xs mono font-medium">UPGRADE</span>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-6">
+      <div>
+        <h3 class="text-adif-dim font-semibold mb-3 text-sm uppercase tracking-wider">EQ (1999)</h3>
+        <ul class="text-sm space-y-2 text-adif-dim">
+          <li>&#8226; <strong class="text-adif-text">Custom reliability over raw UDP</strong> &mdash; hand-built sequencing, acknowledgments, fragmentation</li>
+          <li>&#8226; <strong class="text-adif-text">No encryption</strong> &mdash; session handshake only, no TLS, no modern auth</li>
+          <li>&#8226; <strong class="text-adif-text">Broadcast everything to everyone</strong> &mdash; every entity update sent to all players in the zone</li>
+        </ul>
+      </div>
+      <div>
+        <h3 class="text-adif-blue font-semibold mb-3 text-sm uppercase tracking-wider">ADIF (Modern)</h3>
+        <ul class="text-sm space-y-2 text-adif-dim">
+          <li>&#8226; <strong class="text-adif-text">ENet or WebRTC</strong> &mdash; proven reliability libraries, no hand-rolled protocol</li>
+          <li>&#8226; <strong class="text-adif-text">Interest management</strong> &mdash; only send updates for nearby entities</li>
+          <li>&#8226; <strong class="text-adif-text">Delta compression</strong> &mdash; only send what changed since last acknowledged state</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="why-callout mt-5 pl-4 py-3 rounded-r text-sm text-adif-dim">
+      <strong class="text-adif-blue">Why it matters:</strong> Supports 100+ players per zone without bandwidth explosion. EQ's "broadcast everything" approach was designed for 56k modems and 30-player raids &mdash; it doesn't scale to modern expectations.
+    </div>
+  </div>
+
+  <!-- 2. SERIALIZATION -->
+  <div class="card rounded-lg p-6 mb-5 glow">
+    <div class="flex items-center gap-3 mb-5">
+      <div class="area-number">2</div>
+      <h2 class="text-xl font-bold text-white flex-1">Serialization</h2>
+      <span class="tag-upgrade px-3 py-1 rounded-md text-xs mono font-medium">UPGRADE</span>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-6">
+      <div>
+        <h3 class="text-adif-dim font-semibold mb-3 text-sm uppercase tracking-wider">EQ (1999)</h3>
+        <ul class="text-sm space-y-2 text-adif-dim">
+          <li>&#8226; <strong class="text-adif-text">Raw C structs on the wire</strong> &mdash; <code class="text-xs bg-adif-bg px-1 rounded">#pragma pack(1)</code>, raw binary memcpy</li>
+          <li>&#8226; <strong class="text-adif-text">Opcode dispatch tables</strong> &mdash; 1-2 byte opcode maps to handler function</li>
+          <li>&#8226; <strong class="text-adif-text">Version-specific patch files</strong> &mdash; different struct layouts per client era, no schema evolution</li>
+        </ul>
+      </div>
+      <div>
+        <h3 class="text-adif-blue font-semibold mb-3 text-sm uppercase tracking-wider">ADIF (Modern)</h3>
+        <ul class="text-sm space-y-2 text-adif-dim">
+          <li>&#8226; <strong class="text-adif-text">Protobuf 3</strong> with <code class="text-xs bg-adif-bg px-1 rounded">buf</code> linting and breaking-change detection</li>
+          <li>&#8226; <strong class="text-adif-text">Type-safe <code class="text-xs">Packet.oneof</code> routing</strong> &mdash; replaces brittle opcode dispatch</li>
+          <li>&#8226; <strong class="text-adif-text">Schema evolution</strong> &mdash; add fields without breaking old clients</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="why-callout mt-5 pl-4 py-3 rounded-r text-sm text-adif-dim">
+      <strong class="text-adif-blue">Why it matters:</strong> No more silent data corruption when fields change. EQ's raw struct approach meant any change to a packet required updating both server and client in lockstep &mdash; Protobuf handles backward compatibility automatically.
+    </div>
+  </div>
+
+  <!-- 3. ENTITY MODEL -->
+  <div class="card rounded-lg p-6 mb-5 glow">
+    <div class="flex items-center gap-3 mb-5">
+      <div class="area-number">3</div>
+      <h2 class="text-xl font-bold text-white flex-1">Entity Model</h2>
+      <span class="tag-rethink px-3 py-1 rounded-md text-xs mono font-medium">RETHINK</span>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-6">
+      <div>
+        <h3 class="text-adif-dim font-semibold mb-3 text-sm uppercase tracking-wider">EQ (1999)</h3>
+        <ul class="text-sm space-y-2 text-adif-dim">
+          <li>&#8226; <strong class="text-adif-text">Deep inheritance hierarchy</strong> &mdash; <code class="text-xs bg-adif-bg px-1 rounded">Entity &rarr; Mob &rarr; NPC &rarr; Client</code></li>
+          <li>&#8226; <strong class="text-adif-text">Everything inherits from Mob</strong> &mdash; HP, level, race, class, position, equipment all in one massive class</li>
+          <li>&#8226; <strong class="text-adif-text">Type checking via downcasting</strong> &mdash; <code class="text-xs bg-adif-bg px-1 rounded">IsClient()</code>, <code class="text-xs bg-adif-bg px-1 rounded">CastToNPC()</code></li>
+        </ul>
+      </div>
+      <div>
+        <h3 class="text-adif-blue font-semibold mb-3 text-sm uppercase tracking-wider">ADIF (Modern)</h3>
+        <ul class="text-sm space-y-2 text-adif-dim">
+          <li>&#8226; <strong class="text-adif-text">Entity-Component-System (ECS)</strong> &mdash; composition over inheritance</li>
+          <li>&#8226; <strong class="text-adif-text">Data-oriented design</strong> &mdash; components stored contiguously in memory for cache performance</li>
+          <li>&#8226; <strong class="text-adif-text">Add entity types without touching existing code</strong> &mdash; just compose new component sets</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="why-callout mt-5 pl-4 py-3 rounded-r text-sm text-adif-dim">
+      <strong class="text-adif-blue">Why it matters:</strong> Add new entity types without touching existing code, and get better cache performance. EQ's Mob class is thousands of lines because every entity type had to fit into the same inheritance chain.
+    </div>
+  </div>
+
+  <!-- 4. DATABASE -->
+  <div class="card rounded-lg p-6 mb-5 glow">
+    <div class="flex items-center gap-3 mb-5">
+      <div class="area-number">4</div>
+      <h2 class="text-xl font-bold text-white flex-1">Database</h2>
+      <span class="tag-upgrade px-3 py-1 rounded-md text-xs mono font-medium">UPGRADE</span>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-6">
+      <div>
+        <h3 class="text-adif-dim font-semibold mb-3 text-sm uppercase tracking-wider">EQ (1999)</h3>
+        <ul class="text-sm space-y-2 text-adif-dim">
+          <li>&#8226; <strong class="text-adif-text">MySQL with 170+ column tables</strong> &mdash; items table has 285 columns, most NULL for any given row</li>
+          <li>&#8226; <strong class="text-adif-text">No normalization</strong> &mdash; flat tables with redundant data</li>
+          <li>&#8226; <strong class="text-adif-text">ORM-free</strong> &mdash; raw SQL queries (this part is correct)</li>
+        </ul>
+      </div>
+      <div>
+        <h3 class="text-adif-blue font-semibold mb-3 text-sm uppercase tracking-wider">ADIF (Modern)</h3>
+        <ul class="text-sm space-y-2 text-adif-dim">
+          <li>&#8226; <strong class="text-adif-text">PostgreSQL with JSONB</strong> &mdash; variable data collapsed into queryable JSON columns</li>
+          <li>&#8226; <strong class="text-adif-text">Proper migrations</strong> &mdash; numbered SQL files with EQEmu comparison comments</li>
+          <li>&#8226; <strong class="text-adif-text">Same ORM-free approach</strong> &mdash; raw SQL for full control over query plans</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="why-callout mt-5 pl-4 py-3 rounded-r text-sm text-adif-dim">
+      <strong class="text-adif-blue">Why it matters:</strong> The items table doesn't need 285 columns. JSONB collapses optional fields into a single queryable column while keeping PostgreSQL's full query engine. Migrations are versioned and documented.
+    </div>
+  </div>
+
+  <!-- 5. THREADING -->
+  <div class="card rounded-lg p-6 mb-5 glow">
+    <div class="flex items-center gap-3 mb-5">
+      <div class="area-number">5</div>
+      <h2 class="text-xl font-bold text-white flex-1">Threading</h2>
+      <span class="tag-rethink px-3 py-1 rounded-md text-xs mono font-medium">RETHINK</span>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-6">
+      <div>
+        <h3 class="text-adif-dim font-semibold mb-3 text-sm uppercase tracking-wider">EQ (1999)</h3>
+        <ul class="text-sm space-y-2 text-adif-dim">
+          <li>&#8226; <strong class="text-adif-text">Single-threaded zone processes</strong> &mdash; one thread handles all game logic per zone</li>
+          <li>&#8226; <strong class="text-adif-text">Async I/O via libuv</strong> &mdash; non-blocking networking, but game logic is sequential</li>
+          <li>&#8226; <strong class="text-adif-text">Process-level parallelism only</strong> &mdash; multiple zones = multiple processes</li>
+        </ul>
+      </div>
+      <div>
+        <h3 class="text-adif-blue font-semibold mb-3 text-sm uppercase tracking-wider">ADIF (Modern)</h3>
+        <ul class="text-sm space-y-2 text-adif-dim">
+          <li>&#8226; <strong class="text-adif-text">Rust with fearless concurrency</strong> &mdash; ownership system prevents data races at compile time</li>
+          <li>&#8226; <strong class="text-adif-text">async/await</strong> &mdash; efficient async I/O without callback hell</li>
+          <li>&#8226; <strong class="text-adif-text">No data races by construction</strong> &mdash; the compiler is the concurrency guardian</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="why-callout mt-5 pl-4 py-3 rounded-r text-sm text-adif-dim">
+      <strong class="text-adif-blue">Why it matters:</strong> Modern hardware has 16+ cores. Single-threaded means 15 cores sit idle. Rust's ownership model makes multi-threaded game logic safe without the fear of race conditions that plagues C++ game servers.
+    </div>
+  </div>
+
+  <!-- 6. COLLISION -->
+  <div class="card rounded-lg p-6 mb-5 glow">
+    <div class="flex items-center gap-3 mb-5">
+      <div class="area-number">6</div>
+      <h2 class="text-xl font-bold text-white flex-1">Collision</h2>
+      <span class="tag-keep px-3 py-1 rounded-md text-xs mono font-medium">KEEP</span>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-6">
+      <div>
+        <h3 class="text-adif-dim font-semibold mb-3 text-sm uppercase tracking-wider">EQ (1999)</h3>
+        <ul class="text-sm space-y-2 text-adif-dim">
+          <li>&#8226; <strong class="text-adif-text">AABB tree of triangles</strong> &mdash; <code class="text-xs bg-adif-bg px-1 rounded">.map</code> files with axis-aligned bounding box hierarchy</li>
+          <li>&#8226; <strong class="text-adif-text">Line-of-sight raycasting</strong> &mdash; fast ray-triangle intersection for LoS checks</li>
+          <li>&#8226; <strong class="text-adif-text">Ground detection</strong> &mdash; vertical ray cast to find walkable surface</li>
+        </ul>
+      </div>
+      <div>
+        <h3 class="text-adif-blue font-semibold mb-3 text-sm uppercase tracking-wider">ADIF (Modern)</h3>
+        <ul class="text-sm space-y-2 text-adif-dim">
+          <li>&#8226; <strong class="text-adif-text">Same approach works</strong> &mdash; AABB trees are still optimal for static geometry queries</li>
+          <li>&#8226; <strong class="text-adif-text">Voxel zones generate the same triangle tree</strong> &mdash; geometry format is pluggable, collision interface stays the same</li>
+          <li>&#8226; <strong class="text-adif-text">Proven across 25 years</strong> &mdash; battle-tested at scale</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="why-callout mt-5 pl-4 py-3 rounded-r text-sm text-adif-dim">
+      <strong class="text-adif-blue">Why it matters:</strong> If it ain't broke &mdash; this design is proven across 25 years of production use. The <code class="text-xs bg-adif-bg px-1 rounded">Map</code> interface abstracts collision from geometry format, so voxel zones slot in without changing a single line of game logic.
+    </div>
+  </div>
+
+  <!-- 7. PATHFINDING -->
+  <div class="card rounded-lg p-6 mb-5 glow">
+    <div class="flex items-center gap-3 mb-5">
+      <div class="area-number">7</div>
+      <h2 class="text-xl font-bold text-white flex-1">Pathfinding</h2>
+      <span class="tag-keep px-3 py-1 rounded-md text-xs mono font-medium">KEEP</span>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-6">
+      <div>
+        <h3 class="text-adif-dim font-semibold mb-3 text-sm uppercase tracking-wider">EQ (1999)</h3>
+        <ul class="text-sm space-y-2 text-adif-dim">
+          <li>&#8226; <strong class="text-adif-text">Recast/Detour NavMesh</strong> &mdash; <code class="text-xs bg-adif-bg px-1 rounded">.nav</code> files generated from zone geometry</li>
+          <li>&#8226; <strong class="text-adif-text">Industry standard library</strong> &mdash; same tech used by AAA engines</li>
+          <li>&#8226; <strong class="text-adif-text">Terrain-aware pathfinding</strong> &mdash; NPCs navigate around obstacles, up slopes, through doorways</li>
+        </ul>
+      </div>
+      <div>
+        <h3 class="text-adif-blue font-semibold mb-3 text-sm uppercase tracking-wider">ADIF (Modern)</h3>
+        <ul class="text-sm space-y-2 text-adif-dim">
+          <li>&#8226; <strong class="text-adif-text">Same library, same approach</strong> &mdash; Recast/Detour is the gold standard</li>
+          <li>&#8226; <strong class="text-adif-text">Used by Unreal, Unity, and every serious game</strong></li>
+          <li>&#8226; <strong class="text-adif-text">No reason to replace it</strong> &mdash; the <code class="text-xs bg-adif-bg px-1 rounded">IPathfinder</code> interface keeps it decoupled</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="why-callout mt-5 pl-4 py-3 rounded-r text-sm text-adif-dim">
+      <strong class="text-adif-blue">Why it matters:</strong> Used by Unreal, Unity, and every serious game engine. There is no better option for navmesh-based pathfinding. The <code class="text-xs bg-adif-bg px-1 rounded">IPathfinder</code> interface means ADIF can swap implementations without affecting NPC behavior.
+    </div>
+  </div>
+
+  <!-- 8. QUEST SCRIPTING -->
+  <div class="card rounded-lg p-6 mb-5 glow">
+    <div class="flex items-center gap-3 mb-5">
+      <div class="area-number">8</div>
+      <h2 class="text-xl font-bold text-white flex-1">Quest Scripting</h2>
+      <span class="tag-upgrade px-3 py-1 rounded-md text-xs mono font-medium">UPGRADE</span>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-6">
+      <div>
+        <h3 class="text-adif-dim font-semibold mb-3 text-sm uppercase tracking-wider">EQ (1999)</h3>
+        <ul class="text-sm space-y-2 text-adif-dim">
+          <li>&#8226; <strong class="text-adif-text">Embedded Perl interpreter + Lua</strong> &mdash; two scripting runtimes in the same process</li>
+          <li>&#8226; <strong class="text-adif-text">Event-driven model</strong> &mdash; <code class="text-xs bg-adif-bg px-1 rounded">EVENT_SAY</code>, <code class="text-xs bg-adif-bg px-1 rounded">EVENT_DEATH</code>, <code class="text-xs bg-adif-bg px-1 rounded">EVENT_SPAWN</code></li>
+          <li>&#8226; <strong class="text-adif-text">Perl is fragile</strong> &mdash; string manipulation bugs cause infinite loops and crashes</li>
+        </ul>
+      </div>
+      <div>
+        <h3 class="text-adif-blue font-semibold mb-3 text-sm uppercase tracking-wider">ADIF (Modern)</h3>
+        <ul class="text-sm space-y-2 text-adif-dim">
+          <li>&#8226; <strong class="text-adif-text">Lua-only</strong> &mdash; drop Perl entirely, one fast embeddable runtime</li>
+          <li>&#8226; <strong class="text-adif-text">Same event model</strong> &mdash; the event-driven pattern is excellent, keep it</li>
+          <li>&#8226; <strong class="text-adif-text">Hot-reload + better debugging</strong> &mdash; edit quests without restarting the zone</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="why-callout mt-5 pl-4 py-3 rounded-r text-sm text-adif-dim">
+      <strong class="text-adif-blue">Why it matters:</strong> Perl is fragile &mdash; a misplaced <code class="text-xs bg-adif-bg px-1 rounded">FindReplace("", "-")</code> can cause an infinite loop. Lua is fast, embeddable, and battle-tested in game engines from World of Warcraft to Roblox. Hot-reload means content creators can iterate without waiting for zone restarts.
+    </div>
+  </div>
+
+  <!-- 9. GAME LOOP -->
+  <div class="card rounded-lg p-6 mb-5 glow">
+    <div class="flex items-center gap-3 mb-5">
+      <div class="area-number">9</div>
+      <h2 class="text-xl font-bold text-white flex-1">Game Loop</h2>
+      <span class="tag-upgrade px-3 py-1 rounded-md text-xs mono font-medium">UPGRADE</span>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-6">
+      <div>
+        <h3 class="text-adif-dim font-semibold mb-3 text-sm uppercase tracking-wider">EQ (1999)</h3>
+        <ul class="text-sm space-y-2 text-adif-dim">
+          <li>&#8226; <strong class="text-adif-text">Variable tick rate (~10 Hz)</strong> &mdash; game loop runs as fast as it can, capped loosely</li>
+          <li>&#8226; <strong class="text-adif-text">Timer-based scheduling</strong> &mdash; events fire on wall-clock timers, not simulation ticks</li>
+          <li>&#8226; <strong class="text-adif-text">Non-deterministic</strong> &mdash; results vary with server load and timing</li>
+        </ul>
+      </div>
+      <div>
+        <h3 class="text-adif-blue font-semibold mb-3 text-sm uppercase tracking-wider">ADIF (Modern)</h3>
+        <ul class="text-sm space-y-2 text-adif-dim">
+          <li>&#8226; <strong class="text-adif-text">Fixed tick rate</strong> &mdash; consistent simulation step, rendering interpolates between ticks</li>
+          <li>&#8226; <strong class="text-adif-text">Deterministic simulation</strong> &mdash; same inputs always produce same outputs</li>
+          <li>&#8226; <strong class="text-adif-text">Interpolation</strong> &mdash; smooth visuals regardless of tick rate</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="why-callout mt-5 pl-4 py-3 rounded-r text-sm text-adif-dim">
+      <strong class="text-adif-blue">Why it matters:</strong> Reproducible behavior, easier debugging, fairer combat at high latency. When the game loop is deterministic, a bug report can be replayed tick-by-tick. Variable tick rates mean combat outcomes depend on server load.
+    </div>
+  </div>
+
+  <!-- 10. ZONE LOADING -->
+  <div class="card rounded-lg p-6 mb-5 glow">
+    <div class="flex items-center gap-3 mb-5">
+      <div class="area-number">10</div>
+      <h2 class="text-xl font-bold text-white flex-1">Zone Loading</h2>
+      <span class="tag-rethink px-3 py-1 rounded-md text-xs mono font-medium">RETHINK</span>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-6">
+      <div>
+        <h3 class="text-adif-dim font-semibold mb-3 text-sm uppercase tracking-wider">EQ (1999)</h3>
+        <ul class="text-sm space-y-2 text-adif-dim">
+          <li>&#8226; <strong class="text-adif-text">Load entire zone at boot</strong> &mdash; all geometry, all spawn data, all scripts loaded into memory</li>
+          <li>&#8226; <strong class="text-adif-text">All NPCs spawned immediately</strong> &mdash; every mob in the zone exists from the moment the zone boots</li>
+          <li>&#8226; <strong class="text-adif-text">Fixed zone boundaries</strong> &mdash; zones are pre-defined, static containers</li>
+        </ul>
+      </div>
+      <div>
+        <h3 class="text-adif-blue font-semibold mb-3 text-sm uppercase tracking-wider">ADIF (Modern)</h3>
+        <ul class="text-sm space-y-2 text-adif-dim">
+          <li>&#8226; <strong class="text-adif-text">Streaming/chunked loading</strong> &mdash; load geometry progressively as players explore</li>
+          <li>&#8226; <strong class="text-adif-text">Dynamic spawn radius</strong> &mdash; NPCs activate near players, hibernate when distant</li>
+          <li>&#8226; <strong class="text-adif-text">Enables larger zones</strong> &mdash; no upper bound tied to boot-time memory loading</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="why-callout mt-5 pl-4 py-3 rounded-r text-sm text-adif-dim">
+      <strong class="text-adif-blue">Why it matters:</strong> Enables larger zones without 6-second boot times. EQ's approach of loading everything up front worked when zones were small &mdash; but a modern open-world zone with thousands of NPCs needs smarter resource management.
+    </div>
+  </div>
+
+  <!-- 11. INTER-PROCESS COMMUNICATION -->
+  <div class="card rounded-lg p-6 mb-5 glow">
+    <div class="flex items-center gap-3 mb-5">
+      <div class="area-number">11</div>
+      <h2 class="text-xl font-bold text-white flex-1">Inter-Process Communication</h2>
+      <span class="tag-upgrade px-3 py-1 rounded-md text-xs mono font-medium">UPGRADE</span>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-6">
+      <div>
+        <h3 class="text-adif-dim font-semibold mb-3 text-sm uppercase tracking-wider">EQ (1999)</h3>
+        <ul class="text-sm space-y-2 text-adif-dim">
+          <li>&#8226; <strong class="text-adif-text">Custom TCP protocol</strong> &mdash; hand-rolled message passing between world and zone processes</li>
+          <li>&#8226; <strong class="text-adif-text">Raw struct passing</strong> &mdash; same C struct serialization used for client packets</li>
+          <li>&#8226; <strong class="text-adif-text">Fragile coupling</strong> &mdash; adding a new IPC message means editing multiple files</li>
+        </ul>
+      </div>
+      <div>
+        <h3 class="text-adif-blue font-semibold mb-3 text-sm uppercase tracking-wider">ADIF (Modern)</h3>
+        <ul class="text-sm space-y-2 text-adif-dim">
+          <li>&#8226; <strong class="text-adif-text">Protobuf over TCP or gRPC</strong> &mdash; schema-defined messages with code generation</li>
+          <li>&#8226; <strong class="text-adif-text">Same cluster model</strong> &mdash; the zone/world/login architecture is proven, keep it</li>
+          <li>&#8226; <strong class="text-adif-text">Type-safe IPC</strong> &mdash; compiler catches message format errors, not runtime crashes</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="why-callout mt-5 pl-4 py-3 rounded-r text-sm text-adif-dim">
+      <strong class="text-adif-blue">Why it matters:</strong> Type-safe IPC makes it easy to add new message types without the fear of breaking existing ones. The cluster model itself is sound &mdash; the wire format just needs to graduate from raw structs to a real schema.
+    </div>
+  </div>
+
+</section>
+
+<!-- ============================================================ -->
+<!-- 4-MILESTONE ROADMAP                                           -->
+<!-- ============================================================ -->
+<section id="roadmap" class="section-anchor max-w-5xl mx-auto px-6 pb-24">
+  <h2 class="text-2xl font-bold text-white mb-2">Roadmap</h2>
+  <p class="text-adif-dim mb-10">Four milestones from architecture study to playable prototype.</p>
+
+  <!-- Desktop timeline -->
+  <div class="hidden md:block">
+    <!-- Timeline bar -->
+    <div class="relative">
+      <div class="absolute top-[7px] left-0 right-0 h-[3px] bg-adif-border rounded"></div>
+      <div class="absolute top-[7px] left-0 w-[25%] h-[3px] rounded" style="background: linear-gradient(90deg, #4ade80, #4ade80)"></div>
+      <div class="grid grid-cols-4 relative">
+        <!-- Milestone 1 -->
+        <div class="flex flex-col items-center">
+          <div class="timeline-dot timeline-dot-complete z-10"></div>
+          <div class="card rounded-lg p-5 mt-6 w-full mr-2 glow">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="text-xs mono font-medium text-green-400 bg-green-400/10 px-2 py-0.5 rounded">COMPLETE</span>
+            </div>
+            <h3 class="text-white font-bold mb-1">Milestone 1</h3>
+            <p class="text-sm font-semibold text-adif-text mb-2">PostgreSQL Migration</p>
+            <p class="text-xs text-adif-dim">Full database migration from MySQL to PostgreSQL with JSONB columns, numbered migrations, and 1.8M rows imported.</p>
+          </div>
+        </div>
+        <!-- Milestone 2 -->
+        <div class="flex flex-col items-center">
+          <div class="timeline-dot timeline-dot-pending z-10"></div>
+          <div class="card rounded-lg p-5 mt-6 w-full mx-1 glow">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="text-xs mono font-medium text-adif-blue bg-adif-blue/10 px-2 py-0.5 rounded">NEXT</span>
+            </div>
+            <h3 class="text-white font-bold mb-1">Milestone 2</h3>
+            <p class="text-sm font-semibold text-adif-text mb-2">Protobuf Protocol Layer</p>
+            <p class="text-xs text-adif-dim">Define all client-server and IPC messages in Protobuf 3. Set up buf linting, breaking-change detection, and code generation.</p>
+          </div>
+        </div>
+        <!-- Milestone 3 -->
+        <div class="flex flex-col items-center">
+          <div class="timeline-dot timeline-dot-pending z-10"></div>
+          <div class="card rounded-lg p-5 mt-6 w-full mx-1 glow">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="text-xs mono font-medium text-adif-dim bg-adif-dim/10 px-2 py-0.5 rounded">PLANNED</span>
+            </div>
+            <h3 class="text-white font-bold mb-1">Milestone 3</h3>
+            <p class="text-sm font-semibold text-adif-text mb-2">Rust Zone Server</p>
+            <p class="text-xs text-adif-dim">Proof-of-concept zone server in Rust. Single zone, basic entity spawning, client connection, and movement handling.</p>
+          </div>
+        </div>
+        <!-- Milestone 4 -->
+        <div class="flex flex-col items-center">
+          <div class="timeline-dot timeline-dot-pending z-10"></div>
+          <div class="card rounded-lg p-5 mt-6 w-full ml-1 glow">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="text-xs mono font-medium text-adif-dim bg-adif-dim/10 px-2 py-0.5 rounded">PLANNED</span>
+            </div>
+            <h3 class="text-white font-bold mb-1">Milestone 4</h3>
+            <p class="text-sm font-semibold text-adif-text mb-2">Voxel Zone Experiment</p>
+            <p class="text-xs text-adif-dim">Innothule Swamp as a voxel zone proof-of-concept. Demonstrate that voxel geometry plugs into the same Map/WaterMap/IPathfinder interfaces.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile timeline (stacked) -->
+  <div class="md:hidden space-y-4">
+    <div class="card rounded-lg p-5 glow border-l-4" style="border-left-color: #4ade80;">
+      <div class="flex items-center gap-2 mb-2">
+        <span class="text-xs mono font-medium text-green-400 bg-green-400/10 px-2 py-0.5 rounded">COMPLETE</span>
+      </div>
+      <h3 class="text-white font-bold mb-1">Milestone 1 &mdash; PostgreSQL Migration</h3>
+      <p class="text-xs text-adif-dim">Full database migration from MySQL to PostgreSQL with JSONB columns, numbered migrations, and 1.8M rows imported.</p>
+    </div>
+    <div class="card rounded-lg p-5 glow border-l-4" style="border-left-color: #58a6ff;">
+      <div class="flex items-center gap-2 mb-2">
+        <span class="text-xs mono font-medium text-adif-blue bg-adif-blue/10 px-2 py-0.5 rounded">NEXT</span>
+      </div>
+      <h3 class="text-white font-bold mb-1">Milestone 2 &mdash; Protobuf Protocol Layer</h3>
+      <p class="text-xs text-adif-dim">Define all client-server and IPC messages in Protobuf 3. Set up buf linting, breaking-change detection, and code generation.</p>
+    </div>
+    <div class="card rounded-lg p-5 glow border-l-4" style="border-left-color: #30363d;">
+      <div class="flex items-center gap-2 mb-2">
+        <span class="text-xs mono font-medium text-adif-dim bg-adif-dim/10 px-2 py-0.5 rounded">PLANNED</span>
+      </div>
+      <h3 class="text-white font-bold mb-1">Milestone 3 &mdash; Rust Zone Server</h3>
+      <p class="text-xs text-adif-dim">Proof-of-concept zone server in Rust. Single zone, basic entity spawning, client connection, and movement handling.</p>
+    </div>
+    <div class="card rounded-lg p-5 glow border-l-4" style="border-left-color: #30363d;">
+      <div class="flex items-center gap-2 mb-2">
+        <span class="text-xs mono font-medium text-adif-dim bg-adif-dim/10 px-2 py-0.5 rounded">PLANNED</span>
+      </div>
+      <h3 class="text-white font-bold mb-1">Milestone 4 &mdash; Voxel Zone Experiment</h3>
+      <p class="text-xs text-adif-dim">Innothule Swamp as a voxel zone proof-of-concept. Demonstrate that voxel geometry plugs into the same Map/WaterMap/IPathfinder interfaces.</p>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer class="border-t border-adif-border py-8 text-center text-xs text-adif-dim">
+  <p>ADIF &mdash; Another Day In Forever</p>
+</footer>
+
+</body>
+</html>

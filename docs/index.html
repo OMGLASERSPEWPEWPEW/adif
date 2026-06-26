@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ADIF — Another Day In Forever</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+  body { font-family: 'Inter', sans-serif; background: #0a0e17; color: #c9d1d9; }
+  code, .mono { font-family: 'JetBrains Mono', monospace; }
+  .card-link {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 12px;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: block;
+  }
+  .card-link:hover {
+    border-color: #58a6ff;
+    transform: translateY(-4px);
+    box-shadow: 0 8px 30px rgba(88, 166, 255, 0.12);
+  }
+  .card-link:hover .card-title { color: #58a6ff; }
+  .card-link:hover .card-arrow { transform: translateX(4px); opacity: 1; }
+  .card-arrow { transition: all 0.3s; opacity: 0.4; }
+  .tag { border-radius: 999px; font-size: 11px; padding: 2px 10px; font-weight: 500; }
+  .tag-study { background: #1a2a3a; color: #58a6ff; }
+  .tag-vision { background: #2a1a3a; color: #bc8cff; }
+  .tag-done { background: #1a3a1a; color: #3fb950; }
+  .pulse { animation: pulse 3s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
+  .gradient-bg {
+    background: radial-gradient(ellipse at 50% 0%, rgba(88, 166, 255, 0.08) 0%, transparent 60%);
+  }
+</style>
+</head>
+<body class="min-h-screen gradient-bg">
+
+<div class="max-w-4xl mx-auto px-6">
+
+  <!-- Hero -->
+  <header class="pt-20 pb-16 text-center">
+    <div class="flex items-center justify-center gap-3 mb-6">
+      <div class="w-2 h-2 rounded-full bg-green-400 pulse"></div>
+      <span class="text-xs mono text-gray-500 uppercase tracking-[0.2em]">Architecture Study Phase</span>
+    </div>
+    <h1 class="text-5xl font-bold text-white mb-4 tracking-tight">ADIF</h1>
+    <p class="text-xl text-gray-400 mb-2">Another Day In Forever</p>
+    <p class="text-sm text-gray-500 max-w-xl mx-auto leading-relaxed">An EverQuest-inspired MMORPG. Not a mod, fork, or private server — a new game built on lessons learned from 25 years of the genre EQ created.</p>
+  </header>
+
+  <!-- Cards -->
+  <div class="space-y-4 pb-20">
+
+    <!-- How EQ Works -->
+    <a href="how-eq-works.html" class="card-link p-6">
+      <div class="flex items-start justify-between">
+        <div class="flex-1">
+          <div class="flex items-center gap-3 mb-3">
+            <span class="tag tag-study">Study</span>
+            <span class="text-xs text-gray-600 mono">3 tabs</span>
+          </div>
+          <h2 class="card-title text-xl font-semibold text-white mb-2 transition-colors">How EverQuest Works</h2>
+          <p class="text-sm text-gray-400 leading-relaxed">A technical deep-dive into the architecture of a 1999 MMORPG. Server cluster model, zone geometry, database schema, combat formulas, NPC AI — from the player experience down to the packet level.</p>
+          <div class="flex gap-4 mt-4 text-xs text-gray-600">
+            <span>Server Architecture</span>
+            <span class="text-gray-700">|</span>
+            <span>Player Experience → Tech</span>
+            <span class="text-gray-700">|</span>
+            <span>Full System Deep-Dive</span>
+          </div>
+        </div>
+        <div class="card-arrow text-gray-500 text-2xl ml-4 mt-2">→</div>
+      </div>
+    </a>
+
+    <!-- What ADIF Changes -->
+    <a href="adif-roadmap.html" class="card-link p-6">
+      <div class="flex items-start justify-between">
+        <div class="flex-1">
+          <div class="flex items-center gap-3 mb-3">
+            <span class="tag tag-vision">Vision</span>
+            <span class="text-xs text-gray-600 mono">11 areas + roadmap</span>
+          </div>
+          <h2 class="card-title text-xl font-semibold text-white mb-2 transition-colors">What ADIF Changes</h2>
+          <p class="text-sm text-gray-400 leading-relaxed">11 areas where ADIF modernizes EverQuest's architecture — from PostgreSQL and Protobuf to ECS and Rust. Each area shows what EQ did, what ADIF does differently, and why it matters for players.</p>
+          <div class="flex gap-4 mt-4 text-xs">
+            <span class="text-green-600">4 KEEP</span>
+            <span class="text-gray-700">|</span>
+            <span class="text-amber-600">4 UPGRADE</span>
+            <span class="text-gray-700">|</span>
+            <span class="text-red-500">3 RETHINK</span>
+          </div>
+        </div>
+        <div class="card-arrow text-gray-500 text-2xl ml-4 mt-2">→</div>
+      </div>
+    </a>
+
+    <!-- PostgreSQL Postmortem -->
+    <a href="postgresql-postmortem.html" class="card-link p-6">
+      <div class="flex items-start justify-between">
+        <div class="flex-1">
+          <div class="flex items-center gap-3 mb-3">
+            <span class="tag tag-done">Complete</span>
+            <span class="text-xs text-gray-600 mono">June 21–26, 2026</span>
+          </div>
+          <h2 class="card-title text-xl font-semibold text-white mb-2 transition-colors">PostgreSQL Migration Postmortem</h2>
+          <p class="text-sm text-gray-400 leading-relaxed">How we moved an MMORPG server from MySQL to PostgreSQL in 6 sessions. 290+ C++ files converted, 44 migrations written, 231 tables at 100% parity. The bugs, the breakthroughs, and the comparison script that proved it.</p>
+          <div class="flex gap-4 mt-4 text-xs text-gray-600">
+            <span>44 migrations</span>
+            <span class="text-gray-700">|</span>
+            <span>290+ C++ files</span>
+            <span class="text-gray-700">|</span>
+            <span class="text-green-600 font-medium">231/231 parity</span>
+          </div>
+        </div>
+        <div class="card-arrow text-gray-500 text-2xl ml-4 mt-2">→</div>
+      </div>
+    </a>
+
+  </div>
+
+  <!-- Footer -->
+  <footer class="border-t border-gray-800/50 py-8 text-center text-xs text-gray-600">
+    <p>ADIF Architecture Study — June 2026</p>
+  </footer>
+
+</div>
+
+</body>
+</html>

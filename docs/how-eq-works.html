@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How EverQuest Works — Architecture Deep Dive</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+  body { font-family: 'Inter', sans-serif; background: #0a0e17; color: #c9d1d9; }
+  code, .mono { font-family: 'JetBrains Mono', monospace; }
+  .tab-btn { transition: all 0.2s; }
+  .tab-btn.active { color: #58a6ff; border-color: #58a6ff; }
+  .tab-btn:not(.active) { color: #8b949e; border-color: transparent; }
+  .tab-btn:hover:not(.active) { color: #c9d1d9; border-color: #30363d; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+  .glow { box-shadow: 0 0 20px rgba(88, 166, 255, 0.1); }
+  .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; }
+  .card-accent { border-left: 3px solid #58a6ff; }
+  .process-node { background: #1c2333; border: 2px solid #30363d; border-radius: 12px; transition: all 0.3s; }
+  .process-node:hover { border-color: #58a6ff; transform: translateY(-2px); box-shadow: 0 4px 20px rgba(88, 166, 255, 0.15); }
+  .flow-arrow { color: #58a6ff; }
+  .highlight { background: linear-gradient(135deg, #1a2332 0%, #162030 100%); }
+  .stat-pill { background: #21262d; border: 1px solid #30363d; border-radius: 999px; }
+  .timeline-line { width: 2px; background: linear-gradient(to bottom, #58a6ff, #30363d); }
+  .timeline-dot { width: 12px; height: 12px; background: #58a6ff; border-radius: 50%; border: 2px solid #0a0e17; }
+  .data-table th { background: #161b22; position: sticky; top: 0; }
+  .data-table td, .data-table th { border: 1px solid #21262d; }
+  .expand-btn { cursor: pointer; user-select: none; }
+  .expand-content { max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out; }
+  .expand-content.open { max-height: 2000px; }
+  .svg-diagram text { font-family: 'Inter', sans-serif; }
+  .pulse { animation: pulse 2s infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+  .gradient-text { background: linear-gradient(135deg, #58a6ff, #bc8cff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+</style>
+</head>
+<body class="min-h-screen">
+
+<!-- Header -->
+<header class="border-b border-gray-800 bg-[#0d1117]">
+  <div class="max-w-6xl mx-auto px-6 py-8">
+    <div class="flex items-center gap-3 mb-2">
+      <div class="w-2 h-2 rounded-full bg-green-400 pulse"></div>
+      <span class="text-xs mono text-gray-500 uppercase tracking-widest">ADIF Architecture Study</span>
+    </div>
+    <h1 class="text-4xl font-bold text-white mb-2">How EverQuest Works</h1>
+    <p class="text-lg text-gray-400 max-w-2xl">A technical deep-dive into the architecture of a 1999 MMORPG that pioneered the genre. From cluster topology to combat formulas — how 500,000 concurrent players were served by technology older than most of its players.</p>
+    <div class="flex gap-3 mt-4">
+      <span class="stat-pill px-3 py-1 text-xs mono text-gray-400">231 database tables</span>
+      <span class="stat-pill px-3 py-1 text-xs mono text-gray-400">500+ zones</span>
+      <span class="stat-pill px-3 py-1 text-xs mono text-gray-400">~100k NPCs</span>
+      <span class="stat-pill px-3 py-1 text-xs mono text-gray-400">Released March 16, 1999</span>
+    </div>
+  </div>
+</header>
+
+<!-- Tab Navigation -->
+<nav class="border-b border-gray-800 bg-[#0d1117] sticky top-0 z-50">
+  <div class="max-w-6xl mx-auto px-6">
+    <div class="flex gap-0">
+      <button class="tab-btn active px-5 py-3 text-sm font-medium border-b-2" onclick="switchTab('arch')">
+        Server Architecture
+      </button>
+      <button class="tab-btn px-5 py-3 text-sm font-medium border-b-2" onclick="switchTab('player')">
+        Player Experience → Tech
+      </button>
+      <button class="tab-btn px-5 py-3 text-sm font-medium border-b-2" onclick="switchTab('deep')">
+        Full System Deep-Dive
+      </button>
+    </div>
+  </div>
+</nav>
+
+<main class="max-w-6xl mx-auto px-6 py-10">
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- TAB 1: Server Architecture -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div id="tab-arch" class="tab-content active">
+
+  <h2 class="text-2xl font-bold text-white mb-6">The Cluster Model</h2>
+  <p class="text-gray-400 mb-8 max-w-3xl">EverQuest runs as a cluster of independent processes. There is no single "game server" — instead, five types of processes cooperate, connected through the world server and a shared database. This design was radical in 1999 and remains the foundation for most MMO server architectures today.</p>
+
+  <!-- Cluster Diagram -->
+  <div class="card p-6 mb-10">
+    <svg viewBox="0 0 900 520" class="w-full svg-diagram" style="max-height: 520px;">
+      <!-- Background grid -->
+      <defs>
+        <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+          <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#1c2333" stroke-width="0.5"/>
+        </pattern>
+        <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+          <polygon points="0 0, 10 3.5, 0 7" fill="#58a6ff" opacity="0.7"/>
+        </marker>
+        <marker id="arrowhead-green" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+          <polygon points="0 0, 10 3.5, 0 7" fill="#3fb950" opacity="0.7"/>
+        </marker>
+      </defs>
+      <rect width="900" height="520" fill="#0d1117" rx="8"/>
+      <rect width="900" height="520" fill="url(#grid)" rx="8"/>
+
+      <!-- EQ Client -->
+      <rect x="30" y="220" width="140" height="70" rx="10" fill="#1a1f2e" stroke="#8b5cf6" stroke-width="2"/>
+      <text x="100" y="248" text-anchor="middle" fill="#c4b5fd" font-size="11" font-weight="600">EQ CLIENT</text>
+      <text x="100" y="268" text-anchor="middle" fill="#8b949e" font-size="9">eqgame.exe</text>
+
+      <!-- Login Server -->
+      <rect x="250" y="30" width="160" height="80" rx="10" fill="#1a1f2e" stroke="#f0883e" stroke-width="2"/>
+      <text x="330" y="60" text-anchor="middle" fill="#f0883e" font-size="12" font-weight="600">LOGIN SERVER</text>
+      <text x="330" y="78" text-anchor="middle" fill="#8b949e" font-size="9">Authentication</text>
+      <text x="330" y="92" text-anchor="middle" fill="#8b949e" font-size="9">Server list</text>
+
+      <!-- World Server -->
+      <rect x="250" y="180" width="160" height="100" rx="10" fill="#1a1f2e" stroke="#58a6ff" stroke-width="2"/>
+      <text x="330" y="210" text-anchor="middle" fill="#58a6ff" font-size="12" font-weight="600">WORLD SERVER</text>
+      <text x="330" y="228" text-anchor="middle" fill="#8b949e" font-size="9">Character select</text>
+      <text x="330" y="242" text-anchor="middle" fill="#8b949e" font-size="9">Zone routing</text>
+      <text x="330" y="256" text-anchor="middle" fill="#8b949e" font-size="9">Cross-zone coordination</text>
+      <text x="330" y="270" text-anchor="middle" fill="#8b949e" font-size="9">/who, tells, guild chat</text>
+
+      <!-- Zone Servers -->
+      <rect x="500" y="60" width="150" height="70" rx="10" fill="#1a1f2e" stroke="#3fb950" stroke-width="2"/>
+      <text x="575" y="88" text-anchor="middle" fill="#3fb950" font-size="11" font-weight="600">ZONE: Grobb</text>
+      <text x="575" y="106" text-anchor="middle" fill="#8b949e" font-size="9">121 NPCs • 3 players</text>
+
+      <rect x="500" y="160" width="150" height="70" rx="10" fill="#1a1f2e" stroke="#3fb950" stroke-width="2"/>
+      <text x="575" y="188" text-anchor="middle" fill="#3fb950" font-size="11" font-weight="600">ZONE: Innothule</text>
+      <text x="575" y="206" text-anchor="middle" fill="#8b949e" font-size="9">89 NPCs • 7 players</text>
+
+      <rect x="500" y="260" width="150" height="70" rx="10" fill="#1a1f2e" stroke="#3fb950" stroke-width="2"/>
+      <text x="575" y="288" text-anchor="middle" fill="#3fb950" font-size="11" font-weight="600">ZONE: Cazic-Thule</text>
+      <text x="575" y="306" text-anchor="middle" fill="#8b949e" font-size="9">200 NPCs • 24 players</text>
+
+      <rect x="520" y="350" width="110" height="40" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1" stroke-dasharray="4 2"/>
+      <text x="575" y="374" text-anchor="middle" fill="#484f58" font-size="9" font-style="italic">+ 600 more zones</text>
+
+      <!-- Chat Server -->
+      <rect x="250" y="370" width="160" height="70" rx="10" fill="#1a1f2e" stroke="#d2a8ff" stroke-width="2"/>
+      <text x="330" y="398" text-anchor="middle" fill="#d2a8ff" font-size="12" font-weight="600">CHAT SERVER</text>
+      <text x="330" y="416" text-anchor="middle" fill="#8b949e" font-size="9">Cross-zone chat • Mail</text>
+      <text x="330" y="430" text-anchor="middle" fill="#8b949e" font-size="9">UCS (Universal Chat)</text>
+
+      <!-- Database -->
+      <rect x="720" y="180" width="150" height="100" rx="10" fill="#1a1f2e" stroke="#f85149" stroke-width="2"/>
+      <text x="795" y="215" text-anchor="middle" fill="#f85149" font-size="12" font-weight="600">DATABASE</text>
+      <text x="795" y="233" text-anchor="middle" fill="#8b949e" font-size="9">Single source of truth</text>
+      <text x="795" y="247" text-anchor="middle" fill="#8b949e" font-size="9">Characters, items, NPCs</text>
+      <text x="795" y="261" text-anchor="middle" fill="#8b949e" font-size="9">Spawns, quests, loot</text>
+
+      <!-- Arrows: Client → Login -->
+      <line x1="170" y1="235" x2="248" y2="85" stroke="#f0883e" stroke-width="1.5" opacity="0.5" marker-end="url(#arrowhead)"/>
+      <text x="195" y="155" fill="#f0883e" font-size="8" opacity="0.7" transform="rotate(-35, 195, 155)">authenticate</text>
+
+      <!-- Arrows: Client → World -->
+      <line x1="170" y1="255" x2="248" y2="235" stroke="#58a6ff" stroke-width="1.5" opacity="0.5" marker-end="url(#arrowhead)"/>
+      <text x="200" y="240" fill="#58a6ff" font-size="8" opacity="0.7">select char</text>
+
+      <!-- Arrows: Client → Zone (direct after handoff) -->
+      <path d="M 170 260 Q 350 430 500 295" fill="none" stroke="#3fb950" stroke-width="1.5" opacity="0.5" marker-end="url(#arrowhead-green)" stroke-dasharray="6 3"/>
+      <text x="300" y="380" fill="#3fb950" font-size="8" opacity="0.7">game traffic (after handoff)</text>
+
+      <!-- Arrows: World → Zones -->
+      <line x1="410" y1="210" x2="498" y2="95" stroke="#58a6ff" stroke-width="1.5" opacity="0.4" marker-end="url(#arrowhead)"/>
+      <line x1="410" y1="230" x2="498" y2="195" stroke="#58a6ff" stroke-width="1.5" opacity="0.4" marker-end="url(#arrowhead)"/>
+      <line x1="410" y1="250" x2="498" y2="295" stroke="#58a6ff" stroke-width="1.5" opacity="0.4" marker-end="url(#arrowhead)"/>
+
+      <!-- Arrows: Zones → Database -->
+      <line x1="650" y1="95" x2="718" y2="210" stroke="#f85149" stroke-width="1.5" opacity="0.3" marker-end="url(#arrowhead)"/>
+      <line x1="650" y1="195" x2="718" y2="225" stroke="#f85149" stroke-width="1.5" opacity="0.3" marker-end="url(#arrowhead)"/>
+      <line x1="650" y1="295" x2="718" y2="255" stroke="#f85149" stroke-width="1.5" opacity="0.3" marker-end="url(#arrowhead)"/>
+
+      <!-- Arrows: World → Database -->
+      <line x1="410" y1="240" x2="718" y2="240" stroke="#f85149" stroke-width="1.5" opacity="0.3" marker-end="url(#arrowhead)"/>
+
+      <!-- Key principle callout -->
+      <rect x="30" y="430" width="400" height="70" rx="8" fill="#162030" stroke="#58a6ff" stroke-width="1" opacity="0.6"/>
+      <text x="50" y="455" fill="#58a6ff" font-size="10" font-weight="600">KEY PRINCIPLE</text>
+      <text x="50" y="473" fill="#c9d1d9" font-size="10">Zone servers never talk to each other directly.</text>
+      <text x="50" y="488" fill="#8b949e" font-size="9">All cross-zone communication flows through the world server.</text>
+    </svg>
+  </div>
+
+  <!-- Process Details -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+    <div class="process-node p-5">
+      <div class="flex items-center gap-2 mb-3">
+        <div class="w-3 h-3 rounded-full" style="background: #f0883e;"></div>
+        <h3 class="text-white font-semibold">Login Server</h3>
+        <span class="mono text-xs text-gray-500 ml-auto">loginserver.exe</span>
+      </div>
+      <p class="text-gray-400 text-sm mb-3">The front door. Handles account authentication and presents the server list. Once you pick a server, it hands you off to that server's world process and its job is done.</p>
+      <div class="text-xs mono text-gray-500 space-y-1">
+        <div>Listens on port <span class="text-blue-400">5998</span> (client) + <span class="text-blue-400">5999</span> (world servers)</div>
+        <div>Tables: <span class="text-gray-400">login_accounts, login_world_servers, login_api_tokens</span></div>
+      </div>
+    </div>
+
+    <div class="process-node p-5">
+      <div class="flex items-center gap-2 mb-3">
+        <div class="w-3 h-3 rounded-full" style="background: #58a6ff;"></div>
+        <h3 class="text-white font-semibold">World Server</h3>
+        <span class="mono text-xs text-gray-500 ml-auto">world.exe</span>
+      </div>
+      <p class="text-gray-400 text-sm mb-3">The coordinator. Manages character selection, decides which zone process handles each player, routes cross-zone messages (tells, /who, guild chat), and orchestrates zone transfers.</p>
+      <div class="text-xs mono text-gray-500 space-y-1">
+        <div>Listens on port <span class="text-blue-400">9000</span> (zone servers) + <span class="text-blue-400">9080</span> (web API)</div>
+        <div>Launches zone.exe processes on demand (ports <span class="text-blue-400">7000–7400</span>)</div>
+      </div>
+    </div>
+
+    <div class="process-node p-5">
+      <div class="flex items-center gap-2 mb-3">
+        <div class="w-3 h-3 rounded-full" style="background: #3fb950;"></div>
+        <h3 class="text-white font-semibold">Zone Server</h3>
+        <span class="mono text-xs text-gray-500 ml-auto">zone.exe (one per active zone)</span>
+      </div>
+      <p class="text-gray-400 text-sm mb-3">Where the game actually happens. Each active zone runs as its own OS process. Handles everything inside that zone: NPC AI, combat, spells, movement validation, loot drops, quest scripting, trade skills. If a zone crashes, only that zone's players are affected.</p>
+      <div class="text-xs mono text-gray-500 space-y-1">
+        <div>Loads geometry files: <span class="text-gray-400">.map (collision), .wtr (water), .nav (pathfinding)</span></div>
+        <div>Spawns NPCs from database, runs AI tick loop at ~10 Hz</div>
+        <div>Communicates only with: world server, database, connected clients</div>
+      </div>
+    </div>
+
+    <div class="process-node p-5">
+      <div class="flex items-center gap-2 mb-3">
+        <div class="w-3 h-3 rounded-full" style="background: #f85149;"></div>
+        <h3 class="text-white font-semibold">Database</h3>
+        <span class="mono text-xs text-gray-500 ml-auto">MySQL / PostgreSQL</span>
+      </div>
+      <p class="text-gray-400 text-sm mb-3">The single source of truth for all persistent state. Characters, items, NPCs, spawn points, loot tables, quest data, faction standings — if it survives a server restart, it lives here. EQEmu uses 231 tables.</p>
+      <div class="text-xs mono text-gray-500 space-y-1">
+        <div>Character saves happen on zone exit, periodic timer, or /save</div>
+        <div>NPC/spawn/item/loot data loaded once at zone boot, cached in memory</div>
+        <div>NOT used for: position updates, combat ticks, ephemeral state</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Why This Design -->
+  <div class="card card-accent p-6 mb-10">
+    <h3 class="text-white font-semibold mb-3">Why This Design Works</h3>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
+      <div>
+        <h4 class="text-blue-400 font-medium mb-1">Fault Isolation</h4>
+        <p class="text-gray-400">A zone crash only affects players in that zone. The world server detects the crash, marks the zone as down, and can relaunch it. Other zones keep running.</p>
+      </div>
+      <div>
+        <h4 class="text-blue-400 font-medium mb-1">Horizontal Scaling</h4>
+        <p class="text-gray-400">Zone processes can run on different machines. A popular expansion launch can spread new zones across additional hardware without touching existing infrastructure.</p>
+      </div>
+      <div>
+        <h4 class="text-blue-400 font-medium mb-1">Simplicity</h4>
+        <p class="text-gray-400">Each zone process only thinks about one zone. No global lock contention, no shared memory between zones. The world server is the only coordination point.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Data Flow -->
+  <h2 class="text-2xl font-bold text-white mb-6">What Lives Where</h2>
+  <div class="card overflow-hidden mb-10">
+    <table class="data-table w-full text-sm">
+      <thead>
+        <tr>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Data</th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Location</th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Why</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-800">
+        <tr><td class="px-4 py-2 text-gray-300">Character stats, inventory, skills</td><td class="px-4 py-2 mono text-xs text-red-400">Database</td><td class="px-4 py-2 text-gray-500">Must survive restarts</td></tr>
+        <tr><td class="px-4 py-2 text-gray-300">NPC templates, spawn points, loot tables</td><td class="px-4 py-2 mono text-xs text-red-400">Database → Zone memory</td><td class="px-4 py-2 text-gray-500">Loaded at boot, cached</td></tr>
+        <tr><td class="px-4 py-2 text-gray-300">Who's online, zone population</td><td class="px-4 py-2 mono text-xs text-blue-400">World Server memory</td><td class="px-4 py-2 text-gray-500">Ephemeral, rebuilt on restart</td></tr>
+        <tr><td class="px-4 py-2 text-gray-300">Player position, current HP</td><td class="px-4 py-2 mono text-xs text-green-400">Zone Server memory</td><td class="px-4 py-2 text-gray-500">Updated every tick, saved periodically</td></tr>
+        <tr><td class="px-4 py-2 text-gray-300">Active combat state, buffs/debuffs</td><td class="px-4 py-2 mono text-xs text-green-400">Zone Server memory</td><td class="px-4 py-2 text-gray-500">Transient, lost on zone crash</td></tr>
+        <tr><td class="px-4 py-2 text-gray-300">Zone geometry (collision, water, nav)</td><td class="px-4 py-2 mono text-xs text-green-400">Zone Server memory (from .map/.wtr/.nav files)</td><td class="px-4 py-2 text-gray-500">Read-only, loaded from disk</td></tr>
+        <tr><td class="px-4 py-2 text-gray-300">Visual meshes, textures, sounds</td><td class="px-4 py-2 mono text-xs text-purple-400">Client only (S3D archives)</td><td class="px-4 py-2 text-gray-500">Server never sends render data</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- TAB 2: Player Experience → Tech -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div id="tab-player" class="tab-content">
+
+  <h2 class="text-2xl font-bold text-white mb-2">From Player to Packet</h2>
+  <p class="text-gray-400 mb-8 max-w-3xl">Every moment a player experiences in EverQuest has a chain of systems making it happen. Here's what's behind the curtain.</p>
+
+  <!-- Timeline -->
+  <div class="space-y-0">
+
+    <!-- Step 1: Login -->
+    <div class="flex gap-6 mb-0">
+      <div class="flex flex-col items-center">
+        <div class="timeline-dot relative z-10"></div>
+        <div class="timeline-line flex-1"></div>
+      </div>
+      <div class="pb-10 flex-1">
+        <div class="flex items-baseline gap-3 mb-2">
+          <span class="text-xs mono text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded">STEP 1</span>
+          <h3 class="text-lg font-semibold text-white">You launch EQ and log in</h3>
+        </div>
+        <div class="card p-5 mt-3">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <h4 class="text-sm font-medium text-gray-300 mb-2">What you see</h4>
+              <p class="text-sm text-gray-400">The patcher window, then the login screen. You enter your username and password. A server list appears — you pick your server.</p>
+            </div>
+            <div>
+              <h4 class="text-sm font-medium text-blue-400 mb-2">What happens</h4>
+              <div class="text-sm text-gray-400 space-y-2">
+                <p><code class="text-xs bg-gray-800 px-1 rounded">eqgame.exe patchme</code> connects to the login server on port 5998.</p>
+                <p>Your password is hashed and checked against the <code class="text-xs bg-gray-800 px-1 rounded">login_accounts</code> table.</p>
+                <p>The login server queries all registered world servers for their status and player count, then sends you the list.</p>
+                <p>When you pick a server, the login server gives you a <strong class="text-gray-300">session token</strong> and tells you the world server's IP and port. Your client disconnects from login and connects to world.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2: Character Select -->
+    <div class="flex gap-6 mb-0">
+      <div class="flex flex-col items-center">
+        <div class="timeline-dot relative z-10"></div>
+        <div class="timeline-line flex-1"></div>
+      </div>
+      <div class="pb-10 flex-1">
+        <div class="flex items-baseline gap-3 mb-2">
+          <span class="text-xs mono text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded">STEP 2</span>
+          <h3 class="text-lg font-semibold text-white">Character select screen</h3>
+        </div>
+        <div class="card p-5 mt-3">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <h4 class="text-sm font-medium text-gray-300 mb-2">What you see</h4>
+              <p class="text-sm text-gray-400">Your characters standing in a row. Their names, levels, classes, and zones are displayed. You can create a new character or enter the world.</p>
+            </div>
+            <div>
+              <h4 class="text-sm font-medium text-blue-400 mb-2">What happens</h4>
+              <div class="text-sm text-gray-400 space-y-2">
+                <p>The world server validates your session token, then queries <code class="text-xs bg-gray-800 px-1 rounded">character_data</code> for all characters on this account (106 columns per character).</p>
+                <p>It sends back a packet with each character's appearance data (race, class, level, equipment visual IDs) so the client can render the 3D models.</p>
+                <p>Character creation writes to <code class="text-xs bg-gray-800 px-1 rounded">character_data</code>, <code class="text-xs bg-gray-800 px-1 rounded">character_bind</code> (spawn point), <code class="text-xs bg-gray-800 px-1 rounded">character_skills</code>, and <code class="text-xs bg-gray-800 px-1 rounded">starting_items</code>.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 3: Entering the World -->
+    <div class="flex gap-6 mb-0">
+      <div class="flex flex-col items-center">
+        <div class="timeline-dot relative z-10"></div>
+        <div class="timeline-line flex-1"></div>
+      </div>
+      <div class="pb-10 flex-1">
+        <div class="flex items-baseline gap-3 mb-2">
+          <span class="text-xs mono text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded">STEP 3</span>
+          <h3 class="text-lg font-semibold text-white">Entering the world — the zone handoff</h3>
+        </div>
+        <div class="card p-5 mt-3">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <h4 class="text-sm font-medium text-gray-300 mb-2">What you see</h4>
+              <p class="text-sm text-gray-400">"Loading, please wait..." appears. Then the zone loads — terrain, buildings, NPCs pop in. You're standing where you last logged out (or at your bind point).</p>
+            </div>
+            <div>
+              <h4 class="text-sm font-medium text-blue-400 mb-2">What happens</h4>
+              <div class="text-sm text-gray-400 space-y-2">
+                <p>The world server checks if a zone process is already running for your destination zone.</p>
+                <p><strong class="text-gray-300">If not: it launches a new zone.exe.</strong> The zone process boots in ~6 seconds: loads .map/.wtr/.nav geometry from disk, queries all spawn points from the database, creates NPC instances, loads quests.</p>
+                <p>The world server sends your client the zone process's IP and port. Your client disconnects from world and connects directly to the zone.</p>
+                <p>The zone process loads your full character from the database (inventory, spells, skills, buffs, faction, AAs) and sends you the spawn packets for every entity in the zone.</p>
+              </div>
+            </div>
+          </div>
+          <div class="mt-4 bg-[#0d1117] rounded p-3 mono text-xs text-gray-500">
+            <div class="text-blue-400 mb-1">// Zone boot sequence (simplified)</div>
+            <div>1. Load Map (collision AABB tree from .map file)</div>
+            <div>2. Load WaterMap (liquid regions from .wtr file)</div>
+            <div>3. Load PathFinder (NavMesh from .nav file)</div>
+            <div>4. Query spawn2 table → create NPC instances</div>
+            <div>5. Load quest scripts (Perl/Lua)</div>
+            <div>6. Report "ready" to world server</div>
+            <div>7. Accept client connections</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 4: Moving Around -->
+    <div class="flex gap-6 mb-0">
+      <div class="flex flex-col items-center">
+        <div class="timeline-dot relative z-10"></div>
+        <div class="timeline-line flex-1"></div>
+      </div>
+      <div class="pb-10 flex-1">
+        <div class="flex items-baseline gap-3 mb-2">
+          <span class="text-xs mono text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded">STEP 4</span>
+          <h3 class="text-lg font-semibold text-white">Moving around the zone</h3>
+        </div>
+        <div class="card p-5 mt-3">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <h4 class="text-sm font-medium text-gray-300 mb-2">What you see</h4>
+              <p class="text-sm text-gray-400">WASD movement, smooth terrain, other players running around, NPCs patrolling on paths. You can swim in water and fall off cliffs.</p>
+            </div>
+            <div>
+              <h4 class="text-sm font-medium text-blue-400 mb-2">What happens</h4>
+              <div class="text-sm text-gray-400 space-y-2">
+                <p>The client sends position updates to the zone server. The server validates them against the <strong class="text-gray-300">Map</strong> collision data (can you actually stand there? is there a wall in the way?).</p>
+                <p>The server broadcasts your position to all other clients in the zone. Each client interpolates between position updates to make movement look smooth.</p>
+                <p>NPCs follow patrol paths from the <code class="text-xs bg-gray-800 px-1 rounded">grid</code> / <code class="text-xs bg-gray-800 px-1 rounded">grid_entries</code> tables. Their pathfinding uses the <strong class="text-gray-300">NavMesh</strong> to navigate around obstacles.</p>
+                <p>The <strong class="text-gray-300">WaterMap</strong> tells the server if you're swimming (applies swim speed, drowning timer, underwater breathing checks).</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 5: Combat -->
+    <div class="flex gap-6 mb-0">
+      <div class="flex flex-col items-center">
+        <div class="timeline-dot relative z-10"></div>
+        <div class="timeline-line flex-1"></div>
+      </div>
+      <div class="pb-10 flex-1">
+        <div class="flex items-baseline gap-3 mb-2">
+          <span class="text-xs mono text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded">STEP 5</span>
+          <h3 class="text-lg font-semibold text-white">Fighting a mob</h3>
+        </div>
+        <div class="card p-5 mt-3">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <h4 class="text-sm font-medium text-gray-300 mb-2">What you see</h4>
+              <p class="text-sm text-gray-400">You target a Froglok and auto-attack. Damage numbers fly. The mob hits back. You cast a spell — it resists! You try again — it lands. The mob dies, a corpse appears with loot.</p>
+            </div>
+            <div>
+              <h4 class="text-sm font-medium text-blue-400 mb-2">What happens</h4>
+              <div class="text-sm text-gray-400 space-y-2">
+                <p>Client sends "I want to attack this target." <strong class="text-gray-300">The server decides everything else.</strong></p>
+                <p>Every ~2 seconds (weapon delay), the server runs the melee round: calculates hit/miss using ATK vs AC, rolls damage, applies damage shields, checks for procs, ripostes, dodges.</p>
+                <p>Spells: the server checks mana cost, casting time, range, line of sight (using the Map), resist check (level + magic resistance), then applies the spell effect.</p>
+                <p>NPC AI runs on a tick (~1.5s): evaluates aggro list, picks target, decides to flee at low HP, calls for help if scripted.</p>
+                <p>On death: server rolls loot from <code class="text-xs bg-gray-800 px-1 rounded">loottable</code> → <code class="text-xs bg-gray-800 px-1 rounded">lootdrop</code> → <code class="text-xs bg-gray-800 px-1 rounded">lootdrop_entries</code>, creates a corpse entity, grants XP split to the group, fires quest EVENT_DEATH.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 6: Zoning -->
+    <div class="flex gap-6 mb-0">
+      <div class="flex flex-col items-center">
+        <div class="timeline-dot relative z-10"></div>
+        <div class="timeline-line flex-1"></div>
+      </div>
+      <div class="pb-10 flex-1">
+        <div class="flex items-baseline gap-3 mb-2">
+          <span class="text-xs mono text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded">STEP 6</span>
+          <h3 class="text-lg font-semibold text-white">Zoning — crossing between zones</h3>
+        </div>
+        <div class="card p-5 mt-3">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <h4 class="text-sm font-medium text-gray-300 mb-2">What you see</h4>
+              <p class="text-sm text-gray-400">You walk into a tunnel or zone line. "Loading, please wait..." — the new zone loads. You appear on the other side.</p>
+            </div>
+            <div>
+              <h4 class="text-sm font-medium text-blue-400 mb-2">What happens</h4>
+              <div class="text-sm text-gray-400 space-y-2">
+                <p>Your character hits a <strong class="text-gray-300">zone point</strong> (from the <code class="text-xs bg-gray-800 px-1 rounded">zone_points</code> table) — a bounding box at the zone boundary with a destination zone and coordinates.</p>
+                <p>The zone server saves your character to the database, removes you from its entity list, and tells the world server "this player wants to go to Innothule."</p>
+                <p>The world server checks if a zone process is running for Innothule. If not, it launches one. It gives your client the new zone's address.</p>
+                <p>Your client disconnects from zone A, connects to zone B. Zone B loads your character fresh from the database and spawns you at the destination coordinates.</p>
+                <p><strong class="text-gray-300">The two zone servers never communicate directly.</strong> The world server is the relay.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 7: Logging out -->
+    <div class="flex gap-6 mb-0">
+      <div class="flex flex-col items-center">
+        <div class="timeline-dot relative z-10"></div>
+        <div class="w-0"></div>
+      </div>
+      <div class="pb-4 flex-1">
+        <div class="flex items-baseline gap-3 mb-2">
+          <span class="text-xs mono text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded">STEP 7</span>
+          <h3 class="text-lg font-semibold text-white">Logging out (or dying)</h3>
+        </div>
+        <div class="card p-5 mt-3">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <h4 class="text-sm font-medium text-gray-300 mb-2">What you see</h4>
+              <p class="text-sm text-gray-400">You camp out (30-second timer in a dangerous zone, instant in a city). Or you die — your corpse drops with all your gear and you respawn at your bind point, naked.</p>
+            </div>
+            <div>
+              <h4 class="text-sm font-medium text-blue-400 mb-2">What happens</h4>
+              <div class="text-sm text-gray-400 space-y-2">
+                <p><strong>Camp out:</strong> Zone server saves your full character state to the database — position, HP, mana, buffs, inventory, everything. Removes you from the entity list. Tells world server you're offline.</p>
+                <p><strong>Death:</strong> The server creates a <code class="text-xs bg-gray-800 px-1 rounded">character_corpses</code> entry with all your equipment. Your <code class="text-xs bg-gray-800 px-1 rounded">character_data</code> gets a zone change to your bind point. XP penalty applied. Corpse has a decay timer.</p>
+                <p>If the zone is empty after you leave, the zone process stays alive for a while, then shuts down to free resources.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- TAB 3: Full System Deep-Dive -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div id="tab-deep" class="tab-content">
+
+  <h2 class="text-2xl font-bold text-white mb-2">Systems Reference</h2>
+  <p class="text-gray-400 mb-8 max-w-3xl">Every major system in EverQuest, explained at the implementation level. Click any section to expand.</p>
+
+  <!-- Expandable Sections -->
+  <div class="space-y-3">
+
+    <!-- Networking -->
+    <div class="card overflow-hidden">
+      <div class="expand-btn flex items-center justify-between p-5 hover:bg-gray-800/30" onclick="toggleExpand(this)">
+        <div class="flex items-center gap-3">
+          <svg class="w-4 h-4 text-gray-500 transform transition-transform expand-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+          <h3 class="text-white font-semibold">Networking & Protocol</h3>
+        </div>
+        <span class="text-xs text-gray-500">UDP • opcodes • packet structure</span>
+      </div>
+      <div class="expand-content">
+        <div class="px-5 pb-5 border-t border-gray-800 pt-4 space-y-4">
+          <p class="text-sm text-gray-400">EQ uses <strong class="text-gray-300">UDP</strong> with a custom reliability layer on top. This was unusual in 1999 — most games used TCP. The custom layer gives EQ control over retransmission, packet ordering, and fragmentation without TCP's head-of-line blocking.</p>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="bg-[#0d1117] rounded p-4">
+              <h4 class="text-sm font-medium text-blue-400 mb-2">Packet Structure</h4>
+              <div class="mono text-xs text-gray-400 space-y-1">
+                <div>[2 bytes] <span class="text-gray-300">Opcode</span> — identifies the packet type</div>
+                <div>[N bytes] <span class="text-gray-300">Payload</span> — serialized struct data</div>
+                <div>[2 bytes] <span class="text-gray-300">CRC</span> — integrity check</div>
+              </div>
+              <p class="text-xs text-gray-500 mt-2">Opcodes are version-specific — different client versions use different opcode tables. The server uses an opcode translation layer to support multiple clients.</p>
+            </div>
+            <div class="bg-[#0d1117] rounded p-4">
+              <h4 class="text-sm font-medium text-blue-400 mb-2">Key Packet Types</h4>
+              <div class="text-xs text-gray-400 space-y-1">
+                <div><span class="text-green-400 mono">OP_PlayerProfile</span> — full character data (sent on zone entry)</div>
+                <div><span class="text-green-400 mono">OP_ClientUpdate</span> — position/heading updates (~10/sec)</div>
+                <div><span class="text-green-400 mono">OP_Damage</span> — combat damage numbers</div>
+                <div><span class="text-green-400 mono">OP_SpawnAppearance</span> — entity visual changes</div>
+                <div><span class="text-green-400 mono">OP_NewSpawn</span> — new entity enters zone</div>
+                <div><span class="text-green-400 mono">OP_ZoneChange</span> — zone transfer request</div>
+              </div>
+            </div>
+          </div>
+          <div class="card-accent pl-4 py-2">
+            <p class="text-xs text-gray-400"><strong class="text-gray-300">Security note:</strong> The original EQ protocol sends structs almost directly on the wire. Field offsets are client-version-dependent. This is why EQEmu needs different "patch" files for different client versions — each translates between the server's internal structs and the client's expected wire format.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Zone Geometry -->
+    <div class="card overflow-hidden">
+      <div class="expand-btn flex items-center justify-between p-5 hover:bg-gray-800/30" onclick="toggleExpand(this)">
+        <div class="flex items-center gap-3">
+          <svg class="w-4 h-4 text-gray-500 transform transition-transform expand-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+          <h3 class="text-white font-semibold">Zone Geometry</h3>
+        </div>
+        <span class="text-xs text-gray-500">Map • WaterMap • PathFinder • S3D</span>
+      </div>
+      <div class="expand-content">
+        <div class="px-5 pb-5 border-t border-gray-800 pt-4 space-y-4">
+          <p class="text-sm text-gray-400">Zone geometry is <strong class="text-gray-300">completely decoupled</strong> from game logic through three narrow interfaces. The server and client use entirely different geometry data — the server never sends mesh data, and the client never does collision.</p>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="bg-[#0d1117] rounded p-4">
+              <h4 class="text-sm font-medium text-green-400 mb-2">Map (.map files)</h4>
+              <p class="text-xs text-gray-400 mb-2">Collision detection and line of sight. A spatial tree (AABB) of triangles extracted from the zone mesh.</p>
+              <div class="text-xs text-gray-500 space-y-1">
+                <div>• Ground detection (Z coordinate for any X,Y)</div>
+                <div>• Line-of-sight checks (can NPC see player?)</div>
+                <div>• Zone boundary enforcement</div>
+                <div>• ~2-10 MB per zone</div>
+              </div>
+            </div>
+            <div class="bg-[#0d1117] rounded p-4">
+              <h4 class="text-sm font-medium text-blue-400 mb-2">WaterMap (.wtr files)</h4>
+              <p class="text-xs text-gray-400 mb-2">Liquid region detection. Defines volumes of water, lava, slime, and other fluids.</p>
+              <div class="text-xs text-gray-500 space-y-1">
+                <div>• Is the player swimming?</div>
+                <div>• Lava damage ticks</div>
+                <div>• Underwater breathing timers</div>
+                <div>• Fish-spawning regions (for fishing)</div>
+              </div>
+            </div>
+            <div class="bg-[#0d1117] rounded p-4">
+              <h4 class="text-sm font-medium text-purple-400 mb-2">PathFinder (.nav files)</h4>
+              <p class="text-xs text-gray-400 mb-2">NPC navigation mesh. Built with Recast/Detour, the same library used by Unreal Engine.</p>
+              <div class="text-xs text-gray-500 space-y-1">
+                <div>• NPC pathfinding (A* on NavMesh)</div>
+                <div>• Terrain cost calculations</div>
+                <div>• Avoidance of obstacles</div>
+                <div>• Patrol waypoint routing</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-[#0d1117] rounded p-4">
+            <h4 class="text-sm font-medium text-orange-400 mb-2">Client-Side: S3D Archives</h4>
+            <p class="text-xs text-gray-400">The client has its own copy of zone geometry in proprietary S3D archives — these contain the actual 3D meshes, textures, and vertex data for rendering. The server never touches these files. This separation means the server could use completely different geometry (voxels, procedural terrain) as long as the three server-side interfaces are satisfied.</p>
+          </div>
+
+          <div class="card-accent pl-4 py-2">
+            <p class="text-xs text-gray-400"><strong class="text-blue-400">ADIF insight:</strong> This decoupling is the key architectural insight that makes pluggable zone geometry possible. A zone running voxel geometry just needs to provide the same Map/WaterMap/PathFinder interfaces. The zone server doesn't care how the geometry was generated.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Database Schema -->
+    <div class="card overflow-hidden">
+      <div class="expand-btn flex items-center justify-between p-5 hover:bg-gray-800/30" onclick="toggleExpand(this)">
+        <div class="flex items-center gap-3">
+          <svg class="w-4 h-4 text-gray-500 transform transition-transform expand-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+          <h3 class="text-white font-semibold">Database Schema</h3>
+        </div>
+        <span class="text-xs text-gray-500">231 tables • 7 categories</span>
+      </div>
+      <div class="expand-content">
+        <div class="px-5 pb-5 border-t border-gray-800 pt-4 space-y-4">
+          <p class="text-sm text-gray-400">The EQEmu database has 231 tables organized into 7 categories. The <code class="text-xs bg-gray-800 px-1 rounded">database_schema.h</code> file is the authoritative source.</p>
+
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div class="bg-[#0d1117] rounded p-3 text-center">
+              <div class="text-2xl font-bold text-blue-400">47</div>
+              <div class="text-xs text-gray-500">Character tables</div>
+            </div>
+            <div class="bg-[#0d1117] rounded p-3 text-center">
+              <div class="text-2xl font-bold text-green-400">67</div>
+              <div class="text-xs text-gray-500">Content tables</div>
+            </div>
+            <div class="bg-[#0d1117] rounded p-3 text-center">
+              <div class="text-2xl font-bold text-purple-400">20</div>
+              <div class="text-xs text-gray-500">Server tables</div>
+            </div>
+            <div class="bg-[#0d1117] rounded p-3 text-center">
+              <div class="text-2xl font-bold text-orange-400">51</div>
+              <div class="text-xs text-gray-500">State tables</div>
+            </div>
+          </div>
+
+          <h4 class="text-sm font-medium text-gray-300">Key Tables</h4>
+          <div class="overflow-x-auto">
+            <table class="data-table w-full text-xs">
+              <thead><tr>
+                <th class="px-3 py-2 text-left text-gray-400">Table</th>
+                <th class="px-3 py-2 text-left text-gray-400">Cols</th>
+                <th class="px-3 py-2 text-left text-gray-400">Purpose</th>
+              </tr></thead>
+              <tbody>
+                <tr><td class="px-3 py-1.5 mono text-blue-400">character_data</td><td class="px-3 py-1.5 text-gray-400">106</td><td class="px-3 py-1.5 text-gray-400">Everything about a character: stats, HP, mana, XP, zone, position, AAs, flags</td></tr>
+                <tr><td class="px-3 py-1.5 mono text-blue-400">npc_types</td><td class="px-3 py-1.5 text-gray-400">131</td><td class="px-3 py-1.5 text-gray-400">NPC templates: stats, resistances, appearance, aggro range, faction, spells</td></tr>
+                <tr><td class="px-3 py-1.5 mono text-blue-400">items</td><td class="px-3 py-1.5 text-gray-400">285</td><td class="px-3 py-1.5 text-gray-400">Every item in the game: stats, effects, procs, appearance, lore, classes/races</td></tr>
+                <tr><td class="px-3 py-1.5 mono text-blue-400">spells_new</td><td class="px-3 py-1.5 text-gray-400">237</td><td class="px-3 py-1.5 text-gray-400">Spell definitions: effects, resist type, cast time, mana cost, components, formulas</td></tr>
+                <tr><td class="px-3 py-1.5 mono text-blue-400">zone</td><td class="px-3 py-1.5 text-gray-400">99</td><td class="px-3 py-1.5 text-gray-400">Zone properties: safe coords, gravity, fog, weather, XP modifiers, level limits</td></tr>
+                <tr><td class="px-3 py-1.5 mono text-blue-400">spawn2</td><td class="px-3 py-1.5 text-gray-400">19</td><td class="px-3 py-1.5 text-gray-400">Spawn points: X/Y/Z, respawn timer, variance, enabled flag, roaming distance</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="text-xs text-gray-500">The items table alone has 285 columns. EQEmu inherited this from Sony's original schema — every stat, proc, effect, and visual property is a separate column. No JSONB, no normalization.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- NPC AI -->
+    <div class="card overflow-hidden">
+      <div class="expand-btn flex items-center justify-between p-5 hover:bg-gray-800/30" onclick="toggleExpand(this)">
+        <div class="flex items-center gap-3">
+          <svg class="w-4 h-4 text-gray-500 transform transition-transform expand-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+          <h3 class="text-white font-semibold">NPC AI & Behavior</h3>
+        </div>
+        <span class="text-xs text-gray-500">Aggro • hate lists • pathing • scripts</span>
+      </div>
+      <div class="expand-content">
+        <div class="px-5 pb-5 border-t border-gray-800 pt-4 space-y-4">
+          <p class="text-sm text-gray-400">NPC behavior is driven by a simple but effective priority system. There's no behavior tree or GOAP — it's a state machine with an aggro list.</p>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="bg-[#0d1117] rounded p-4">
+              <h4 class="text-sm font-medium text-red-400 mb-2">The Hate List</h4>
+              <p class="text-xs text-gray-400 mb-2">Every NPC maintains a sorted list of entities it hates. The entity with the most hate is the current target. Hate is generated by:</p>
+              <div class="text-xs text-gray-500 space-y-1">
+                <div>• <span class="text-gray-300">Damage dealt</span> → proportional hate</div>
+                <div>• <span class="text-gray-300">Healing</span> → hate on the healer from all mobs fighting the healed target</div>
+                <div>• <span class="text-gray-300">Taunt</span> → large hate spike + temporary lock</div>
+                <div>• <span class="text-gray-300">Spell aggro</span> → base hate per spell, modified by type</div>
+                <div>• <span class="text-gray-300">Proximity</span> → initial aggro when entering NPC's aggro radius</div>
+              </div>
+            </div>
+            <div class="bg-[#0d1117] rounded p-4">
+              <h4 class="text-sm font-medium text-yellow-400 mb-2">NPC States</h4>
+              <div class="text-xs text-gray-400 space-y-2">
+                <div><span class="text-gray-300 font-medium">Idle:</span> Standing still or patrolling along grid waypoints</div>
+                <div><span class="text-gray-300 font-medium">Aggro scan:</span> Checking for hated entities within aggro_range (faction-based)</div>
+                <div><span class="text-gray-300 font-medium">Combat:</span> Attacking highest-hate target, casting spells from npc_spells list</div>
+                <div><span class="text-gray-300 font-medium">Flee:</span> Running away at low HP (configurable threshold)</div>
+                <div><span class="text-gray-300 font-medium">Return:</span> Walking back to spawn point after losing all targets</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-[#0d1117] rounded p-4">
+            <h4 class="text-sm font-medium text-green-400 mb-2">Quest Scripting (Perl/Lua)</h4>
+            <p class="text-xs text-gray-400 mb-2">NPCs can have custom behavior through quest scripts. Scripts are event-driven — the zone server fires events and the script responds:</p>
+            <div class="mono text-xs text-gray-500 space-y-1">
+              <div><span class="text-green-400">EVENT_SAY</span> — player says something near the NPC</div>
+              <div><span class="text-green-400">EVENT_TRADE</span> — player hands items to the NPC</div>
+              <div><span class="text-green-400">EVENT_DEATH</span> — NPC dies</div>
+              <div><span class="text-green-400">EVENT_SPAWN</span> — NPC first appears in the zone</div>
+              <div><span class="text-green-400">EVENT_COMBAT</span> — NPC enters/leaves combat</div>
+              <div><span class="text-green-400">EVENT_TIMER</span> — scheduled callback fires</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Combat System -->
+    <div class="card overflow-hidden">
+      <div class="expand-btn flex items-center justify-between p-5 hover:bg-gray-800/30" onclick="toggleExpand(this)">
+        <div class="flex items-center gap-3">
+          <svg class="w-4 h-4 text-gray-500 transform transition-transform expand-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+          <h3 class="text-white font-semibold">Combat Formulas</h3>
+        </div>
+        <span class="text-xs text-gray-500">Melee • spells • resists • mitigation</span>
+      </div>
+      <div class="expand-content">
+        <div class="px-5 pb-5 border-t border-gray-800 pt-4 space-y-4">
+          <p class="text-sm text-gray-400">All combat resolution happens server-side. The client only displays results. The core loop runs every weapon-delay interval (~2-4 seconds for melee).</p>
+
+          <div class="bg-[#0d1117] rounded p-4 mono text-xs">
+            <div class="text-blue-400 mb-2">// Simplified melee attack resolution</div>
+            <div class="text-gray-400">
+              <div>1. <span class="text-gray-300">Check range</span> — is target within melee distance?</div>
+              <div>2. <span class="text-gray-300">Avoidance roll</span> — riposte → dodge → parry → block (each has a % chance)</div>
+              <div>3. <span class="text-gray-300">Hit/miss roll</span> — attacker ATK vs defender AC, modified by level difference</div>
+              <div>4. <span class="text-gray-300">Damage roll</span> — weapon min/max damage, modified by STR bonus</div>
+              <div>5. <span class="text-gray-300">Mitigation</span> — defender's AC reduces damage (with diminishing returns)</div>
+              <div>6. <span class="text-gray-300">Critical hit</span> — % chance to multiply damage (based on DEX + AAs)</div>
+              <div>7. <span class="text-gray-300">Damage shields</span> — if target has a DS buff, attacker takes reflected damage</div>
+              <div>8. <span class="text-gray-300">Proc check</span> — weapon procs fire at a rate based on weapon speed</div>
+            </div>
+          </div>
+
+          <div class="bg-[#0d1117] rounded p-4 mono text-xs">
+            <div class="text-purple-400 mb-2">// Spell resist check</div>
+            <div class="text-gray-400">
+              <div>resist_chance = target_resist - (caster_level - target_level) * 2</div>
+              <div>roll = random(0, 200)</div>
+              <div>if roll &lt; resist_chance → full resist (no effect)</div>
+              <div>else if roll &lt; resist_chance * 2 → partial resist (reduced duration/damage)</div>
+              <div>else → spell lands fully</div>
+            </div>
+          </div>
+
+          <p class="text-xs text-gray-500">These formulas evolved over 25+ years of patches. The emulator community reverse-engineered them by comparing observed behavior against Sony's servers. Some formulas are still debated.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loot System -->
+    <div class="card overflow-hidden">
+      <div class="expand-btn flex items-center justify-between p-5 hover:bg-gray-800/30" onclick="toggleExpand(this)">
+        <div class="flex items-center gap-3">
+          <svg class="w-4 h-4 text-gray-500 transform transition-transform expand-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+          <h3 class="text-white font-semibold">Loot System</h3>
+        </div>
+        <span class="text-xs text-gray-500">loottable → lootdrop → items • global loot</span>
+      </div>
+      <div class="expand-content">
+        <div class="px-5 pb-5 border-t border-gray-800 pt-4 space-y-4">
+          <p class="text-sm text-gray-400">Loot is a three-tier random system. When an NPC dies, the server walks the chain:</p>
+
+          <div class="flex flex-col md:flex-row items-start gap-4">
+            <div class="bg-[#0d1117] rounded p-4 flex-1">
+              <h4 class="text-xs font-medium text-blue-400 mb-1 mono">npc_types.loottable_id</h4>
+              <p class="text-xs text-gray-400">Points to a loottable</p>
+            </div>
+            <div class="text-2xl text-gray-600 self-center">→</div>
+            <div class="bg-[#0d1117] rounded p-4 flex-1">
+              <h4 class="text-xs font-medium text-green-400 mb-1 mono">loottable_entries</h4>
+              <p class="text-xs text-gray-400">Links to N lootdrops with probability, multiplier, and drop limit</p>
+            </div>
+            <div class="text-2xl text-gray-600 self-center">→</div>
+            <div class="bg-[#0d1117] rounded p-4 flex-1">
+              <h4 class="text-xs font-medium text-purple-400 mb-1 mono">lootdrop_entries</h4>
+              <p class="text-xs text-gray-400">Pool of items with individual drop chances, multipliers, and min/max quantities</p>
+            </div>
+            <div class="text-2xl text-gray-600 self-center">→</div>
+            <div class="bg-[#0d1117] rounded p-4 flex-1">
+              <h4 class="text-xs font-medium text-orange-400 mb-1 mono">items</h4>
+              <p class="text-xs text-gray-400">The actual item definitions (285 columns each)</p>
+            </div>
+          </div>
+
+          <p class="text-xs text-gray-500">Additionally, the <code class="mono bg-gray-800 px-1 rounded">global_loot</code> table can inject items into any NPC matching criteria (level range, zone, body type). This powers world drops — items that can drop from any mob of a certain type.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Faction System -->
+    <div class="card overflow-hidden">
+      <div class="expand-btn flex items-center justify-between p-5 hover:bg-gray-800/30" onclick="toggleExpand(this)">
+        <div class="flex items-center gap-3">
+          <svg class="w-4 h-4 text-gray-500 transform transition-transform expand-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+          <h3 class="text-white font-semibold">Faction System</h3>
+        </div>
+        <span class="text-xs text-gray-500">Race/class modifiers • NPC reactions • faction hits</span>
+      </div>
+      <div class="expand-content">
+        <div class="px-5 pb-5 border-t border-gray-800 pt-4 space-y-4">
+          <p class="text-sm text-gray-400">Faction determines how NPCs react to you. It's a numeric standing that changes based on your actions — killing an NPC lowers your standing with their faction and may raise it with rival factions.</p>
+
+          <div class="bg-[#0d1117] rounded p-4 mono text-xs text-gray-400">
+            <div class="text-blue-400 mb-1">// Faction check when player approaches NPC</div>
+            <div>base_faction = faction_base_data[npc.primary_faction]</div>
+            <div>race_mod = npc_faction_entries[player.race]</div>
+            <div>class_mod = npc_faction_entries[player.class]</div>
+            <div>deity_mod = npc_faction_entries[player.deity]</div>
+            <div>personal = faction_values[player.id, faction_id]  // earned through kills</div>
+            <div></div>
+            <div>total = base_faction + race_mod + class_mod + deity_mod + personal</div>
+            <div></div>
+            <div class="text-gray-500">// Thresholds:</div>
+            <div>// &gt; 750 = Ally, &gt; 500 = Warmly, &gt; 100 = Kindly, &gt; 0 = Amiable</div>
+            <div>// &gt; -100 = Indifferent, &gt; -500 = Apprehensive, &gt; -750 = Threatening</div>
+            <div>// ≤ -750 = Ready to Attack (KOS)</div>
+          </div>
+
+          <p class="text-xs text-gray-500">This is why a Dark Elf Necromancer is kill-on-sight in Qeynos (race + class penalties) but could theoretically grind enough faction kills to walk freely. Race/class/deity are fixed modifiers; personal standing is earned.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Spawn System -->
+    <div class="card overflow-hidden">
+      <div class="expand-btn flex items-center justify-between p-5 hover:bg-gray-800/30" onclick="toggleExpand(this)">
+        <div class="flex items-center gap-3">
+          <svg class="w-4 h-4 text-gray-500 transform transition-transform expand-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+          <h3 class="text-white font-semibold">Spawn System</h3>
+        </div>
+        <span class="text-xs text-gray-500">spawn2 → spawngroup → spawnentry → npc_types</span>
+      </div>
+      <div class="expand-content">
+        <div class="px-5 pb-5 border-t border-gray-800 pt-4 space-y-4">
+          <p class="text-sm text-gray-400">The spawn system is another chain like loot. A point in the world is linked to a group of possible NPCs, each with a spawn chance.</p>
+
+          <div class="flex flex-col md:flex-row items-start gap-4">
+            <div class="bg-[#0d1117] rounded p-4 flex-1">
+              <h4 class="text-xs font-medium text-blue-400 mb-1 mono">spawn2</h4>
+              <p class="text-xs text-gray-400">A point: X, Y, Z, heading, respawn timer, zone, enabled flag</p>
+            </div>
+            <div class="text-2xl text-gray-600 self-center">→</div>
+            <div class="bg-[#0d1117] rounded p-4 flex-1">
+              <h4 class="text-xs font-medium text-green-400 mb-1 mono">spawngroup</h4>
+              <p class="text-xs text-gray-400">A named group with spawn limit and roaming distance</p>
+            </div>
+            <div class="text-2xl text-gray-600 self-center">→</div>
+            <div class="bg-[#0d1117] rounded p-4 flex-1">
+              <h4 class="text-xs font-medium text-purple-400 mb-1 mono">spawnentry</h4>
+              <p class="text-xs text-gray-400">Links NPCs to the group with spawn chance (0-100%)</p>
+            </div>
+            <div class="text-2xl text-gray-600 self-center">→</div>
+            <div class="bg-[#0d1117] rounded p-4 flex-1">
+              <h4 class="text-xs font-medium text-orange-400 mb-1 mono">npc_types</h4>
+              <p class="text-xs text-gray-400">The NPC template (131 columns of stats/appearance)</p>
+            </div>
+          </div>
+
+          <p class="text-xs text-gray-500">This allows "placeholder" spawns — one spawn point can produce different NPCs each time. Classic EQ raid targets like Nagafen had a placeholder: most of the time a trash mob spawned, but occasionally the dragon appeared.</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</main>
+
+<!-- Footer -->
+<footer class="border-t border-gray-800 mt-16 py-8 text-center text-xs text-gray-600">
+  <p>ADIF Architecture Study — Generated 2026-06-26</p>
+  <p class="mt-1">Source material: EQEmu server code, akk-stack deployment, 25 years of community reverse engineering</p>
+</footer>
+
+<script>
+function switchTab(tabId) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + tabId).classList.add('active');
+  event.currentTarget.classList.add('active');
+}
+
+function toggleExpand(btn) {
+  const content = btn.nextElementSibling;
+  const icon = btn.querySelector('.expand-icon');
+  content.classList.toggle('open');
+  icon.style.transform = content.classList.contains('open') ? 'rotate(90deg)' : '';
+}
+</script>
+
+</body>
+</html>

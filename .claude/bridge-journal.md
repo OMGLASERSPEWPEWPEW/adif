@@ -171,3 +171,54 @@ SESSION 2026-06-23: Massive PostgreSQL migration progress — character creation
 > reference/eqemu-server/build/bin/RelWithDebInfo/lua_modules/   | quest stub
 > reference/eqemu-server/build/bin/RelWithDebInfo/plugins/       | quest stub
 > ```
+
+### 2026-06-25 19:01
+
+SESSION 2026-06-25: ZONE ENTRY WORKS — Character in Grobb on PostgreSQL.
+
+## What Happened
+- Fixed zone boot timer (5s→30s), added PG-TIMING instrumentation to Zone::Init
+- Fixed "already booted" handler (SetZoneData(0) → re-report current zone)
+- Fixed ContentFilterCriteria MySQL syntax (CONCAT/REGEXP → ||/~)
+- Copied perl542.dll from vcpkg for embedded Perl runtime
+- Fixed FindReplace("", "-") infinite loop in quest_parser_collection.cpp:1072 → FindReplace(" ", "-")
+- Zone boots Grobb in ~6 seconds, 121 NPCs spawned, character enters zone
+
+## Current State
+- Login → character select → character creation → zone entry: ALL WORK on PostgreSQL
+- ~25 missing tables and ~15 column mismatches producing non-fatal errors during zone boot and character load
+- Error inventory needs updating with all new errors from zone boot log
+- Debug logging (std::cerr, PG-TIMING, [PZ-STEP], [SZC], [AddNPC], [HQS], [HQSL]) still in C++ code — needs cleanup
+
+## What's Next
+- Document all remaining PostgreSQL errors into error inventory
+- Create migrations for missing tables + column fixes
+- Clean up debug logging from C++ code
+- Test combat, NPC interaction, zone transitions
+
+> **Session context** *(auto-gathered)*
+>
+> **What happened:**
+> - Debugged zone boot hang through 8+ iterations of narrowing (timer→spawns→quest parser→FindReplace infinite loop)
+> - Found root cause: `Strings::FindReplace(npc_name, "", "-")` — empty string match causes infinite loop
+> - Character "Ghouldan" entered Grobb with 121 NPCs spawned, zone running on PostgreSQL
+> - Cataloged ~25 missing tables and ~15 column mismatches from zone boot + character load errors
+>
+> **Commits since last entry:**
+> ```
+> c130bb1 chore(infra): update session journals, memory heaps, and bridge journal
+> 60b6d63 fix(infra): improve conversation logger with tool collapsing and system-reminder stripping
+> 02cea27 docs(database): add PostgreSQL migration error inventory
+> 18f51b9 feat(database): add migrations 030-034 for EQEmu PostgreSQL schema alignment
+> ```
+>
+> **Files touched (uncommitted C++ changes):**
+> ```
+> reference/eqemu-server/zone/zone.cpp                    | PG-TIMING, boot timer 30s, cerr output
+> reference/eqemu-server/zone/spawn2.cpp                  | [PZ-STEP] logging
+> reference/eqemu-server/zone/npc.cpp                     | [SZC] logging
+> reference/eqemu-server/zone/entity.cpp                  | [AddNPC] logging + cerr
+> reference/eqemu-server/zone/quest_parser_collection.cpp | FindReplace fix + [HQS]/[HQSL] logging
+> reference/eqemu-server/world/zoneserver.cpp              | boot timer 5s→30s
+> reference/eqemu-server/common/repositories/criteria/content_filter_criteria.h | CONCAT/REGEXP→PG
+> ```

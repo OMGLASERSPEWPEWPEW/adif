@@ -137,3 +137,58 @@ Huge session today — 290+ files converted, server booting on PostgreSQL, and w
 
 ---
 
+## 2026-06-25_08-11-29 (session 8906d434)
+
+**assistant**: [tools: Bash]
+
+**assistant**: [tools: Bash]
+
+**assistant**: [tools: Grep]
+
+**assistant**: Got the creds. Let me pull the starting_items data and the PG table state.
+
+**assistant**: [tools: Bash, Bash]
+
+**assistant**: [tools: Bash]
+
+**assistant**: [tools: Bash]
+
+**assistant**: There it is. Crystal clear now:
+
+- **MariaDB**: 148 rows of starting items data, correct column names (`class_list`, `race_list`, `inventory_slot`, etc.)
+- **PostgreSQL**: 0 rows, and has BOTH old columns (`race`, `class`, `deityid`, `zoneid`, `slot`, `gm`) AND new columns (added by migration 033) — a messy hybrid
+
+Let me dump the MariaDB data and load it into PG.
+
+**assistant**: [tools: Bash]
+
+**assistant**: Got all 148 rows. Now I'll write a migration that fixes the PG table schema (drops the old columns, keeps the correct ones) and inserts all the data.
+
+**assistant**: [tools: Bash]
+
+**assistant**: [tools: Glob, Glob]
+
+**assistant**: [tools: Read]
+
+**assistant**: I'll create migration 036 to fix the schema and load all 148 starting items.
+
+**assistant**: [tools: Write]
+
+**assistant**: Now let me apply it.
+
+**assistant**: [tools: Bash]
+
+**assistant**: Let me verify it looks right.
+
+**assistant**: [tools: Bash, Bash]
+
+**assistant**: Clean. The table now has:
+- **19 columns** matching exactly what the C++ repository expects (old cruft columns `race`, `class`, `deityid`, `zoneid`, `gm`, `slot` are gone)
+- **148 rows** of PEQ starting item data — weapons, armor, food, spell components per race/class/deity/zone combo
+
+The column order in PG doesn't match the C++ `Columns()` order perfectly, but that doesn't matter — the C++ selects columns by name via `SelectColumnsRaw()`, not by position.
+
+Characters should now spawn with their proper starting gear instead of naked. Want to fire up the servers and test a character creation?
+
+---
+

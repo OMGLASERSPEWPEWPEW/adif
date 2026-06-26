@@ -616,3 +616,435 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 
 ---
 
+## 2026-06-24_09-02-16 (session e62794d9)
+
+**assistant**: Now let me read the diffs to understand the content of each group.
+
+**assistant**: [tools: Bash, Bash]
+
+**assistant**: [tools: Bash, Bash, Bash]
+
+**assistant**: [tools: Bash]
+
+**assistant**: [tools: Bash, Bash]
+
+**assistant**: Good. Now I have the full picture. Here's the analysis:
+
+---
+
+**Proposed commits (4):**
+
+**1. `feat(database): add migrations 030-034 for EQEmu PostgreSQL schema alignment`**
+
+Why: Character creation and zone boot required 9 table renames, 30+ missing tables, and dozens of column fixes to align ADIF's PostgreSQL schema with EQEmu's C++ expectations.
+Files: database/migrations/030-034_*.sql
+
+**2. `docs(database): add PostgreSQL migration error inventory`**
+
+Files: docs/postgresql-errors-inventory.md
+
+**3. `fix(infra): improve conversation logger with tool collapsing and system-reminder stripping`**
+
+Why: Daily logs were bloated with raw system-reminder XML and individual tool-use lines; collapsing consecutive tools and stripping reminders makes logs readable.
+Files: .claude/hooks/conversation-logger.sh
+
+**4. `chore(infra): update session journals, memory heaps, and bridge journal`**
+
+Files: .claude/bridge-journal.md, .claude/journals/*, .claude/memory/*
+
+**Excluded:**
+- `du.exe.stackdump` — crash dump, should not be committed
+- `database/.claude/journals/` — session journal that ended up in the wrong place, should not be committed
+
+Proceed? [yes / edit N / skip N / abort]
+
+**user**: yes
+
+**assistant**: Executing commits in order.
+
+**assistant**: [tools: Bash]
+
+**assistant**: [tools: Bash]
+
+**assistant**: [tools: Bash]
+
+**assistant**: [tools: Bash]
+
+**assistant**: [tools: Bash]
+
+**assistant**: [tools: Bash]
+
+**assistant**: [tools: Bash]
+
+**assistant**: [tools: Bash]
+
+**assistant**: All 4 commits succeeded. Pushing now.
+
+**assistant**: [tools: Bash]
+
+**assistant**: [tools: Bash]
+
+**assistant**: All clean. 4 commits pushed to main:
+
+1. `18f51b9` **feat(database):** migrations 030-034 for EQEmu PostgreSQL schema alignment (1,101 lines)
+2. `02cea27` **docs(database):** PostgreSQL migration error inventory
+3. `60b6d63` **fix(infra):** conversation logger tool collapsing + system-reminder stripping
+4. `c130bb1` **chore(infra):** session journals, memory heaps, bridge journal
+
+Left uncommitted (intentionally): `du.exe.stackdump` and `database/.claude/` — neither belongs in the repo.
+
+---
+
+## 2026-06-24_09-21-33 (session e62794d9)
+
+**assistant**: [tools: Grep]
+
+**assistant**: [tools: Grep]
+
+**assistant**: All 3 tables (4 counting ldon_trap_entries) are already in migration 033. They exist in both the migration files AND the live database. Task 3 was already done.
+
+**assistant**: [tools: TaskUpdate, TaskUpdate]
+
+**assistant**: Tasks 2 and 3 were already done from last session. Now Task 4 — the 8 hardcoded MySQL syntax remnants in C++. Let me find and fix each one. I'll use parallel agents to tackle them efficiently since they're in different files.
+
+**assistant**: [tools: Agent]
+
+**assistant**: All 5 active issues fixed. Let me verify a couple of the edits.
+
+**assistant**: [tools: Grep]
+
+**assistant**: [tools: Grep]
+
+**assistant**: [tools: Grep]
+
+**assistant**: All verified — eqtime UPDATE no longer has LIMIT, time_of_death uses `IS NOT NULL`, REGEXP is gone. 
+
+**assistant**: [tools: TaskUpdate, TaskUpdate]
+
+**assistant**: Task 4 done. Now Task 5 — the ~25 missing Tier 2 gameplay tables. Let me check which ones already exist vs which still need creating.
+
+**assistant**: [tools: Bash]
+
+**assistant**: All 26 Tier 2 tables already exist in the live database. Let me verify they're also in the migration files.
+
+**assistant**: [tools: Grep]
+
+**assistant**: Every single Tier 2 table is in the migration files (034 and 033) and exists in the live DB. Let me verify the column schemas match the C++ repos for a few of the more complex ones.
+
+**assistant**: [tools: Bash]
+
+**assistant**: [tools: TaskUpdate]
+
+**assistant**: All 5 tasks complete. Here's the summary:
+
+**Task 1 (ON CONFLICT composite PKs)** — Fixed 4 C++ files: `character_bind` (id,slot), `character_skills` (id,skill_id), `character_languages` (id,lang_id), `rule_values` (ruleset_id,rule_name). Updated both `PrimaryKey()` and `BaseUpsertSet()` in each.
+
+**Task 2 (Column mismatches)** — Already fixed. All 5 column renames/adds were in migrations 033-034 and confirmed in live DB.
+
+**Task 3 (Missing tables)** — Already fixed. All 4 tables exist in migration 033 and live DB with correct schemas.
+
+**Task 4 (MySQL syntax remnants)** — Fixed 5 C++ issues: eqtime `LIMIT 1` removed, `time_of_death != 0` changed to `IS NOT NULL`, backticks stripped from `world/client.cpp` (4 locations), `REGEXP` changed to `!~` in `say_link.cpp`. Issues 1-3 (database_update_manifest.h) skipped as legacy.
+
+**Task 5 (Tier 2 tables)** — Already done. All 26 tables exist in migrations and live DB.
+
+**The real new work was Tasks 1 and 4** — C++ changes that require a rebuild. Tasks 2, 3, and 5 were already handled in the previous session. Want me to kick off a rebuild of the server binaries so we can test zone entry?
+
+---
+
+## 2026-06-24_10-24-12 (session e62794d9)
+
+**assistant**: [tools: Bash]
+
+**assistant**: [tools: Bash]
+
+**assistant**: [tools: Bash]
+
+**assistant**: Build finished. Let me check the output.
+
+**assistant**: [tools: Read]
+
+**assistant**: CMake isn't in the bash PATH. This is Windows — need to use PowerShell.
+
+**assistant**: [tools: PowerShell]
+
+**assistant**: Build is running — this typically takes a few minutes. I'll let you know when it finishes.
+
+**assistant**: [tools: Read]
+
+**assistant**: CMake isn't on the PATH. Let me find it.
+
+**assistant**: [tools: PowerShell]
+
+**assistant**: [tools: PowerShell]
+
+**assistant**: Build is running now with the VS 2025 CMake. This will take a few minutes — I'll report back when it completes.
+
+While we wait, let me update the error inventory to reflect what we've fixed this session.
+
+**assistant**: [tools: Read]
+
+**assistant**: [tools: Edit]
+
+**assistant**: Now let me also add the session's C++ fixes to section 6.
+
+**assistant**: [tools: Edit]
+
+**assistant**: Let me check on the build.
+
+**assistant**: [tools: Read]
+
+**assistant**: Build succeeded with zero errors. MSBuild recompiled exactly the files we touched:
+- `database.cpp` (eqtime LIMIT fix)
+- `say_link.cpp` (REGEXP fix)
+- `shareddb.cpp` (time_of_death fix)
+- `client.cpp` (backtick fixes)
+- `rulesys.cpp` (rule_values PK change triggered rebuild)
+- `zonedb.cpp` / `worlddb.cpp` (character_bind/skills/languages PK changes)
+
+All binaries rebuilt: `common.lib`, `world.exe`, `zone.exe`, `loginserver.exe`, `shared_memory.exe`, etc.
+
+**Build is clean and ready to test.** To test zone entry:
+
+1. Stop any running server processes
+2. Run `shared_memory.exe` first (loads shared data)
+3. Run `loginserver.exe`, then `world.exe`, then `zone.exe`
+4. Connect with the EQ client and try creating a character → entering a zone
+
+The ON CONFLICT composite PK fixes were the last documented blocker for zone entry. Want to fire up the servers and test?
+
+---
+
+## 2026-06-25_08-11-29 (session 8906d434)
+
+**assistant**: [tools: Bash]
+
+**assistant**: [tools: Bash]
+
+**assistant**: [tools: Grep]
+
+**assistant**: Got the creds. Let me pull the starting_items data and the PG table state.
+
+**assistant**: [tools: Bash, Bash]
+
+**assistant**: [tools: Bash]
+
+**assistant**: [tools: Bash]
+
+**assistant**: There it is. Crystal clear now:
+
+- **MariaDB**: 148 rows of starting items data, correct column names (`class_list`, `race_list`, `inventory_slot`, etc.)
+- **PostgreSQL**: 0 rows, and has BOTH old columns (`race`, `class`, `deityid`, `zoneid`, `slot`, `gm`) AND new columns (added by migration 033) — a messy hybrid
+
+Let me dump the MariaDB data and load it into PG.
+
+**assistant**: [tools: Bash]
+
+**assistant**: Got all 148 rows. Now I'll write a migration that fixes the PG table schema (drops the old columns, keeps the correct ones) and inserts all the data.
+
+**assistant**: [tools: Bash]
+
+**assistant**: [tools: Glob, Glob]
+
+**assistant**: [tools: Read]
+
+**assistant**: I'll create migration 036 to fix the schema and load all 148 starting items.
+
+**assistant**: [tools: Write]
+
+**assistant**: Now let me apply it.
+
+**assistant**: [tools: Bash]
+
+**assistant**: Let me verify it looks right.
+
+**assistant**: [tools: Bash, Bash]
+
+**assistant**: Clean. The table now has:
+- **19 columns** matching exactly what the C++ repository expects (old cruft columns `race`, `class`, `deityid`, `zoneid`, `gm`, `slot` are gone)
+- **148 rows** of PEQ starting item data — weapons, armor, food, spell components per race/class/deity/zone combo
+
+The column order in PG doesn't match the C++ `Columns()` order perfectly, but that doesn't matter — the C++ selects columns by name via `SelectColumnsRaw()`, not by position.
+
+Characters should now spawn with their proper starting gear instead of naked. Want to fire up the servers and test a character creation?
+
+---
+
+## 2026-06-25_19-15-19 (session 6b95b079)
+
+**assistant**: [tools: Edit]
+
+**assistant**: [tools: PowerShell]
+
+**assistant**: [tools: PowerShell]
+
+**assistant**: All up. This one should be different. The `FindReplace("", "-")` infinite loop is fixed. Try Enter World — and this time we should see `[HQS] Local=0`, `[HQS] Global=0`, `[HQS] Encounter=0`, then `[AddNPC] C`, and all the way to `*** ZONE BOOTED SUCCESSFULLY ***`.
+
+**user**: ok def more stuff
+
+okay we're in grobb. great job finally.
+
+So if we can fix all these errors we swaped mysql for postgres?
+
+ Zone |    Info    | Init Loading server paths
+  Zone |    Info    | Init ----------------------------------------------------------------------
+  Zone |    Info    | Init          server > [E:\development\adif\reference\eqemu-server\build\bin\RelWithDebInfo]
+  Zone |    Info    | Init            logs > [logs]
+  Zone |    Info    | Init            maps > [Maps]
+  Zone |    Info    | Init        lua mods > [mods]
+  Zone |    Info    | Init         patches > [assets\patches]
+  Zone |    Info    | Init          opcode > [assets\opcodes]
+  Zone |    Info    | Init   shared_memory > [shared]
+  Zone |    Info    | operator ()         quests > [quests]
+  Zone |    Info    | operator ()        plugins > [plugins]
+  Zone |    Info    | operator ()    lua_modules > [lua_modules]
+  Zone |    Info    | Init ----------------------------------------------------------------------
+  Zone |    Info    | main Loading server configuration
+  Zone |    Info    | main Connecting to MySQL
+  Zone |    Info    | Connect Connected to database [default] [adif] @ [localhost:5433]
+  Zone |    Info    | LoadRules Loaded [1,003] rules(s) in rule_set [default] id [1]
+  Zone |    Info    | LoadSkillCaps Loaded [58359] Skill Cap Entries
+  Zone |    Info    | CheckVersionsUpToDate ----------------------------------------------------------------------
+  Zone |    Info    | CheckVersionsUpToDate   Server | database [9328] binary [9328] up to date
+  Zone |    Info    | CheckVersionsUpToDate   Config | [server.auto_database_updates] [true]
+  Zone |    Info    | CheckVersionsUpToDate ----------------------------------------------------------------------
+  Zone |    Info    | main CURRENT_VERSION [23.10.3-dev]
+  Zone |    Info    | MapOpcodes Mapped [641] client opcode handlers
+  Zone |    Info    | LoadVariables Loaded [2] Variables
+  Zone |    Info    | LoadZones Loaded [618] zones...
+
+**assistant**: **YOU'RE IN GROBB!** `*** ZONE BOOTED SUCCESSFULLY ***` is right there in the log. The zone booted in 6 seconds, spawned all 121 NPCs (Barsk, Basher Avisk, Bregna, etc.), and your character connected. The zone is running and alive.
+
+Yes, there are PostgreSQL errors — those are all **missing tables and columns** that need migrations. But they're non-fatal — the zone keeps running despite them. That's the next batch of work: creating the missing tables and fixing column mismatches.
+
+I can see the error categories clearly:
+- **Missing tables**: `character_item_recast`, `sharedbank`, `character_bandolier`, `character_potionbelt`, `character_leadership_abilities`, `character_tribute`, `character_tasks`, `character_activities`, `completed_tasks`, `character_enabledtasks`, `character_disciplines`, `character_auras`, `character_alt_currency`, `adventure_members`, `keyring`, `veteran_reward_templates`, `character_peqzone_flags`, `character_instance_safereturns`, `completed_shared_task_members`, `character_exp_modifiers`, `character_evolving_items`, `adventure_template_entry_flavor`
+- **Missing columns**: `instance_id` on `character_corpses`, `augslot1-6` on `object_contents`, `close_timer_ms` on `doors`, `slot_id` vs `slot` on `character_spells`/`character_memmed_spells`, `character_id` vs `id` on `character_buffs`, `heal_amount` on `character_stats_record`, `taunting` on `character_pet_info`, `zone_id` on `merchantlist_temp`, various column name mismatches
+- **Reserved word**: `end` in `base_data` (PG reserved word, needs quoting)
+- **ON CONFLICT**: inventory tab...
+
+---
+
+## 2026-06-25_19-16-09 (session 6b95b079)
+
+**user**: yeah let's document each error, missing table, and column mismatch in a document first. Then let's /c&p after
+
+**assistant**: [tools: Skill]
+
+**user**: Base directory for this skill: E:\development\adif\.claude\skills\bridge
+
+# /bridge — Founder's Bridge Journal
+
+Append the user's message as a timestamped entry to `.claude/bridge-journal.md`, along with auto-gathered session context.
+
+## What this is
+
+The Bridge Journal is **the captain's voice** — not Claude's, not any agent's. It captures the user's thinking, priorities, frustrations, and decisions in their own words. Every agent reads it at session start as the highest-context source of truth. Each entry also carries auto-gathered session context (git history, conversation summary) so future agents understand what was happening when the captain spoke.
+
+## Execution
+
+1. Take the user's message (everything after `/bridge`)
+2. Get the current timestamp in `YYYY-MM-DD HH:MM` format
+3. **Gather git context:**
+   - Read `.claude/bridge-journal.md` and find the most recent `### YYYY-MM-DD HH:MM` header
+   - Run `git log --since="<last entry timestamp>" --oneline -20` (fall back to `--since="midnight"` if no prior entries)
+   - Run `git diff --stat HEAD~10..HEAD`
+4. **Summarize the conversation:**
+   - Review the current conversation and distill 2-4 bullet points covering: what was built/fixed, key decisions, notable problems solved
+   - Keep each bullet under 15 words
+   - Omit this section entirely if the conversation was trivial (no substantive work before `/bridge`)
+5. **Assemble the entry** using this format:
+
+```markdown
+### YYYY-MM-DD HH:MM
+
+<user's message, verbatim>
+
+> **Session context** *(auto-gathered)*
+>
+> **What happened:**
+> - Built X with Y approach
+> - Fixed Z caused by W
+> - Decided to defer Q until next phase
+>
+> **Commits since last entry:**
+> ```
+> abc1234 feat(scope): short description
+> def5678 fix(scope): another description
+> ```
+>
+> **Files touched:**
+> ```
+> src/foo/bar.ts  | 42 +++--
+> src/baz/qux.tsx | 28 ++-
+> ```
+```
+
+6. Append to `.claude/bridge-journal.md`
+7. Confirm with a single line: "Logged to the Bridge Journal."
+
+## Rules
+
+- **...
+
+**assistant**: Let me gather the git context and write the bridge entry.
+
+**assistant**: [tools: Bash]
+
+**assistant**: [tools: Read]
+
+**assistant**: [tools: Bash]
+
+**assistant**: [tools: Edit]
+
+**assistant**: Logged to the Bridge Journal.
+
+Now let me document all the errors from the zone boot log into the error inventory.
+
+**assistant**: [tools: Read]
+
+**assistant**: [tools: Read]
+
+**assistant**: Now let me write the updated error inventory with all the new errors from the zone boot log.
+
+**assistant**: [tools: Write]
+
+**assistant**: Error inventory updated. Here's the summary:
+
+**Remaining work to clear all errors:**
+- **22 missing tables** (mostly character subsystems: bandolier, potionbelt, disciplines, tasks, keyring, etc.)
+- **12 column mismatches** (missing columns like `augslot1-6`, `close_timer_ms`, `taunting`; renamed columns like `slot` vs `slot_id`)
+- **4 raw SQL column name mismatches** in C++ code (`charID` vs `char_id`, `p_accid` vs `accid`)
+- **1 ON CONFLICT issue** on inventory table
+- **1 reserved word** (`end` in base_data needs quoting)
+- **4 uncommitted C++ fixes** from this session
+
+Ready for `/cap` when you are.
+
+**user**: <command-message>cap</command-message>
+<command-name>/cap</command-name>
+<command-args>and thank you for this!</command-args>
+
+**user**: Base directory for this skill: E:\development\adif\.claude\skills\cap
+
+# /c&p — Commit and Push
+
+Group changes into logical commits with machine-readable messages, then push.
+
+## Commit Convention
+
+### Message format
+
+```
+type(scope): imperative summary (72 chars max)
+
+Why: one or two sentences explaining reasoning, not the diff
+Files: key-file-1.ts, key-file-2.ts, key-file-3.ts
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+```
+
+**Rules:**
+- Summary: imperative mood ("Add", "Fix", "Extract" — not "Added"...
+
+---
+

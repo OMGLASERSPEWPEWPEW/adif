@@ -694,3 +694,353 @@ Proceed? [yes / abort]
 
 ---
 
+## 2026-06-25_20-31-17 (session 6b95b079)
+
+**assistant**: [tools: Grep]
+
+**assistant**: The base_data raw SQL query must come from the repository (which we already fixed). Now rebuild:
+
+**assistant**: [tools: PowerShell]
+
+**assistant**: Built clean. Let me also rebuild world since it uses the inventory repository too:
+
+**assistant**: [tools: PowerShell]
+
+**assistant**: Both rebuilt. Now commit migration 042 and push:
+
+**assistant**: [tools: Bash]
+
+**assistant**: All pushed. Here's the session summary:
+
+**What we fixed today:**
+- Migrations 039-042: 22 missing tables created, ~15 columns fixed/renamed, 3 tables rebuilt
+- C++ fixes: `base_data` column renames (`end` → `endurance`), inventory composite PK
+- All cross-referenced against akk-stack MariaDB ground truth
+
+**What's ready for tomorrow:**
+- Zone transitions (need 2+ zone processes, and the `base_data`/`inventory` C++ fixes need a test)
+- Remaining debug logging cleanup (all the `[HQS]`, `[HQSL]`, `[AddNPC]`, `[PZ-STEP]` cerr output)
+- A few straggler column issues that may surface during combat/trading
+
+Good stopping point. You're in Grobb on PostgreSQL with 121 NPCs walking around.
+
+**user**: <command-message>cap</command-message>
+<command-name>/cap</command-name>
+
+**user**: Base directory for this skill: E:\development\adif\.claude\skills\cap
+
+# /c&p — Commit and Push
+
+Group changes into logical commits with machine-readable messages, then push.
+
+## Commit Convention
+
+### Message format
+
+```
+type(scope): imperative summary (72 chars max)
+
+Why: one or two sentences explaining reasoning, not the diff
+Files: key-file-1.ts, key-file-2.ts, key-file-3.ts
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+```
+
+**Rules:**
+- Summary: imperative mood ("Add", "Fix", "Extract" — not "Added", "Fixing"), 72 chars max
+- `Why:` trailer: required for all types except `chore` and `docs`
+- `Files:` trailer: required, list the 2-5 most significant files touched
+- `Co-Authored-By:` footer: always present
+- Multi-scope: if genuinely equal, list both: `feat(palette,shared): extract helper`
+
+### Exempt types
+
+`Evolve:` and `Promote:` are ritual commit types produced by `/evolution` and `/promote`. They use their own format. **Never rewrite, absorb, or duplicate these.** If detected in today's git log, exclude their files from grouping.
+
+### Change types
+
+| Type | When to use | Example |
+|------|------------|---------|
+| `feat` | New user-facing capability | `feat(palette): add per-pane model selection` |
+| `fix` | Corrects a bug | `fix(agendas): prevent stale cache on day rollover` |
+| `refactor` | Restructuring without behavior change | `refactor(palette): extract pane registry` |
+| `perf` | Measurable performance improvement | `perf(filter): skip unchanged sentences on re-scan` |
+| `style` | CSS/visual changes only | `style(ui): tighten palette carousel spacing` |
+| `test` | Adding or fixing tests | `test(agendas): cover diffAgainstCache edge cases` |
+| `docs` | Documentation only | `docs(claude-md): add agendas cache section` |
+| `chore` | Agents, hooks, skills, config, deps | `chore(infra): add Thyra journal evolution entry` |
+
+### Module scopes
+
+| Scope | Files it covers |
+|-------|----------------|
+| `editor...
+
+**assistant**: [tools: Bash]
+
+**assistant**: Just infra changes (journals + memory heaps) and the `du.exe.stackdump` (exclude).
+
+Proposed commits (1):
+
+**1. `chore(infra): update session journals and memory heaps`**
+```
+Files: journals/*, memory/daily/*, memory/heaps/*
+```
+
+Excluding: `du.exe.stackdump` (crash debris)
+
+Proceed? [yes / abort]
+
+**user**: yes and after can you also show me a table of the other features we wamted tp add and change in EQ?
+
+**assistant**: [tools: Bash]
+
+**assistant**: Pushed. Now let me pull up the modernization roadmap and feature plans.
+
+**assistant**: [tools: Glob, Glob]
+
+**assistant**: [tools: Grep]
+
+**assistant**: [tools: Grep]
+
+**assistant**: [tools: Read]
+
+**assistant**: Here's the full picture of what ADIF is building and where we are:
+
+#...
+
+---
+
+## 2026-06-25_21-52-25 (session 6b95b079)
+
+**assistant**: [tools: PowerShell]
+
+**assistant**: Built clean. Let me also rebuild world since it uses the inventory repository too:
+
+**assistant**: [tools: PowerShell]
+
+**assistant**: Both rebuilt. Now commit migration 042 and push:
+
+**assistant**: [tools: Bash]
+
+**assistant**: All pushed. Here's the session summary:
+
+**What we fixed today:**
+- Migrations 039-042: 22 missing tables created, ~15 columns fixed/renamed, 3 tables rebuilt
+- C++ fixes: `base_data` column renames (`end` → `endurance`), inventory composite PK
+- All cross-referenced against akk-stack MariaDB ground truth
+
+**What's ready for tomorrow:**
+- Zone transitions (need 2+ zone processes, and the `base_data`/`inventory` C++ fixes need a test)
+- Remaining debug logging cleanup (all the `[HQS]`, `[HQSL]`, `[AddNPC]`, `[PZ-STEP]` cerr output)
+- A few straggler column issues that may surface during combat/trading
+
+Good stopping point. You're in Grobb on PostgreSQL with 121 NPCs walking around.
+
+**user**: <command-message>cap</command-message>
+<command-name>/cap</command-name>
+
+**user**: Base directory for this skill: E:\development\adif\.claude\skills\cap
+
+# /c&p — Commit and Push
+
+Group changes into logical commits with machine-readable messages, then push.
+
+## Commit Convention
+
+### Message format
+
+```
+type(scope): imperative summary (72 chars max)
+
+Why: one or two sentences explaining reasoning, not the diff
+Files: key-file-1.ts, key-file-2.ts, key-file-3.ts
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+```
+
+**Rules:**
+- Summary: imperative mood ("Add", "Fix", "Extract" — not "Added", "Fixing"), 72 chars max
+- `Why:` trailer: required for all types except `chore` and `docs`
+- `Files:` trailer: required, list the 2-5 most significant files touched
+- `Co-Authored-By:` footer: always present
+- Multi-scope: if genuinely equal, list both: `feat(palette,shared): extract helper`
+
+### Exempt types
+
+`Evolve:` and `Promote:` are ritual commit types produced by `/evolution` and `/promote`. They use their own format. **Never rewrite, absorb, or duplicate these.** If detected in today's git log, exclude their files from grouping.
+
+### Change types
+
+| Type | When to use | Example |
+|------|------------|---------|
+| `feat` | New user-facing capability | `feat(palette): add per-pane model selection` |
+| `fix` | Corrects a bug | `fix(agendas): prevent stale cache on day rollover` |
+| `refactor` | Restructuring without behavior change | `refactor(palette): extract pane registry` |
+| `perf` | Measurable performance improvement | `perf(filter): skip unchanged sentences on re-scan` |
+| `style` | CSS/visual changes only | `style(ui): tighten palette carousel spacing` |
+| `test` | Adding or fixing tests | `test(agendas): cover diffAgainstCache edge cases` |
+| `docs` | Documentation only | `docs(claude-md): add agendas cache section` |
+| `chore` | Agents, hooks, skills, config, deps | `chore(infra): add Thyra journal evolution entry` |
+
+### Module scopes
+
+| Scope | Files it covers |
+|-------|----------------|
+| `editor...
+
+**assistant**: [tools: Bash]
+
+**assistant**: Just infra changes (journals + memory heaps) and the `du.exe.stackdump` (exclude).
+
+Proposed commits (1):
+
+**1. `chore(infra): update session journals and memory heaps`**
+```
+Files: journals/*, memory/daily/*, memory/heaps/*
+```
+
+Excluding: `du.exe.stackdump` (crash debris)
+
+Proceed? [yes / abort]
+
+**user**: yes and after can you also show me a table of the other features we wamted tp add and change in EQ?
+
+**assistant**: [tools: Bash]
+
+**assistant**: Pushed. Now let me pull up the modernization roadmap and feature plans.
+
+**assistant**: [tools: Glob, Glob]
+
+**assistant**: [tools: Grep]
+
+**assistant**: [tools: Grep]
+
+**assistant**: [tools: Read]
+
+**assistant**: Here's the full picture of what ADIF is building and where we are:
+
+## ADIF Modernization Roadmap
+
+### 11 Improvement Areas (from tech-comparison.html)
+
+| # | Area | EQ/EQEmu (1999) | ADIF Direction | Status |
+|-...
+
+---
+
+## 2026-06-25_22-24-29 (session 6b95b079)
+
+**assistant**: [tools: PowerShell]
+
+**assistant**: Both rebuilt. Now commit migration 042 and push:
+
+**assistant**: [tools: Bash]
+
+**assistant**: All pushed. Here's the session summary:
+
+**What we fixed today:**
+- Migrations 039-042: 22 missing tables created, ~15 columns fixed/renamed, 3 tables rebuilt
+- C++ fixes: `base_data` column renames (`end` → `endurance`), inventory composite PK
+- All cross-referenced against akk-stack MariaDB ground truth
+
+**What's ready for tomorrow:**
+- Zone transitions (need 2+ zone processes, and the `base_data`/`inventory` C++ fixes need a test)
+- Remaining debug logging cleanup (all the `[HQS]`, `[HQSL]`, `[AddNPC]`, `[PZ-STEP]` cerr output)
+- A few straggler column issues that may surface during combat/trading
+
+Good stopping point. You're in Grobb on PostgreSQL with 121 NPCs walking around.
+
+**user**: <command-message>cap</command-message>
+<command-name>/cap</command-name>
+
+**user**: Base directory for this skill: E:\development\adif\.claude\skills\cap
+
+# /c&p — Commit and Push
+
+Group changes into logical commits with machine-readable messages, then push.
+
+## Commit Convention
+
+### Message format
+
+```
+type(scope): imperative summary (72 chars max)
+
+Why: one or two sentences explaining reasoning, not the diff
+Files: key-file-1.ts, key-file-2.ts, key-file-3.ts
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+```
+
+**Rules:**
+- Summary: imperative mood ("Add", "Fix", "Extract" — not "Added", "Fixing"), 72 chars max
+- `Why:` trailer: required for all types except `chore` and `docs`
+- `Files:` trailer: required, list the 2-5 most significant files touched
+- `Co-Authored-By:` footer: always present
+- Multi-scope: if genuinely equal, list both: `feat(palette,shared): extract helper`
+
+### Exempt types
+
+`Evolve:` and `Promote:` are ritual commit types produced by `/evolution` and `/promote`. They use their own format. **Never rewrite, absorb, or duplicate these.** If detected in today's git log, exclude their files from grouping.
+
+### Change types
+
+| Type | When to use | Example |
+|------|------------|---------|
+| `feat` | New user-facing capability | `feat(palette): add per-pane model selection` |
+| `fix` | Corrects a bug | `fix(agendas): prevent stale cache on day rollover` |
+| `refactor` | Restructuring without behavior change | `refactor(palette): extract pane registry` |
+| `perf` | Measurable performance improvement | `perf(filter): skip unchanged sentences on re-scan` |
+| `style` | CSS/visual changes only | `style(ui): tighten palette carousel spacing` |
+| `test` | Adding or fixing tests | `test(agendas): cover diffAgainstCache edge cases` |
+| `docs` | Documentation only | `docs(claude-md): add agendas cache section` |
+| `chore` | Agents, hooks, skills, config, deps | `chore(infra): add Thyra journal evolution entry` |
+
+### Module scopes
+
+| Scope | Files it covers |
+|-------|----------------|
+| `editor...
+
+**assistant**: [tools: Bash]
+
+**assistant**: Just infra changes (journals + memory heaps) and the `du.exe.stackdump` (exclude).
+
+Proposed commits (1):
+
+**1. `chore(infra): update session journals and memory heaps`**
+```
+Files: journals/*, memory/daily/*, memory/heaps/*
+```
+
+Excluding: `du.exe.stackdump` (crash debris)
+
+Proceed? [yes / abort]
+
+**user**: yes and after can you also show me a table of the other features we wamted tp add and change in EQ?
+
+**assistant**: [tools: Bash]
+
+**assistant**: Pushed. Now let me pull up the modernization roadmap and feature plans.
+
+**assistant**: [tools: Glob, Glob]
+
+**assistant**: [tools: Grep]
+
+**assistant**: [tools: Grep]
+
+**assistant**: [tools: Read]
+
+**assistant**: Here's the full picture of what ADIF is building and where we are:
+
+## ADIF Modernization Roadmap
+
+### 11 Improvement Areas (from tech-comparison.html)
+
+| # | Area | EQ/EQEmu (1999) | ADIF Direction | Status |
+|---|------|----------------|----------------|--------|
+| 1 | **Networking** | Custom UDP, raw opcodes | Protobuf + buf linting | Proto f...
+
+---
+

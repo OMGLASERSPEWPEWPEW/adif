@@ -1756,3 +1756,683 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 
 ---
 
+## 2026-06-25_19-17-17 (session 6b95b079)
+
+**assistant**: Logged to the Bridge Journal.
+
+Now let me document all the errors from the zone boot log into the error inventory.
+
+**assistant**: [tools: Read]
+
+**assistant**: [tools: Read]
+
+**assistant**: Now let me write the updated error inventory with all the new errors from the zone boot log.
+
+**assistant**: [tools: Write]
+
+**assistant**: Error inventory updated. Here's the summary:
+
+**Remaining work to clear all errors:**
+- **22 missing tables** (mostly character subsystems: bandolier, potionbelt, disciplines, tasks, keyring, etc.)
+- **12 column mismatches** (missing columns like `augslot1-6`, `close_timer_ms`, `taunting`; renamed columns like `slot` vs `slot_id`)
+- **4 raw SQL column name mismatches** in C++ code (`charID` vs `char_id`, `p_accid` vs `accid`)
+- **1 ON CONFLICT issue** on inventory table
+- **1 reserved word** (`end` in base_data needs quoting)
+- **4 uncommitted C++ fixes** from this session
+
+Ready for `/cap` when you are.
+
+**user**: <command-message>cap</command-message>
+<command-name>/cap</command-name>
+<command-args>and thank you for this!</command-args>
+
+**user**: Base directory for this skill: E:\development\adif\.claude\skills\cap
+
+# /c&p — Commit and Push
+
+Group changes into logical commits with machine-readable messages, then push.
+
+## Commit Convention
+
+### Message format
+
+```
+type(scope): imperative summary (72 chars max)
+
+Why: one or two sentences explaining reasoning, not the diff
+Files: key-file-1.ts, key-file-2.ts, key-file-3.ts
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+```
+
+**Rules:**
+- Summary: imperative mood ("Add", "Fix", "Extract" — not "Added", "Fixing"), 72 chars max
+- `Why:` trailer: required for all types except `chore` and `docs`
+- `Files:` trailer: required, list the 2-5 most significant files touched
+- `Co-Authored-By:` footer: always present
+- Multi-scope: if genuinely equal, list both: `feat(palette,shared): extract helper`
+
+### Exempt types
+
+`Evolve:` and `Promote:` are ritual commit types produced by `/evolution` and `/promote`. They use their own format. **Never rewrite, absorb, or duplicate these.** If detected in today's git log, exclude their files from grouping.
+
+### Change types
+
+| Type | When to use | Example |
+|------|------------|---------|
+| `feat` | New user-facing capability | `feat(palette): add per-pane model selection` |
+| `fix` | Corrects a bug | `fix(agendas): prevent stale cache on day rollover` |
+| `refactor` | Restructuring without behavior change | `refactor(palette): extract pane registry` |
+| `perf` | Measurable performance improvement | `perf(filter): skip unchanged sentences on re-scan` |
+| `style` | CSS/visual changes only | `style(ui): tighten palette carousel spacing` |
+| `test` | Adding or fixing tests | `test(agendas): cover diffAgainstCache edge cases` |
+| `docs` | Documentation only | `docs(claude-md): add agendas cache section` |
+| `chore` | Agents, hooks, skills, config, deps | `chore(infra): add Thyra journal evolution entry` |
+
+### Module scopes
+
+| Scope | Files it covers |
+|-------|----------------|
+| `editor...
+
+**assistant**: Let me gather the full picture of what changed.
+
+**assistant**: [tools: Bash]
+
+**assistant**: [tools: Bash]
+
+**assistant**: The `du.exe.stackdump` is unrelated crash debris — should not be committed. `database/.claude/` is a database-specific Claude journal that can go with infra.
+
+Proposed commits (3):
+
+**1. `feat(database): add migrations 035-038 for composite PKs, starting items, color overflow, and remaining fixes`**
+```
+Why: Restore composite PKs after C++ ON CONFLICT fix, populate 148 starting 
+     items from PEQ, fix BIGINT color overflow, add adventure/start_zones tables.
+Files: 035_restore_composite_pks.sql, 036_starting_items_data.sql, 
+       037_fix_color_column_overflow.sql, 038_remaining_fixes.sql
+```
+
+**2. `docs(database): update error inventory with zone entry errors and session 2026-06-25 fixes`**
+```
+Files: docs/postgresql-errors-inventory.m...
+
+---
+
+## 2026-06-25_19-18-27 (session 6b95b079)
+
+**user**: Base directory for this skill: E:\development\adif\.claude\skills\cap
+
+# /c&p — Commit and Push
+
+Group changes into logical commits with machine-readable messages, then push.
+
+## Commit Convention
+
+### Message format
+
+```
+type(scope): imperative summary (72 chars max)
+
+Why: one or two sentences explaining reasoning, not the diff
+Files: key-file-1.ts, key-file-2.ts, key-file-3.ts
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+```
+
+**Rules:**
+- Summary: imperative mood ("Add", "Fix", "Extract" — not "Added", "Fixing"), 72 chars max
+- `Why:` trailer: required for all types except `chore` and `docs`
+- `Files:` trailer: required, list the 2-5 most significant files touched
+- `Co-Authored-By:` footer: always present
+- Multi-scope: if genuinely equal, list both: `feat(palette,shared): extract helper`
+
+### Exempt types
+
+`Evolve:` and `Promote:` are ritual commit types produced by `/evolution` and `/promote`. They use their own format. **Never rewrite, absorb, or duplicate these.** If detected in today's git log, exclude their files from grouping.
+
+### Change types
+
+| Type | When to use | Example |
+|------|------------|---------|
+| `feat` | New user-facing capability | `feat(palette): add per-pane model selection` |
+| `fix` | Corrects a bug | `fix(agendas): prevent stale cache on day rollover` |
+| `refactor` | Restructuring without behavior change | `refactor(palette): extract pane registry` |
+| `perf` | Measurable performance improvement | `perf(filter): skip unchanged sentences on re-scan` |
+| `style` | CSS/visual changes only | `style(ui): tighten palette carousel spacing` |
+| `test` | Adding or fixing tests | `test(agendas): cover diffAgainstCache edge cases` |
+| `docs` | Documentation only | `docs(claude-md): add agendas cache section` |
+| `chore` | Agents, hooks, skills, config, deps | `chore(infra): add Thyra journal evolution entry` |
+
+### Module scopes
+
+| Scope | Files it covers |
+|-------|----------------|
+| `editor...
+
+**assistant**: Let me gather the full picture of what changed.
+
+**assistant**: [tools: Bash]
+
+**assistant**: [tools: Bash]
+
+**assistant**: The `du.exe.stackdump` is unrelated crash debris — should not be committed. `database/.claude/` is a database-specific Claude journal that can go with infra.
+
+Proposed commits (3):
+
+**1. `feat(database): add migrations 035-038 for composite PKs, starting items, color overflow, and remaining fixes`**
+```
+Why: Restore composite PKs after C++ ON CONFLICT fix, populate 148 starting 
+     items from PEQ, fix BIGINT color overflow, add adventure/start_zones tables.
+Files: 035_restore_composite_pks.sql, 036_starting_items_data.sql, 
+       037_fix_color_column_overflow.sql, 038_remaining_fixes.sql
+```
+
+**2. `docs(database): update error inventory with zone entry errors and session 2026-06-25 fixes`**
+```
+Files: docs/postgresql-errors-inventory.md
+```
+
+**3. `chore(infra): update session journals, memory heaps, and bridge journal`**
+```
+Files: bridge-journal.md, journals/*, memory/daily/*, memory/heaps/*
+```
+
+Excluding: `du.exe.stackdump` (crash debris, not project code)
+
+Proceed? [yes / edit N / skip N / abort]
+
+**user**: yes
+
+**assistant**: [tools: Bash]
+
+**assistant**: [tools: Bash]
+
+**assistant**: [tools: Bash]
+
+**assistant**: All 3 commits clean. Pushing now.
+
+**assistant**: [tools: Bash]
+
+**assistant**: [tools: Bash]
+
+**assistant**: All pushed. 3 commits, 0 unpushed.
+
+```
+a89f328 feat(database): add migrations 035-038 for composite PKs, starting items, color overflow, and remaining fixes
+4096a50 docs(database): update error inventory with zone entry errors and session 2026-06-25 fixes
+fe9b4d2 chore(infra): update session journals, memory heaps, and bridge journal
+```
+
+And thank YOU — that was a marathon. We went from "zone unavailable" to standing in Grobb with 121 NPCs on PostgreSQL. The FindReplace infinite loop was a sneaky one but we got it. Next session: knock out those ~22 missing tables and ~12 column misma...
+
+---
+
+## 2026-06-25_19-45-44 (session 6b95b079)
+
+**assistant**: [tools: Bash]
+
+**assistant**: [tools: Bash]
+
+**assistant**: [tools: Bash]
+
+**assistant**: The `zone_flags` column rename failed — the column might already be named `charID`/`zoneID` or something different. Let me check.
+
+**assistant**: [tools: Bash]
+
+**assistant**: Only `char_id` needs renaming — `zoneID` already has the right name. Let me fix and re-apply.
+
+**assistant**: [tools: Edit]
+
+**assistant**: [tools: Bash]
+
+**assistant**: Both migrations applied clean. Let me verify the key tables exist and columns are correct.
+
+**assistant**: [tools: Bash]
+
+**assistant**: All 22 missing tables created, all 10 column fixes verified. Now let's restart the servers and test — should see dramatically fewer errors.
+
+**assistant**: [tools: PowerShell]
+
+**assistant**: All up. Go ahead and Enter World — the zone console should be much cleaner now. Most of the "relation does not exist" and "column does not exist" errors should be gone. Tell me what errors remain (if any).
+
+**user**: [HQSL] not cached, calling GetQIByNPCQuest
+[HQSL] GetQIByNPCQuest returned qi=null
+[HQSL] returning false
+[HQS] Local=0
+[HQS] Global=0
+[HQS] Encounter=0
+[AddNPC] C: SetSpawned
+  Zone |    Info    | AddNPC [AddNPC] D: spawn_packet (send=true)
+[AddNPC] E: SendPositionToClients
+  Zone |    Info    | AddNPC [AddNPC] F: HasQuestSub EVENT_SPAWN_ZONE
+[HQS] entering npc=10 event=81
+[HQSL] enter npc=10
+[HQSL] found in cache, status=4294967295
+[HQSL] returning false
+[HQS] Local=0
+[HQS] Global=0
+[HQS] Encounter=0
+  Zone |    Info    | AddNPC [AddNPC] G: ZoneHasQuestSub EVENT_SPAWN_ZONE
+[AddNPC] H: water check
+[AddNPC] I: Done npc_id=52011
+  Zone |    Info    | AddNPC [AddNPC] A: ScanCloseMobs npc_id [52012]
+  Zone | AI Scan Cl | ScanCloseMobs [Basher Nanrum] Scanning close list > list_size [10] moving [false] elapsed [7] us
+[AddNPC] B: HasQuestSub EVENT_SPAWN npc_id=52012
+[HQS] entering npc=52012 event=3
+[HQSL] enter npc=52012
+[HQSL] not cached, calling GetQIByNPCQuest
+[HQSL] GetQIByNPCQuest returned qi=null
+[HQSL] returning false
+[HQS] Local=0
+[HQS] Global=0
+[HQS] Encounter=0
+[AddNPC] C: SetSpawned
+  Zone |    Info    | AddNPC [AddNPC] D: spawn_packet (send=true)
+[AddNPC] E: SendPositionToClients
+  Zone |    Info    | AddNPC [AddNPC] F: HasQuestSub EVENT_SPAWN_ZONE
+[HQS] entering npc=10 event=81
+[HQSL] enter npc=10
+[HQSL] found in cache, status=4294967295
+[HQSL] returning false
+[HQS] Local=0
+[HQS] Global=0
+[HQS] Encounter=0
+  Zone |    Info    | AddNPC [AddNPC] G: ZoneHasQuestSub EVENT_SPAWN_ZONE
+[AddNPC] H: water check
+[AddNPC] I: Done npc_id=52012
+  Zone |    Info    | AddNPC [AddNPC] A: ScanCloseMobs npc_id [52013]
+  Zone | AI Scan Cl | ScanCloseMobs [Basher Rakguk] Scanning close list > list_size [13] moving [false] elapsed [7] us
+[AddNPC] B: HasQuestSub EVENT_SPAWN npc_id=52013
+[HQS] entering npc=52013 event=3
+[HQSL] enter npc=52013
+[HQSL] not cached, calling GetQIByNPCQuest
+[HQSL] GetQIByNPCQuest returned qi=null
+[HQSL] returning false
+[HQS] Local=0
+[HQS] Global=0
+[HQS]...
+
+**assistant**: Massive improvement. The errors dropped from ~30+ to just a handful of remaining issues. Here's what's left:
+
+**Remaining errors (6 issues):**
+
+1. **`character_corpses.gm_exp`** — column is `gmexp` in PG, C++ expects `gm_exp` (needs rename)
+2. **`base_data.end`** — PG reserved word, unquoted in raw SQL query
+3. **`petitions.ischeckedout`** — missing column
+4. **`character_buffs.ExtraDIChance`** — PG lowercases it to `extradichance`, but C++ uses mixed case
+5. **`zone_flags.charID`** — the rename created `"charID"` (quoted/case-sensitive) but C++ sends unquoted `charID` which PG lowercases to `charid`
+6. **`character_stats_record.alcohol`** — missing column (and likely others like `fishing`, `tinkering`)
+7. **`completed_shared_tasks`** — missing table (we created `completed_shared_task_members` but not `completed_shared_tasks`)
+8. **`raid_members.bot_id`** — missing column
+9. **`inventory` ON CONFLICT** — needs C++ PrimaryKey() fix
+
+Plus the `o...
+
+---
+
+## 2026-06-25_19-46-12 (session 6b95b079)
+
+**assistant**: [tools: Bash]
+
+**assistant**: Only `char_id` needs renaming — `zoneID` already has the right name. Let me fix and re-apply.
+
+**assistant**: [tools: Edit]
+
+**assistant**: [tools: Bash]
+
+**assistant**: Both migrations applied clean. Let me verify the key tables exist and columns are correct.
+
+**assistant**: [tools: Bash]
+
+**assistant**: All 22 missing tables created, all 10 column fixes verified. Now let's restart the servers and test — should see dramatically fewer errors.
+
+**assistant**: [tools: PowerShell]
+
+**assistant**: All up. Go ahead and Enter World — the zone console should be much cleaner now. Most of the "relation does not exist" and "column does not exist" errors should be gone. Tell me what errors remain (if any).
+
+**user**: [HQSL] not cached, calling GetQIByNPCQuest
+[HQSL] GetQIByNPCQuest returned qi=null
+[HQSL] returning false
+[HQS] Local=0
+[HQS] Global=0
+[HQS] Encounter=0
+[AddNPC] C: SetSpawned
+  Zone |    Info    | AddNPC [AddNPC] D: spawn_packet (send=true)
+[AddNPC] E: SendPositionToClients
+  Zone |    Info    | AddNPC [AddNPC] F: HasQuestSub EVENT_SPAWN_ZONE
+[HQS] entering npc=10 event=81
+[HQSL] enter npc=10
+[HQSL] found in cache, status=4294967295
+[HQSL] returning false
+[HQS] Local=0
+[HQS] Global=0
+[HQS] Encounter=0
+  Zone |    Info    | AddNPC [AddNPC] G: ZoneHasQuestSub EVENT_SPAWN_ZONE
+[AddNPC] H: water check
+[AddNPC] I: Done npc_id=52011
+  Zone |    Info    | AddNPC [AddNPC] A: ScanCloseMobs npc_id [52012]
+  Zone | AI Scan Cl | ScanCloseMobs [Basher Nanrum] Scanning close list > list_size [10] moving [false] elapsed [7] us
+[AddNPC] B: HasQuestSub EVENT_SPAWN npc_id=52012
+[HQS] entering npc=52012 event=3
+[HQSL] enter npc=52012
+[HQSL] not cached, calling GetQIByNPCQuest
+[HQSL] GetQIByNPCQuest returned qi=null
+[HQSL] returning false
+[HQS] Local=0
+[HQS] Global=0
+[HQS] Encounter=0
+[AddNPC] C: SetSpawned
+  Zone |    Info    | AddNPC [AddNPC] D: spawn_packet (send=true)
+[AddNPC] E: SendPositionToClients
+  Zone |    Info    | AddNPC [AddNPC] F: HasQuestSub EVENT_SPAWN_ZONE
+[HQS] entering npc=10 event=81
+[HQSL] enter npc=10
+[HQSL] found in cache, status=4294967295
+[HQSL] returning false
+[HQS] Local=0
+[HQS] Global=0
+[HQS] Encounter=0
+  Zone |    Info    | AddNPC [AddNPC] G: ZoneHasQuestSub EVENT_SPAWN_ZONE
+[AddNPC] H: water check
+[AddNPC] I: Done npc_id=52012
+  Zone |    Info    | AddNPC [AddNPC] A: ScanCloseMobs npc_id [52013]
+  Zone | AI Scan Cl | ScanCloseMobs [Basher Rakguk] Scanning close list > list_size [13] moving [false] elapsed [7] us
+[AddNPC] B: HasQuestSub EVENT_SPAWN npc_id=52013
+[HQS] entering npc=52013 event=3
+[HQSL] enter npc=52013
+[HQSL] not cached, calling GetQIByNPCQuest
+[HQSL] GetQIByNPCQuest returned qi=null
+[HQSL] returning false
+[HQS] Local=0
+[HQS] Global=0
+[HQS]...
+
+**assistant**: Massive improvement. The errors dropped from ~30+ to just a handful of remaining issues. Here's what's left:
+
+**Remaining errors (6 issues):**
+
+1. **`character_corpses.gm_exp`** — column is `gmexp` in PG, C++ expects `gm_exp` (needs rename)
+2. **`base_data.end`** — PG reserved word, unquoted in raw SQL query
+3. **`petitions.ischeckedout`** — missing column
+4. **`character_buffs.ExtraDIChance`** — PG lowercases it to `extradichance`, but C++ uses mixed case
+5. **`zone_flags.charID`** — the rename created `"charID"` (quoted/case-sensitive) but C++ sends unquoted `charID` which PG lowercases to `charid`
+6. **`character_stats_record.alcohol`** — missing column (and likely others like `fishing`, `tinkering`)
+7. **`completed_shared_tasks`** — missing table (we created `completed_shared_task_members` but not `completed_shared_tasks`)
+8. **`raid_members.bot_id`** — missing column
+9. **`inventory` ON CONFLICT** — needs C++ PrimaryKey() fix
+
+Plus the `object_contents.augslot` errors are gone, the missing tables errors are gone, doors/close_timer_ms is gone. Huge progress.
+
+Let me write one more quick migration to fix the remaining column issues, then we can commit everything.
+
+**assista...
+
+---
+
+## 2026-06-25_19-48-55 (session 6b95b079)
+
+**assistant**: All 22 missing tables created, all 10 column fixes verified. Now let's restart the servers and test — should see dramatically fewer errors.
+
+**assistant**: [tools: PowerShell]
+
+**assistant**: All up. Go ahead and Enter World — the zone console should be much cleaner now. Most of the "relation does not exist" and "column does not exist" errors should be gone. Tell me what errors remain (if any).
+
+**user**: [HQSL] not cached, calling GetQIByNPCQuest
+[HQSL] GetQIByNPCQuest returned qi=null
+[HQSL] returning false
+[HQS] Local=0
+[HQS] Global=0
+[HQS] Encounter=0
+[AddNPC] C: SetSpawned
+  Zone |    Info    | AddNPC [AddNPC] D: spawn_packet (send=true)
+[AddNPC] E: SendPositionToClients
+  Zone |    Info    | AddNPC [AddNPC] F: HasQuestSub EVENT_SPAWN_ZONE
+[HQS] entering npc=10 event=81
+[HQSL] enter npc=10
+[HQSL] found in cache, status=4294967295
+[HQSL] returning false
+[HQS] Local=0
+[HQS] Global=0
+[HQS] Encounter=0
+  Zone |    Info    | AddNPC [AddNPC] G: ZoneHasQuestSub EVENT_SPAWN_ZONE
+[AddNPC] H: water check
+[AddNPC] I: Done npc_id=52011
+  Zone |    Info    | AddNPC [AddNPC] A: ScanCloseMobs npc_id [52012]
+  Zone | AI Scan Cl | ScanCloseMobs [Basher Nanrum] Scanning close list > list_size [10] moving [false] elapsed [7] us
+[AddNPC] B: HasQuestSub EVENT_SPAWN npc_id=52012
+[HQS] entering npc=52012 event=3
+[HQSL] enter npc=52012
+[HQSL] not cached, calling GetQIByNPCQuest
+[HQSL] GetQIByNPCQuest returned qi=null
+[HQSL] returning false
+[HQS] Local=0
+[HQS] Global=0
+[HQS] Encounter=0
+[AddNPC] C: SetSpawned
+  Zone |    Info    | AddNPC [AddNPC] D: spawn_packet (send=true)
+[AddNPC] E: SendPositionToClients
+  Zone |    Info    | AddNPC [AddNPC] F: HasQuestSub EVENT_SPAWN_ZONE
+[HQS] entering npc=10 event=81
+[HQSL] enter npc=10
+[HQSL] found in cache, status=4294967295
+[HQSL] returning false
+[HQS] Local=0
+[HQS] Global=0
+[HQS] Encounter=0
+  Zone |    Info    | AddNPC [AddNPC] G: ZoneHasQuestSub EVENT_SPAWN_ZONE
+[AddNPC] H: water check
+[AddNPC] I: Done npc_id=52012
+  Zone |    Info    | AddNPC [AddNPC] A: ScanCloseMobs npc_id [52013]
+  Zone | AI Scan Cl | ScanCloseMobs [Basher Rakguk] Scanning close list > list_size [13] moving [false] elapsed [7] us
+[AddNPC] B: HasQuestSub EVENT_SPAWN npc_id=52013
+[HQS] entering npc=52013 event=3
+[HQSL] enter npc=52013
+[HQSL] not cached, calling GetQIByNPCQuest
+[HQSL] GetQIByNPCQuest returned qi=null
+[HQSL] returning false
+[HQS] Local=0
+[HQS] Global=0
+[HQS]...
+
+**assistant**: Massive improvement. The errors dropped from ~30+ to just a handful of remaining issues. Here's what's left:
+
+**Remaining errors (6 issues):**
+
+1. **`character_corpses.gm_exp`** — column is `gmexp` in PG, C++ expects `gm_exp` (needs rename)
+2. **`base_data.end`** — PG reserved word, unquoted in raw SQL query
+3. **`petitions.ischeckedout`** — missing column
+4. **`character_buffs.ExtraDIChance`** — PG lowercases it to `extradichance`, but C++ uses mixed case
+5. **`zone_flags.charID`** — the rename created `"charID"` (quoted/case-sensitive) but C++ sends unquoted `charID` which PG lowercases to `charid`
+6. **`character_stats_record.alcohol`** — missing column (and likely others like `fishing`, `tinkering`)
+7. **`completed_shared_tasks`** — missing table (we created `completed_shared_task_members` but not `completed_shared_tasks`)
+8. **`raid_members.bot_id`** — missing column
+9. **`inventory` ON CONFLICT** — needs C++ PrimaryKey() fix
+
+Plus the `object_contents.augslot` errors are gone, the missing tables errors are gone, doors/close_timer_ms is gone. Huge progress.
+
+Let me write one more quick migration to fix the remaining column issues, then we can commit everything.
+
+**assistant**: [tools: Write]
+
+**assistant**: [tools: Bash]
+
+**assistant**: Clean. Now let's commit everything and push — migrations 039, 040, 041.
+
+**assistant**: [tools: Bash]
+
+**assistant**: Pushed. We knocked out 22 missing tables, 12+ column fixes, and 3 table rebuilds (character_buffs, buyer, account_flags) in one shot, all cross-referenc...
+
+---
+
+## 2026-06-25_20-12-36 (session 6b95b079)
+
+**assistant**: [tools: Grep]
+
+**assistant**: [tools: Read]
+
+**assistant**: [tools: Edit]
+
+**assistant**: [tools: Edit]
+
+**assistant**: [tools: Edit]
+
+**assistant**: Now fix the inventory PrimaryKey:
+
+**assistant**: [tools: Grep]
+
+**assistant**: [tools: Edit]
+
+**assistant**: [tools: Read]
+
+**assistant**: [tools: Edit]
+
+**assistant**: Now also fix the raw SQL query in zone_base_data.cpp:
+
+**assistant**: [tools: Grep]
+
+**assistant**: [tools: Grep]
+
+**assistant**: The base_data raw SQL query must come from the repository (which we already fixed). Now rebuild:
+
+**assistant**: [tools: PowerShell]
+
+**assistant**: Built clean. Let me also rebuild world since it uses the inventory repository too:
+
+**assistant**: [tools: PowerShell]
+
+**assistant**: Both rebuilt. Now commit migration 042 and push:
+
+**assistant**: [tools: Bash]
+
+**assistant**: All pushed. Here's the session summary:
+
+**What we fixed today:**
+- Migrations 039-042: 22 missing tables created, ~15 columns fixed/renamed, 3 tables rebuilt
+- C++ fixes: `base_data` column renames (`end` → `endurance`), inventory composite PK
+- All cross-referenced against akk-stack MariaDB ground truth
+
+**What's ready for tomorrow:**
+- Zone transitions (need 2+ zone processes, and the `base_data`/`inventory` C++ fixes need a test)
+- Remaining debug logging cleanup (all the `[HQS]`, `[HQSL]`, `[AddNPC]`, `[PZ-STEP]` cerr output)
+- A few straggler column issues that may surface during combat/trading
+
+Good stopping point. You're in Grobb on PostgreSQL with 121 NPCs walking around.
+
+---
+
+## 2026-06-25_20-30-06 (session 6b95b079)
+
+**assistant**: [tools: Edit]
+
+**assistant**: Now fix the inventory PrimaryKey:
+
+**assistant**: [tools: Grep]
+
+**assistant**: [tools: Edit]
+
+**assistant**: [tools: Read]
+
+**assistant**: [tools: Edit]
+
+**assistant**: Now also fix the raw SQL query in zone_base_data.cpp:
+
+**assistant**: [tools: Grep]
+
+**assistant**: [tools: Grep]
+
+**assistant**: The base_data raw SQL query must come from the repository (which we already fixed). Now rebuild:
+
+**assistant**: [tools: PowerShell]
+
+**assistant**: Built clean. Let me also rebuild world since it uses the inventory repository too:
+
+**assistant**: [tools: PowerShell]
+
+**assistant**: Both rebuilt. Now commit migration 042 and push:
+
+**assistant**: [tools: Bash]
+
+**assistant**: All pushed. Here's the session summary:
+
+**What we fixed today:**
+- Migrations 039-042: 22 missing tables created, ~15 columns fixed/renamed, 3 tables rebuilt
+- C++ fixes: `base_data` column renames (`end` → `endurance`), inventory composite PK
+- All cross-referenced against akk-stack MariaDB ground truth
+
+**What's ready for tomorrow:**
+- Zone transitions (need 2+ zone processes, and the `base_data`/`inventory` C++ fixes need a test)
+- Remaining debug logging cleanup (all the `[HQS]`, `[HQSL]`, `[AddNPC]`, `[PZ-STEP]` cerr output)
+- A few straggler column issues that may surface during combat/trading
+
+Good stopping point. You're in Grobb on PostgreSQL with 121 NPCs walking around.
+
+**user**: <command-message>cap</command-message>
+<command-name>/cap</command-name>
+
+**user**: Base directory for this skill: E:\development\adif\.claude\skills\cap
+
+# /c&p — Commit and Push
+
+Group changes into logical commits with machine-readable messages, then push.
+
+## Commit Convention
+
+### Message format
+
+```
+type(scope): imperative summary (72 chars max)
+
+Why: one or two sentences explaining reasoning, not the diff
+Files: key-file-1.ts, key-file-2.ts, key-file-3.ts
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+```
+
+**Rules:**
+- Summary: imperative mood ("Add", "Fix", "Extract" — not "Added", "Fixing"), 72 chars max
+- `Why:` trailer: required for all types except `chore` and `docs`
+- `Files:` trailer: required, list the 2-5 most significant files touched
+- `Co-Authored-By:` footer: always present
+- Multi-scope: if genuinely equal, list both: `feat(palette,shared): extract helper`
+
+### Exempt types
+
+`Evolve:` and `Promote:` are ritual commit types produced by `/evolution` and `/promote`. They use their own format. **Never rewrite, absorb, or duplicate these.** If detected in today's git log, exclude their files from grouping.
+
+### Change types
+
+| Type | When to use | Example |
+|------|------------|---------|
+| `feat` | New user-facing capability | `feat(palette): add per-pane model selection` |
+| `fix` | Corrects a bug | `fix(agendas): prevent stale cache on day rollover` |
+| `refactor` | Restructuring without behavior change | `refactor(palette): extract pane registry` |
+| `perf` | Measurable performance improvement | `perf(filter): skip unchanged sentences on re-scan` |
+| `style` | CSS/visual changes only | `style(ui): tighten palette carousel spacing` |
+| `test` | Adding or fixing tests | `test(agendas): cover diffAgainstCache edge cases` |
+| `docs` | Documentation only | `docs(claude-md): add agendas cache section` |
+| `chore` | Agents, hooks, skills, config, deps | `chore(infra): add Thyra journal evolution entry` |
+
+### Module scopes
+
+| Scope | Files it covers |
+|-------|----------------|
+| `editor...
+
+**assistant**: [tools: Bash]
+
+**assistant**: Just infra changes (journals + memory heaps) and the `du.exe.stackdump` (exclude).
+
+Proposed commits (1):
+
+**1. `chore(infra): update session journals and memory heaps`**
+```
+Files: journals/*, memory/daily/*, memory/heaps/*
+```
+
+Excluding: `du.exe.stackdump` (crash debris)
+
+Proceed? [yes / abort]
+
+---
+

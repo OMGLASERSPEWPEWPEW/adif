@@ -1,6 +1,7 @@
 [server]
 name = "ADIF Dev"
 log_level = "info"
+listen_port = 7000
 
 [database]
 host = "localhost"

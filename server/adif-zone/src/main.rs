@@ -1,16 +1,21 @@
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::Context;
 use bevy_ecs::prelude::*;
+use tokio::sync::Mutex;
 use tracing::info;
 
 mod ecs;
 mod game_loop;
+mod movement;
+mod network;
 mod spawn;
 mod zone_config;
 
 use ecs::EntityIdAllocator;
+use network::session::SessionManager;
 use zone_config::ZoneConfig;
 
 #[tokio::main]
@@ -66,6 +71,19 @@ async fn main() -> anyhow::Result<()> {
         "Zone populated"
     );
 
+    let listen_port = config.server.listen_port;
+    let sessions = Arc::new(Mutex::new(SessionManager::new()));
+    let shared_world = Arc::new(Mutex::new(world));
+
+    // Start TCP listener in background
+    let net_sessions = Arc::clone(&sessions);
+    let net_world = Arc::clone(&shared_world);
+    tokio::spawn(async move {
+        if let Err(e) = network::server::start_listener(listen_port, net_sessions, net_world).await {
+            tracing::error!(error = %e, "TCP listener failed");
+        }
+    });
+
     // Run the game loop (pass --duration N to stop after N seconds, else runs forever)
     let duration = std::env::args()
         .position(|a| a == "--duration")
@@ -73,6 +91,7 @@ async fn main() -> anyhow::Result<()> {
         .and_then(|s| s.parse::<u64>().ok())
         .map(Duration::from_secs);
 
+    let mut world = shared_world.lock().await;
     game_loop::run_loop(&mut world, duration).await;
 
     Ok(())

@@ -12,6 +12,12 @@ pub struct ServerSection {
     pub name: String,
     #[serde(default = "default_log_level")]
     pub log_level: String,
+    #[serde(default = "default_listen_port")]
+    pub listen_port: u16,
+}
+
+fn default_listen_port() -> u16 {
+    7000
 }
 
 #[derive(Debug, Deserialize)]

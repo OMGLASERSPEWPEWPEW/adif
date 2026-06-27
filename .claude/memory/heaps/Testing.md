@@ -3049,3 +3049,124 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 
 ---
 
+## 2026-06-27_16-08-26 (session c49ab9bb)
+
+**user**: Base directory for this skill: E:\development\adif\.claude\skills\cap
+
+# /c&p — Commit and Push
+
+Group changes into logical commits with machine-readable messages, then push.
+
+## Commit Convention
+
+### Message format
+
+```
+type(scope): imperative summary (72 chars max)
+
+Why: one or two sentences explaining reasoning, not the diff
+Files: key-file-1.ts, key-file-2.ts, key-file-3.ts
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+```
+
+**Rules:**
+- Summary: imperative mood ("Add", "Fix", "Extract" — not "Added", "Fixing"), 72 chars max
+- `Why:` trailer: required for all types except `chore` and `docs`
+- `Files:` trailer: required, list the 2-5 most significant files touched
+- `Co-Authored-By:` footer: always present
+- Multi-scope: if genuinely equal, list both: `feat(palette,shared): extract helper`
+
+### Exempt types
+
+`Evolve:` and `Promote:` are ritual commit types produced by `/evolution` and `/promote`. They use their own format. **Never rewrite, absorb, or duplicate these.** If detected in today's git log, exclude their files from grouping.
+
+### Change types
+
+| Type | When to use | Example |
+|------|------------|---------|
+| `feat` | New user-facing capability | `feat(palette): add per-pane model selection` |
+| `fix` | Corrects a bug | `fix(agendas): prevent stale cache on day rollover` |
+| `refactor` | Restructuring without behavior change | `refactor(palette): extract pane registry` |
+| `perf` | Measurable performance improvement | `perf(filter): skip unchanged sentences on re-scan` |
+| `style` | CSS/visual changes only | `style(ui): tighten palette carousel spacing` |
+| `test` | Adding or fixing tests | `test(agendas): cover diffAgainstCache edge cases` |
+| `docs` | Documentation only | `docs(claude-md): add agendas cache section` |
+| `chore` | Agents, hooks, skills, config, deps | `chore(infra): add Thyra journal evolution entry` |
+
+### Module scopes
+
+| Scope | Files it covers |
+|-------|----------------|
+| `editor...
+
+**assistant**: Let me gather the full picture of what changed.
+
+**assistant**: [tools: Bash, Bash]
+
+**assistant**: [tools: Bash]
+
+**assistant**: [tools: Bash, Bash]
+
+**assistant**: [tools: Bash]
+
+**assistant**: Now let me see the new `server/` files and read the key diffs.
+
+**assistant**: [tools: Bash, Bash]
+
+**assistant**: [tools: Bash]
+
+**assistant**: [tools: Bash]
+
+**assistant**: Good. Here's the proposal:
+
+---
+
+**Proposed commits (3):**
+
+**1. `feat(server): add Rust zone server workspace with ECS (Milestone 3 Phases 1-2)`**
+
+> Why: First ADIF-original server code. Cargo workspace with 3 crates: adif-proto (prost codegen from 17 protos), adif-common (config + sqlx DB pool), adif-zone (zone binary with bevy_ecs components, entity ID allocator, and Spawn proto conversion). Boots, connects to PG, loads 618 zones. 8 tests passing.
+> Files: server/Cargo.toml, server/adif-zone/src/main.rs, server/adif-zone/src/ecs/components.rs, server/adif-zone/src/ecs/spawn_convert.rs, server/adif-zone/src/ecs/entity_id.rs
+> 
+> New files: 16 source files + server.toml + Cargo.lock
+
+**2. `docs(server): commit Rust stack, update architecture and status tracker`**
+
+> Files: .claude/rules/stack.md, .claude/rules/architecture.md, CLAUDE.md, .gitignore, docs/zone-server-status.html
+
+**3. `chore(infra): update session journals and memory heaps`**
+
+> Files: .claude/journals/*, .claude/memory/**
+
+**Excluded (not committed):**
+- `docs/access.log` -- runtime log file
+- `du.exe.stackdump` -- crash dump
+- `proto/.claude/`, `tests/.claude/`, `tests/proto-rust/.claude/` -- subdir claude configs
+- `server/.claude/journals/` -- session journal in server subdir
+
+Proceed?
+
+**user**: yes
+
+**assistant**: [tools: Bash]
+
+**assistant**: [tools: Bash]
+
+**assistant**: [tools: Bash]
+
+**assistant**: [tools: Bash]
+
+**assistant**: All 3 commits done. Pushing.
+
+**assistant**: [tools: Bash]
+
+**assistant**: [tools: Bash]
+
+**assistant**: All pushed. Three commits landed on `main`:
+
+```
+1f3be96 feat(ser...
+
+---
+

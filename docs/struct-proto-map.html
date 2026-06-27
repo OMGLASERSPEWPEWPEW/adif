@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ADIF — Struct-to-Proto Source of Truth</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = { darkMode: 'class', theme: { extend: { colors: { adif: { bg: '#0a0e17', card: '#161b22', border: '#30363d', text: '#c9d1d9', dim: '#8b949e', blue: '#58a6ff' }}}}}
+</script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+  body { font-family: 'Inter', sans-serif; background: #0a0e17; color: #c9d1d9; }
+  code, .mono { font-family: 'JetBrains Mono', monospace; font-size: 13px; }
+  .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; }
+  .tag { border-radius: 4px; font-size: 11px; padding: 2px 8px; font-weight: 600; }
+  .tag-complete { background: #1a3a1a; color: #4ade80; }
+  .tag-partial { background: #3a2a1a; color: #f59e0b; }
+  .tag-stub { background: #3a1a1a; color: #f87171; }
+  .tag-skip { background: #1a1a2a; color: #8b949e; }
+  .tag-have { background: #1a3a1a; color: #4ade80; }
+  .tag-need { background: #1a2a3a; color: #60a5fa; }
+  .tag-adapt { background: #3a2a1a; color: #f59e0b; }
+  .field-row:hover { background: #1c2333; }
+  .field-mapped { color: #4ade80; }
+  .field-dropped { color: #f87171; text-decoration: line-through; }
+  .field-new { color: #60a5fa; }
+  .tab-btn { cursor: pointer; transition: all 0.2s; }
+  .tab-btn.active { color: #58a6ff; border-bottom: 2px solid #58a6ff; }
+  .tab-btn:not(.active) { color: #8b949e; border-bottom: 2px solid transparent; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+  details summary { cursor: pointer; }
+  details summary:hover { color: #58a6ff; }
+  table { border-collapse: collapse; width: 100%; }
+  th { text-align: left; padding: 8px 12px; border-bottom: 1px solid #30363d; color: #8b949e; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+  td { padding: 6px 12px; border-bottom: 1px solid #21262d; font-size: 13px; vertical-align: top; }
+  tr:hover td { background: #1c2333; }
+  .filter-btn { cursor: pointer; padding: 4px 12px; border-radius: 4px; font-size: 12px; border: 1px solid #30363d; transition: all 0.2s; }
+  .filter-btn.active { background: #1a2a3a; border-color: #58a6ff; color: #58a6ff; }
+  .filter-btn:not(.active) { color: #8b949e; }
+  .summary-stat { text-align: center; }
+  .summary-stat .num { font-size: 32px; font-weight: 800; }
+  .summary-stat .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: #8b949e; }
+</style>
+</head>
+<body class="min-h-screen">
+
+<!-- Nav -->
+<nav class="sticky top-0 z-50 bg-[#0a0e17]/95 backdrop-blur border-b border-adif-border px-6 py-3">
+  <div class="max-w-7xl mx-auto flex items-center justify-between">
+    <a href="/" class="text-adif-dim hover:text-adif-blue transition text-sm">&larr; ADIF Docs</a>
+    <span class="text-adif-blue font-bold text-lg">Struct &harr; Proto Map</span>
+    <div class="flex gap-4 text-sm">
+      <button class="tab-btn active" data-tab="overview" onclick="switchTab('overview')">Overview</button>
+      <button class="tab-btn" data-tab="client" onclick="switchTab('client')">Client Messages</button>
+      <button class="tab-btn" data-tab="ipc" onclick="switchTab('ipc')">IPC Messages</button>
+      <button class="tab-btn" data-tab="db" onclick="switchTab('db')">DB Cross-Ref</button>
+    </div>
+  </div>
+</nav>
+
+<!-- ========== OVERVIEW TAB ========== -->
+<div id="tab-overview" class="tab-content active max-w-7xl mx-auto px-6 py-10">
+  <h1 class="text-3xl font-extrabold text-white mb-2">Protocol Source of Truth</h1>
+  <p class="text-adif-dim mb-8 max-w-3xl">Field-level mapping between EQEmu's C structs (eq_packet_structs.h, 561 structs, 6,571 lines) and ADIF's Protobuf messages (16 files, 1,705 lines, 173 messages). Cross-referenced against the PostgreSQL database schema (45 migrations, 231 tables).</p>
+
+  <!-- Summary Stats -->
+  <div class="grid grid-cols-2 md:grid-cols-6 gap-4 mb-10">
+    <div class="card p-4 summary-stat"><div class="num text-green-400">173</div><div class="label">Proto Messages</div></div>
+    <div class="card p-4 summary-stat"><div class="num text-blue-400">288</div><div class="label">EQ Opcodes Audited</div></div>
+    <div class="card p-4 summary-stat"><div class="num text-amber-400">561</div><div class="label">EQ C Structs</div></div>
+    <div class="card p-4 summary-stat"><div class="num text-purple-400">226</div><div class="label">IPC ServerOPs</div></div>
+    <div class="card p-4 summary-stat"><div class="num text-cyan-400">231</div><div class="label">DB Tables</div></div>
+    <div class="card p-4 summary-stat"><div class="num text-red-400">0</div><div class="label">IPC Protos (TODO)</div></div>
+  </div>
+
+  <!-- Opcode Audit Status -->
+  <div class="card p-6 mb-6">
+    <h2 class="text-lg font-bold text-white mb-4">Opcode Audit Status (288 EQ Opcodes)</h2>
+    <div class="grid grid-cols-4 gap-4 mb-4">
+      <div class="text-center"><span class="text-2xl font-bold text-green-400">25</span><br><span class="tag tag-have">HAVE</span></div>
+      <div class="text-center"><span class="text-2xl font-bold text-blue-400">96</span><br><span class="tag tag-need">NEED</span></div>
+      <div class="text-center"><span class="text-2xl font-bold text-amber-400">29</span><br><span class="tag tag-adapt">ADAPT</span></div>
+      <div class="text-center"><span class="text-2xl font-bold text-gray-400">138</span><br><span class="tag tag-skip">SKIP</span></div>
+    </div>
+    <p class="text-sm text-adif-dim">Note: The opcode audit was created BEFORE the proto files were expanded to 173 messages. Many NEED/ADAPT items are already implemented. Phase 4 will reconcile these counts.</p>
+  </div>
+
+  <!-- Proto Message Status -->
+  <div class="card p-6 mb-6">
+    <h2 class="text-lg font-bold text-white mb-4">Proto Message Completeness (173 Messages)</h2>
+    <div class="grid grid-cols-3 gap-4 mb-4">
+      <div class="text-center"><span class="text-2xl font-bold text-green-400">~120</span><br><span class="tag tag-complete">COMPLETE</span><br><span class="text-xs text-adif-dim mt-1 block">All critical fields mapped</span></div>
+      <div class="text-center"><span class="text-2xl font-bold text-amber-400">~45</span><br><span class="tag tag-partial">PARTIAL</span><br><span class="text-xs text-adif-dim mt-1 block">Key fields present, some missing</span></div>
+      <div class="text-center"><span class="text-2xl font-bold text-red-400">~8</span><br><span class="tag tag-stub">STUB</span><br><span class="text-xs text-adif-dim mt-1 block">Minimal fields, needs expansion</span></div>
+    </div>
+  </div>
+
+  <!-- Milestone Breakdown -->
+  <div class="card p-6">
+    <h2 class="text-lg font-bold text-white mb-4">Messages by Milestone</h2>
+    <table>
+      <thead><tr><th>Milestone</th><th>Goal</th><th>Messages Needed</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td class="font-semibold text-white">M1</td><td>Walk on terrain</td><td class="mono">~15 (PositionUpdate, ZoneConfig, Spawn, AuthReq/Resp, etc.)</td><td><span class="tag tag-complete">READY</span></td></tr>
+        <tr><td class="font-semibold text-white">M2</td><td>Multiplayer + NPCs + combat</td><td class="mono">~25 (MeleeDamage, SpellCast, HPUpdate, Target, Consider, etc.)</td><td><span class="tag tag-complete">READY</span></td></tr>
+        <tr><td class="font-semibold text-white">M3</td><td>Zone transitions + char select</td><td class="mono">~10 (ZoneChange*, CharacterList, CharacterCreate, etc.)</td><td><span class="tag tag-complete">READY</span></td></tr>
+        <tr><td class="font-semibold text-white">M4</td><td>Innothule test</td><td class="mono">~12 (DoorSpawn, WeatherUpdate, TimeOfDay, ChatMessage, etc.)</td><td><span class="tag tag-complete">READY</span></td></tr>
+        <tr><td class="font-semibold text-white">LATER</td><td>Full game systems</td><td class="mono">~88 (Groups, Guilds, Trade, AA, Bazaar, etc.)</td><td><span class="tag tag-partial">DEFINED</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ========== CLIENT MESSAGES TAB ========== -->
+<div id="tab-client" class="tab-content max-w-7xl mx-auto px-6 py-10">
+  <h2 class="text-2xl font-bold text-white mb-6">Client &harr; Server Message Audit</h2>
+  <p class="text-adif-dim mb-6 text-sm">Field-by-field comparison of the top 15 highest-traffic messages. <span class="field-mapped">Green</span> = mapped from EQ, <span class="field-dropped">Red strikethrough</span> = intentionally dropped, <span class="field-new">Blue</span> = ADIF addition.</p>
+
+  <!-- Spawn -->
+  <details class="card mb-4" open>
+    <summary class="p-4 flex items-center gap-3">
+      <span class="tag tag-partial">PARTIAL</span>
+      <span class="font-bold text-white">Spawn</span>
+      <span class="text-adif-dim text-sm">&mdash; entity.proto (27 fields) vs Spawn_Struct (86 fields, 383 bytes)</span>
+    </summary>
+    <div class="px-4 pb-4">
+      <table>
+        <thead><tr><th>ADIF Proto Field</th><th>Type</th><th>EQ Struct Field</th><th>EQ Type</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td class="mono field-mapped">entity_id</td><td class="mono">uint32</td><td class="mono">spawnId</td><td class="mono">uint32</td><td><span class="tag tag-complete">mapped</span></td></tr>
+          <tr><td class="mono field-mapped">entity_type</td><td class="mono">EntityType</td><td class="mono">NPC</td><td class="mono">uint8</td><td><span class="tag tag-complete">mapped</span></td></tr>
+          <tr><td class="mono field-mapped">name</td><td class="mono">string</td><td class="mono">name[64]</td><td class="mono">char[64]</td><td><span class="tag tag-complete">mapped</span></td></tr>
+          <tr><td class="mono field-mapped">last_name</td><td class="mono">string</td><td class="mono">lastName[32]</td><td class="mono">char[32]</td><td><span class="tag tag-complete">mapped</span></td></tr>
+          <tr><td class="mono field-mapped">race</td><td class="mono">uint32</td><td class="mono">race</td><td class="mono">uint32</td><td><span class="tag tag-complete">mapped</span></td></tr>
+          <tr><td class="mono field-mapped">class_id</td><td class="mono">uint32</td><td class="mono">class_</td><td class="mono">uint8</td><td><span class="tag tag-complete">mapped</span></td></tr>
+          <tr><td class="mono field-mapped">level</td><td class="mono">uint32</td><td class="mono">level</td><td class="mono">uint8</td><td><span class="tag tag-complete">mapped</span></td></tr>
+          <tr><td class="mono field-mapped">gender</td><td class="mono">uint32</td><td class="mono">gender</td><td class="mono">uint8</td><td><span class="tag tag-complete">mapped</span></td></tr>
+          <tr><td class="mono field-mapped">deity</td><td class="mono">uint32</td><td class="mono">deity</td><td class="mono">uint16</td><td><span class="tag tag-complete">mapped</span></td></tr>
+          <tr><td class="mono field-mapped">position</td><td class="mono">Vec3</td><td class="mono">x:19, y:19, z:19</td><td class="mono">bitfield</td><td><span class="tag tag-adapt">upgraded to float</span></td></tr>
+          <tr><td class="mono field-mapped">heading</td><td class="mono">float</td><td class="mono">heading:12</td><td class="mono">bitfield</td><td><span class="tag tag-adapt">upgraded to float</span></td></tr>
+          <tr><td class="mono field-mapped">velocity</td><td class="mono">Vec3</td><td class="mono">deltaX:13, deltaY:13, deltaZ:13</td><td class="mono">bitfield</td><td><span class="tag tag-adapt">upgraded to float</span></td></tr>
+          <tr><td class="mono field-mapped">current_hp / max_hp</td><td class="mono">int32</td><td class="mono">curHp / max_hp</td><td class="mono">uint8</td><td><span class="tag tag-adapt">widened to int32</span></td></tr>
+          <tr><td class="mono field-mapped">appearance</td><td class="mono">Appearance</td><td class="mono">haircolor, beardcolor, etc.</td><td class="mono">uint8 each</td><td><span class="tag tag-adapt">nested message</span></td></tr>
+          <tr><td class="mono field-mapped">equipment</td><td class="mono">repeated EquipSlot</td><td class="mono">equipment (TextureProfile)</td><td class="mono">struct</td><td><span class="tag tag-adapt">repeated message</span></td></tr>
+          <tr><td class="mono field-mapped">gm, afk, anonymous, lfg, sneaking, pvp, linkdead</td><td class="mono">bool</td><td class="mono">gm, afk, anon, lfg, is_pet, etc.</td><td class="mono">uint8</td><td><span class="tag tag-complete">mapped</span></td></tr>
+          <tr><td class="mono field-mapped">guild_id</td><td class="mono">uint32</td><td class="mono">guildID</td><td class="mono">uint32</td><td><span class="tag tag-complete">mapped</span></td></tr>
+          <tr><td class="mono field-mapped">pet_owner_id</td><td class="mono">uint32</td><td class="mono">petOwnerId</td><td class="mono">uint32</td><td><span class="tag tag-complete">mapped</span></td></tr>
+          <tr><td class="mono field-mapped">body_type</td><td class="mono">uint32</td><td class="mono">bodytype</td><td class="mono">uint8</td><td><span class="tag tag-complete">mapped</span></td></tr>
+          <tr><td class="mono field-mapped">animation</td><td class="mono">uint32</td><td class="mono">animation:10</td><td class="mono">bitfield</td><td><span class="tag tag-complete">mapped</span></td></tr>
+          <tr><td colspan="5" class="text-adif-dim font-semibold pt-4">Missing from ADIF (add in Phase 4):</td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">runspeed</td><td class="mono">float</td><td><span class="tag tag-need">ADD</span></td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">walkspeed</td><td class="mono">float</td><td><span class="tag tag-need">ADD</span></td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">size</td><td class="mono">float</td><td><span class="tag tag-need">ADD</span></td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">light</td><td class="mono">uint8</td><td><span class="tag tag-need">ADD</span></td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">flymode</td><td class="mono">uint8</td><td><span class="tag tag-need">ADD</span></td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">findable</td><td class="mono">uint8</td><td><span class="tag tag-need">ADD</span></td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">invis</td><td class="mono">uint8</td><td><span class="tag tag-need">ADD</span></td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">showhelm</td><td class="mono">uint8</td><td><span class="tag tag-need">ADD</span></td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">title[32], suffix[32]</td><td class="mono">char[]</td><td><span class="tag tag-need">ADD</span></td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">texture, helm</td><td class="mono">uint8</td><td><span class="tag tag-need">ADD</span></td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">guildrank</td><td class="mono">uint8</td><td><span class="tag tag-need">ADD</span></td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">bounding_radius</td><td class="mono">float</td><td><span class="tag tag-need">ADD</span></td></tr>
+          <tr><td colspan="5" class="text-adif-dim font-semibold pt-4">Intentionally dropped from ADIF:</td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">StandState</td><td class="mono">uint8</td><td><span class="tag tag-skip">use AppearanceUpdate</span></td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">drakkin_*</td><td class="mono">uint32</td><td><span class="tag tag-skip">SoF+ (post-Titanium)</span></td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">DestructibleObject, DestructibleModel, etc.</td><td class="mono">various</td><td><span class="tag tag-skip">SoF+ feature</span></td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">IsMercenary</td><td class="mono">uint8</td><td><span class="tag tag-skip">post-Titanium</span></td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">aaitle</td><td class="mono">uint8</td><td><span class="tag tag-skip">AA title display</span></td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">set_to_0xFF[8]</td><td class="mono">uint8[]</td><td><span class="tag tag-skip">padding</span></td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">unknown* fields (~20)</td><td class="mono">various</td><td><span class="tag tag-skip">padding/unknown</span></td></tr>
+        </tbody>
+      </table>
+      <div class="mt-3 p-3 rounded bg-[#0d1520] border-l-3 border-adif-blue text-sm text-adif-dim">
+        <strong class="text-adif-blue">DB Table:</strong> <code>npc_templates</code> (for NPCs), <code>characters</code> (for players). NPC size, run_speed, walk_speed, texture, helm_texture are in npc_templates. Player appearance is in characters.appearance JSONB.
+      </div>
+    </div>
+  </details>
+
+  <!-- PositionUpdate -->
+  <details class="card mb-4">
+    <summary class="p-4 flex items-center gap-3">
+      <span class="tag tag-complete">COMPLETE</span>
+      <span class="font-bold text-white">PositionUpdate</span>
+      <span class="text-adif-dim text-sm">&mdash; entity.proto (6 fields) vs SpawnPositionUpdate_Struct (12 bytes bit-packed)</span>
+    </summary>
+    <div class="px-4 pb-4">
+      <table>
+        <thead><tr><th>ADIF Proto</th><th>Type</th><th>EQ Struct</th><th>EQ Type</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td class="mono field-mapped">entity_id</td><td class="mono">uint32</td><td class="mono">spawn_id</td><td class="mono">uint16</td><td><span class="tag tag-adapt">widened</span></td></tr>
+          <tr><td class="mono field-mapped">position</td><td class="mono">Vec3 (float)</td><td class="mono">x_pos:19, y_pos:19, z_pos:19</td><td class="mono">bitfield</td><td><span class="tag tag-adapt">float precision</span></td></tr>
+          <tr><td class="mono field-mapped">velocity</td><td class="mono">Vec3 (float)</td><td class="mono">(not in this struct)</td><td class="mono">--</td><td><span class="tag tag-need">ADIF addition</span></td></tr>
+          <tr><td class="mono field-mapped">heading</td><td class="mono">float</td><td class="mono">heading:12</td><td class="mono">bitfield</td><td><span class="tag tag-adapt">float precision</span></td></tr>
+          <tr><td class="mono field-mapped">heading_delta</td><td class="mono">float</td><td class="mono">(not in this struct)</td><td class="mono">--</td><td><span class="tag tag-need">ADIF addition</span></td></tr>
+          <tr><td class="mono field-mapped">animation</td><td class="mono">uint32</td><td class="mono">(in Spawn_Struct only)</td><td class="mono">--</td><td><span class="tag tag-need">ADIF addition</span></td></tr>
+        </tbody>
+      </table>
+      <div class="mt-3 p-3 rounded bg-[#0d1520] text-sm text-adif-dim">
+        <strong class="text-adif-blue">Size:</strong> EQ: 12 bytes (bit-packed). ADIF: 38 bytes (float precision). Tradeoff: ~3x larger but no bit manipulation, supports sub-integer coordinates. At 20 updates/sec for 100 entities = 76 KB/sec vs 24 KB/sec. Acceptable for modern bandwidth.
+      </div>
+    </div>
+  </details>
+
+  <!-- MeleeDamage -->
+  <details class="card mb-4">
+    <summary class="p-4 flex items-center gap-3">
+      <span class="tag tag-complete">COMPLETE</span>
+      <span class="font-bold text-white">MeleeDamage</span>
+      <span class="text-adif-dim text-sm">&mdash; combat.proto (6 fields) vs CombatDamage_Struct (~27 bytes)</span>
+    </summary>
+    <div class="px-4 pb-4">
+      <table>
+        <thead><tr><th>ADIF Proto</th><th>Type</th><th>EQ Struct</th><th>EQ Type</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td class="mono field-mapped">attacker_id</td><td class="mono">uint32</td><td class="mono">source</td><td class="mono">uint16</td><td><span class="tag tag-adapt">widened</span></td></tr>
+          <tr><td class="mono field-mapped">target_id</td><td class="mono">uint32</td><td class="mono">target</td><td class="mono">uint16</td><td><span class="tag tag-adapt">widened</span></td></tr>
+          <tr><td class="mono field-mapped">damage</td><td class="mono">int32</td><td class="mono">damage</td><td class="mono">uint32</td><td><span class="tag tag-complete">mapped</span></td></tr>
+          <tr><td class="mono field-mapped">damage_type</td><td class="mono">DamageType</td><td class="mono">type</td><td class="mono">uint8</td><td><span class="tag tag-adapt">enum</span></td></tr>
+          <tr><td class="mono field-mapped">spell_id</td><td class="mono">uint32</td><td class="mono">spellid</td><td class="mono">uint16</td><td><span class="tag tag-adapt">widened</span></td></tr>
+          <tr><td class="mono field-mapped">force</td><td class="mono">Vec3</td><td class="mono">force, hit_heading, hit_pitch</td><td class="mono">float x3</td><td><span class="tag tag-adapt">Vec3</span></td></tr>
+          <tr><td colspan="5" class="text-adif-dim font-semibold pt-4">Dropped:</td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">special</td><td class="mono">uint32</td><td><span class="tag tag-skip">Rampage/Wild Rampage flag</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </details>
+
+  <!-- ChatMessage -->
+  <details class="card mb-4">
+    <summary class="p-4 flex items-center gap-3">
+      <span class="tag tag-complete">COMPLETE</span>
+      <span class="font-bold text-white">ChatMessage</span>
+      <span class="text-adif-dim text-sm">&mdash; chat.proto (5 fields) vs ChannelMessage_Struct (~148+ bytes)</span>
+    </summary>
+    <div class="px-4 pb-4">
+      <table>
+        <thead><tr><th>ADIF Proto</th><th>Type</th><th>EQ Struct</th><th>EQ Type</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td class="mono field-mapped">sender_name</td><td class="mono">string</td><td class="mono">sender[64]</td><td class="mono">char[64]</td><td><span class="tag tag-complete">mapped</span></td></tr>
+          <tr><td class="mono field-mapped">target_name</td><td class="mono">string</td><td class="mono">targetname[64]</td><td class="mono">char[64]</td><td><span class="tag tag-complete">mapped</span></td></tr>
+          <tr><td class="mono field-mapped">channel</td><td class="mono">ChatChannel</td><td class="mono">chan_num</td><td class="mono">uint32</td><td><span class="tag tag-adapt">enum</span></td></tr>
+          <tr><td class="mono field-mapped">language</td><td class="mono">uint32</td><td class="mono">language</td><td class="mono">uint32</td><td><span class="tag tag-complete">mapped</span></td></tr>
+          <tr><td class="mono field-mapped">message</td><td class="mono">string</td><td class="mono">message[0]</td><td class="mono">char[] (var)</td><td><span class="tag tag-complete">mapped</span></td></tr>
+          <tr><td colspan="5" class="text-adif-dim font-semibold pt-4">Dropped:</td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">skill_in_language</td><td class="mono">uint32</td><td><span class="tag tag-skip">server-side only</span></td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">cm_unknown4[2]</td><td class="mono">uint32[2]</td><td><span class="tag tag-skip">unknown</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </details>
+
+  <!-- ItemDefinition -->
+  <details class="card mb-4">
+    <summary class="p-4 flex items-center gap-3">
+      <span class="tag tag-stub">STUB</span>
+      <span class="font-bold text-white">ItemDefinition</span>
+      <span class="text-adif-dim text-sm">&mdash; inventory.proto (12 fields) vs EQ items table (170+ columns)</span>
+    </summary>
+    <div class="px-4 pb-4">
+      <table>
+        <thead><tr><th>ADIF Proto</th><th>Type</th><th>EQ/DB Equivalent</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td class="mono field-mapped">item_id, name, icon, lore_text, weight</td><td class="mono">various</td><td class="mono">id, name, icon, lore, weight</td><td><span class="tag tag-complete">mapped</span></td></tr>
+          <tr><td class="mono field-mapped">slot_bitmask, item_class, class_bitmask, race_bitmask</td><td class="mono">uint32</td><td class="mono">slots, item_class, classes, races</td><td><span class="tag tag-complete">mapped</span></td></tr>
+          <tr><td class="mono field-mapped">no_trade, lore, magic</td><td class="mono">bool</td><td class="mono">no_trade, lore, magic</td><td><span class="tag tag-complete">mapped</span></td></tr>
+          <tr><td colspan="4" class="text-adif-dim font-semibold pt-4">Missing (Phase 4 expansion):</td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">damage, delay, range (weapon stats)</td><td><span class="tag tag-need">ADD</span></td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">ac (armor class)</td><td><span class="tag tag-need">ADD</span></td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">stats JSONB (hp, mana, str, sta, resist_*, etc.)</td><td><span class="tag tag-need">ADD</span></td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">effects JSONB (worn, click, proc, focus)</td><td><span class="tag tag-need">ADD</span></td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">bag_slots, bag_size, bag_weight_reduction</td><td><span class="tag tag-need">ADD</span></td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">stack_size, no_rent, artifact</td><td><span class="tag tag-need">ADD</span></td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">price, sell_rate</td><td><span class="tag tag-need">ADD</span></td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">required_level, recommended_level</td><td><span class="tag tag-need">ADD</span></td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">item_type (weapon/armor/food/drink/etc.)</td><td><span class="tag tag-need">ADD</span></td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">skill_mod_type, skill_mod_value</td><td><span class="tag tag-need">ADD</span></td></tr>
+        </tbody>
+      </table>
+      <div class="mt-3 p-3 rounded bg-[#3a1a1a] border border-red-900 text-sm text-red-300">
+        <strong>Biggest gap in the protocol.</strong> EQ's item system has 170+ fields. ADIF's DB uses JSONB for stats/effects, so the proto should mirror that: a flat stats map and an effects list. Phase 4 priority.
+      </div>
+    </div>
+  </details>
+
+  <!-- ZoneConfig -->
+  <details class="card mb-4">
+    <summary class="p-4 flex items-center gap-3">
+      <span class="tag tag-complete">COMPLETE</span>
+      <span class="font-bold text-white">ZoneConfig</span>
+      <span class="text-adif-dim text-sm">&mdash; zone.proto (19 fields) vs NewZone_Struct (~740 bytes)</span>
+    </summary>
+    <div class="px-4 pb-4">
+      <table>
+        <thead><tr><th>ADIF Proto</th><th>Type</th><th>EQ Struct</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td class="mono field-mapped">zone_id, short_name, long_name</td><td class="mono">uint32/string</td><td class="mono">zone_id, zone_short_name, zone_long_name</td><td><span class="tag tag-complete">mapped</span></td></tr>
+          <tr><td class="mono field-mapped">safe_point, safe_heading</td><td class="mono">Vec3/float</td><td class="mono">safe_x/y/z, safe_heading</td><td><span class="tag tag-complete">mapped</span></td></tr>
+          <tr><td class="mono field-mapped">underworld_z, max_z, min_clip, max_clip</td><td class="mono">float</td><td class="mono">underworld, max_z, minclip, maxclip</td><td><span class="tag tag-complete">mapped</span></td></tr>
+          <tr><td class="mono field-mapped">fog_layers (repeated FogLayer)</td><td class="mono">message</td><td class="mono">fog_red/green/blue[4], fog_minclip/maxclip[4]</td><td><span class="tag tag-adapt">structured</span></td></tr>
+          <tr><td class="mono field-mapped">sky_type, gravity</td><td class="mono">uint32/float</td><td class="mono">sky, gravity</td><td><span class="tag tag-complete">mapped</span></td></tr>
+          <tr><td class="mono field-mapped">rain, snow (repeated WeatherChance)</td><td class="mono">message</td><td class="mono">rain_chance/duration[4], snow_chance/duration[4]</td><td><span class="tag tag-adapt">structured</span></td></tr>
+          <tr><td class="mono field-mapped">can_bind, can_combat, can_levitate, can_cast_outdoor</td><td class="mono">bool</td><td class="mono">(in zone table flags)</td><td><span class="tag tag-complete">mapped</span></td></tr>
+          <tr><td class="mono field-mapped">exp_multiplier</td><td class="mono">float</td><td class="mono">zone_exp_multiplier</td><td><span class="tag tag-complete">mapped</span></td></tr>
+          <tr><td colspan="4" class="text-adif-dim font-semibold pt-4">Dropped:</td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">char_name[64], zone_short_name2[68]</td><td><span class="tag tag-skip">duplicates</span></td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">fog_density, suspend_buffs, fast_regen_*, npc_aggro_max_dist, lava_damage, etc.</td><td><span class="tag tag-skip">server-side config (DB-driven)</span></td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">zone_instance</td><td><span class="tag tag-skip">post-PoP instancing</span></td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">unknown* fields (~200 bytes)</td><td><span class="tag tag-skip">padding</span></td></tr>
+        </tbody>
+      </table>
+      <div class="mt-3 p-3 rounded bg-[#0d1520] text-sm text-adif-dim">
+        <strong class="text-adif-blue">DB Table:</strong> <code>zones</code> (002_zones.sql). Fog/weather stored in JSONB columns matching the FogLayer/WeatherChance proto structure.
+      </div>
+    </div>
+  </details>
+
+  <!-- PlayerProfile -->
+  <details class="card mb-4">
+    <summary class="p-4 flex items-center gap-3">
+      <span class="tag tag-partial">PARTIAL</span>
+      <span class="font-bold text-white">PlayerProfile</span>
+      <span class="text-adif-dim text-sm">&mdash; character.proto (39 fields) vs PlayerProfile_Struct (~8,300 bytes, 200+ fields)</span>
+    </summary>
+    <div class="px-4 pb-4">
+      <table>
+        <thead><tr><th>ADIF Proto</th><th>Type</th><th>EQ Struct</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td class="mono field-mapped">name, last_name, race, class_id, level, gender, deity</td><td class="mono">various</td><td class="mono">name, last_name, race, class_, level, gender, deity</td><td><span class="tag tag-complete">core fields</span></td></tr>
+          <tr><td class="mono field-mapped">str/sta/dex/agi/intelligence/wis/cha</td><td class="mono">uint32</td><td class="mono">STR/STA/DEX/AGI/INT/WIS/CHA</td><td><span class="tag tag-complete">all 7 stats</span></td></tr>
+          <tr><td class="mono field-mapped">current_hp/max_hp/mana/endurance</td><td class="mono">int32</td><td class="mono">cur_hp/mana/endurance</td><td><span class="tag tag-complete">vitals</span></td></tr>
+          <tr><td class="mono field-mapped">experience, aa_experience, aa_points_*</td><td class="mono">uint64/uint32</td><td class="mono">exp, expAA, aapoints, aapoints_spent</td><td><span class="tag tag-complete">mapped</span></td></tr>
+          <tr><td class="mono field-mapped">position, heading, zone_id</td><td class="mono">Vec3/float/uint32</td><td class="mono">x/y/z, heading, zone_id</td><td><span class="tag tag-complete">mapped</span></td></tr>
+          <tr><td class="mono field-mapped">bind_points, skills, spell_book, memorized_spells, buffs</td><td class="mono">repeated</td><td class="mono">binds[5], skills[], spell_book[], mem_spells[], buffs[]</td><td><span class="tag tag-complete">mapped</span></td></tr>
+          <tr><td class="mono field-mapped">money, bank_money</td><td class="mono">Money</td><td class="mono">platinum/gold/silver/copper + bank_*</td><td><span class="tag tag-complete">mapped</span></td></tr>
+          <tr><td class="mono field-mapped">guild_id, guild_rank, gm, pvp, anonymous</td><td class="mono">various</td><td class="mono">guild_id, guildrank, gm, pvp, anon</td><td><span class="tag tag-complete">mapped</span></td></tr>
+          <tr><td colspan="4" class="text-adif-dim font-semibold pt-4">Missing (Phase 4):</td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">languages[MAX_PP_LANGUAGE]</td><td><span class="tag tag-need">ADD</span></td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">group/raid leadership exp/points</td><td><span class="tag tag-need">ADD</span></td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">hunger_level, thirst_level</td><td><span class="tag tag-need">ADD</span></td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">intoxication</td><td><span class="tag tag-need">ADD</span></td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">disciplines (Disciplines_Struct)</td><td><span class="tag tag-need">ADD</span></td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">recastTimers[]</td><td><span class="tag tag-need">ADD</span></td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">tribute_*, career_tribute_points</td><td><span class="tag tag-need">ADD (if tribute system)</span></td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">autosplit</td><td><span class="tag tag-need">ADD</span></td></tr>
+          <tr><td colspan="4" class="text-adif-dim font-semibold pt-4">Intentionally dropped:</td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">item_material, item_tint (TextureProfile/TintProfile)</td><td><span class="tag tag-skip">client-side rendering</span></td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">aa_array[920]</td><td><span class="tag tag-skip">separate AA system</span></td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">bandoliers[]</td><td><span class="tag tag-skip">LATER feature</span></td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">PVP* stats (kills, deaths, streaks)</td><td><span class="tag tag-skip">LATER feature</span></td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">ldon_* (all LDoN fields)</td><td><span class="tag tag-skip">post-PoP</span></td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">servername, groupMembers[6][64]</td><td><span class="tag tag-skip">handled separately</span></td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">~200 bytes of unknown* padding</td><td><span class="tag tag-skip">padding</span></td></tr>
+        </tbody>
+      </table>
+      <div class="mt-3 p-3 rounded bg-[#0d1520] text-sm text-adif-dim">
+        <strong class="text-adif-blue">DB Table:</strong> <code>characters</code> (003_characters.sql) + <code>character_skills</code>, <code>character_spells</code>, <code>character_memmed_spells</code>, <code>character_buffs</code>, <code>character_inventory</code>. The ADIF proto message mirrors the DB schema well. EQ's PlayerProfile_Struct is ~8KB of monolithic binary; ADIF splits this across multiple DB tables and uses repeated fields.
+      </div>
+    </div>
+  </details>
+
+  <!-- CharacterCreate -->
+  <details class="card mb-4">
+    <summary class="p-4 flex items-center gap-3">
+      <span class="tag tag-complete">COMPLETE</span>
+      <span class="font-bold text-white">CharacterCreate</span>
+      <span class="text-adif-dim text-sm">&mdash; character.proto (20 fields) vs CharCreate_Struct (~88 bytes)</span>
+    </summary>
+    <div class="px-4 pb-4">
+      <table>
+        <thead><tr><th>ADIF Proto</th><th>Type</th><th>EQ Struct</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td class="mono field-mapped">name</td><td class="mono">string</td><td class="mono">(sent separately via OP_ApproveName)</td><td><span class="tag tag-adapt">combined</span></td></tr>
+          <tr><td class="mono field-mapped">race, class_id, gender, deity, start_zone</td><td class="mono">uint32</td><td class="mono">race, class_, gender, deity, start_zone</td><td><span class="tag tag-complete">mapped</span></td></tr>
+          <tr><td class="mono field-mapped">face, hair_style/color, beard_style/color, eye_color_1/2</td><td class="mono">uint32</td><td class="mono">face, hairstyle, haircolor, beard, beardcolor, eyecolor1/2</td><td><span class="tag tag-complete">mapped</span></td></tr>
+          <tr><td class="mono field-mapped">str/sta/dex/agi/intelligence/wis/cha</td><td class="mono">uint32</td><td class="mono">STR/STA/AGI/DEX/WIS/INT/CHA</td><td><span class="tag tag-complete">all 7 stats</span></td></tr>
+          <tr><td colspan="4" class="text-adif-dim font-semibold pt-4">Dropped:</td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">drakkin_heritage/tattoo/details</td><td><span class="tag tag-skip">post-Titanium</span></td></tr>
+          <tr><td class="mono field-dropped">--</td><td></td><td class="mono">tutorial</td><td><span class="tag tag-skip">ADIF won't use EQ tutorial</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </details>
+
+</div>
+
+<!-- ========== IPC TAB ========== -->
+<div id="tab-ipc" class="tab-content max-w-7xl mx-auto px-6 py-10">
+  <h2 class="text-2xl font-bold text-white mb-2">IPC Messages (Server &harr; Server)</h2>
+  <p class="text-adif-dim mb-6">EQEmu defines 226 <code>ServerOP_</code> constants in <code>servertalk.h</code> for world&harr;zone communication. ADIF will replace these with typed Protobuf messages in <code>ipc.proto</code>.</p>
+
+  <div class="grid md:grid-cols-4 gap-4 mb-8">
+    <div class="card p-4 summary-stat"><div class="num text-green-400">~15</div><div class="label">Tier 1 (Zone Boot)</div></div>
+    <div class="card p-4 summary-stat"><div class="num text-blue-400">~20</div><div class="label">Tier 2 (Cross-Zone)</div></div>
+    <div class="card p-4 summary-stat"><div class="num text-amber-400">~15</div><div class="label">Tier 3 (Admin)</div></div>
+    <div class="card p-4 summary-stat"><div class="num text-gray-400">~100+</div><div class="label">Skip (Post-PoP)</div></div>
+  </div>
+
+  <div class="card p-6 mb-4">
+    <h3 class="font-bold text-white mb-3">Tier 1: Zone Lifecycle (Required for any multi-process server)</h3>
+    <table>
+      <thead><tr><th>ADIF IPC Message</th><th>EQ ServerOP_</th><th>Hex</th><th>Direction</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">ZoneBootRequest</td><td class="mono">ServerOP_ZoneBootup</td><td class="mono">0x0006</td><td>World&rarr;Zone</td><td>Boot a zone process for a specific zone</td></tr>
+        <tr><td class="mono">ZoneBootReady</td><td class="mono">ServerOP_SetZone</td><td class="mono">0x0003</td><td>Zone&rarr;World</td><td>Zone reports ready with zone ID</td></tr>
+        <tr><td class="mono">ZoneShutdown</td><td class="mono">ServerOP_ZoneShutdown</td><td class="mono">0x0005</td><td>World&rarr;Zone</td><td>Shut down a zone process</td></tr>
+        <tr><td class="mono">ZoneStatus</td><td class="mono">ServerOP_ZoneStatus</td><td class="mono">0x0007</td><td>Both</td><td>Request/report zone status</td></tr>
+        <tr><td class="mono">IpcKeepAlive</td><td class="mono">ServerOP_KeepAlive</td><td class="mono">0x0001</td><td>Both</td><td>Heartbeat between processes</td></tr>
+        <tr><td class="mono">IncomingClient</td><td class="mono">ServerOP_ZoneIncClient</td><td class="mono">0x000C</td><td>World&rarr;Zone</td><td>Notify zone of incoming player</td></tr>
+        <tr><td class="mono">DropClient</td><td class="mono">ServerOP_DropClient</td><td class="mono">0x000D</td><td>World&rarr;Zone</td><td>Remove client from zone</td></tr>
+        <tr><td class="mono">ZoneToZoneTransfer</td><td class="mono">ServerOP_ZoneToZoneRequest</td><td class="mono">0x0050</td><td>Zone&rarr;World</td><td>Player zoning, find target zone</td></tr>
+        <tr><td class="mono">ClientListUpdate</td><td class="mono">ServerOP_ClientList</td><td class="mono">0x000A</td><td>Zone&rarr;World</td><td>Update world's client roster</td></tr>
+        <tr><td class="mono">SetConnectInfo</td><td class="mono">ServerOP_SetConnectInfo</td><td class="mono">0x000F</td><td>World&rarr;Zone</td><td>Tell zone the client connection details</td></tr>
+        <tr><td class="mono">ChangeWorldId</td><td class="mono">ServerOP_ChangeWID</td><td class="mono">0x0009</td><td>World&rarr;Zone</td><td>Assign world client ID</td></tr>
+        <tr><td class="mono">ZonePlayerAction</td><td class="mono">ServerOP_ZonePlayer</td><td class="mono">0x000C</td><td>World&rarr;Zone</td><td>Move/kick player in zone</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card p-6 mb-4">
+    <h3 class="font-bold text-white mb-3">Tier 2: Cross-Zone Features</h3>
+    <table>
+      <thead><tr><th>ADIF IPC Message</th><th>EQ ServerOP_</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">IpcChannelMessage</td><td class="mono">ServerOP_ChannelMessage (0x0002)</td><td>/tell, guild chat, OOC across zones</td></tr>
+        <tr><td class="mono">IpcWhoRequest/Response</td><td class="mono">ServerOP_Who/WhoAll</td><td>Cross-zone /who queries</td></tr>
+        <tr><td class="mono">IpcGroupUpdate</td><td class="mono">ServerOP_GroupLeave/Join/Update</td><td>Group membership across zones</td></tr>
+        <tr><td class="mono">IpcRaidAction</td><td class="mono">ServerOP_RaidAdd/Remove/Disband</td><td>Raid management across zones</td></tr>
+        <tr><td class="mono">IpcGuildRefresh</td><td class="mono">ServerOP_RefreshGuild</td><td>Guild data reload after changes</td></tr>
+        <tr><td class="mono">IpcGuildMemberUpdate</td><td class="mono">ServerOP_GuildMemberUpdate</td><td>Member online/offline/level/zone change</td></tr>
+        <tr><td class="mono">IpcRezPlayer</td><td class="mono">ServerOP_RezzPlayer</td><td>Cross-zone resurrection</td></tr>
+        <tr><td class="mono">IpcConsent</td><td class="mono">ServerOP_Consent</td><td>Corpse consent across zones</td></tr>
+        <tr><td class="mono">IpcSpawnCondition</td><td class="mono">ServerOP_SpawnCondition</td><td>Conditional spawn triggers</td></tr>
+        <tr><td class="mono">IpcQGlobalUpdate</td><td class="mono">ServerOP_QGlobalUpdate/Delete</td><td>Quest globals across zones</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card p-6 mb-4">
+    <h3 class="font-bold text-white mb-3">Tier 3: Admin &amp; Infrastructure</h3>
+    <table>
+      <thead><tr><th>ADIF IPC Message</th><th>EQ ServerOP_</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">IpcGMCommand</td><td class="mono">ServerOP_GMGoto/Summon/Kill/Kick</td><td>GM commands across zones</td></tr>
+        <tr><td class="mono">IpcMotd</td><td class="mono">ServerOP_Motd</td><td>Set message of the day</td></tr>
+        <tr><td class="mono">IpcServerLock</td><td class="mono">ServerOP_Lock</td><td>Lock/unlock server</td></tr>
+        <tr><td class="mono">IpcSetWorldTime</td><td class="mono">ServerOP_SetWorldTime</td><td>Synchronize game time</td></tr>
+        <tr><td class="mono">IpcEmoteMessage</td><td class="mono">ServerOP_EmoteMessage</td><td>Zone-wide emote broadcast</td></tr>
+        <tr><td class="mono">IpcFlagUpdate</td><td class="mono">ServerOP_FlagUpdate</td><td>Player flag changes</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card p-6 border-gray-700">
+    <h3 class="font-bold text-adif-dim mb-3">Skip (~100+ messages)</h3>
+    <p class="text-sm text-adif-dim">Adventures (LDoN), Dynamic Zones (GoD+), Expeditions, Bazaar IPC, Trader Messaging, Player Events logging, Query Server, UCS/Discord webhooks, Cross-Zone scripting (CZ/WW variants), Parcels, Login Server internal protocol. These are all post-Planes-of-Power features or infrastructure that ADIF will redesign from scratch when needed.</p>
+  </div>
+</div>
+
+<!-- ========== DB CROSS-REF TAB ========== -->
+<div id="tab-db" class="tab-content max-w-7xl mx-auto px-6 py-10">
+  <h2 class="text-2xl font-bold text-white mb-6">Database &harr; Proto Cross-Reference</h2>
+  <p class="text-adif-dim mb-6">How ADIF's PostgreSQL tables (45 migrations) map to Protobuf messages. The database is the source of truth for persistent state; proto messages are the wire format.</p>
+
+  <div class="card p-6 mb-4">
+    <table>
+      <thead><tr><th>DB Table</th><th>Migration</th><th>Proto Message(s)</th><th>Relationship</th></tr></thead>
+      <tbody>
+        <tr><td class="mono font-semibold text-white">zones</td><td class="mono text-adif-dim">002_zones.sql</td><td class="mono">ZoneConfig, ZoneEntryRequest</td><td>Zone row &rarr; ZoneConfig on zone boot</td></tr>
+        <tr><td class="mono font-semibold text-white">zone_points</td><td class="mono text-adif-dim">002_zones.sql</td><td class="mono">ZonePointList, ZonePoint</td><td>Zone points &rarr; ZonePointList on zone entry</td></tr>
+        <tr><td class="mono font-semibold text-white">characters</td><td class="mono text-adif-dim">003_characters.sql</td><td class="mono">PlayerProfile, CharacterCreate, CharacterList</td><td>Character row &rarr; PlayerProfile on zone entry</td></tr>
+        <tr><td class="mono font-semibold text-white">character_skills</td><td class="mono text-adif-dim">003_characters.sql</td><td class="mono">PlayerProfile.skills, SkillUpdate</td><td>Skills array in PlayerProfile</td></tr>
+        <tr><td class="mono font-semibold text-white">character_spells</td><td class="mono text-adif-dim">003_characters.sql</td><td class="mono">PlayerProfile.spell_book, MemorizeSpell</td><td>Spell book array</td></tr>
+        <tr><td class="mono font-semibold text-white">character_buffs</td><td class="mono text-adif-dim">003_characters.sql</td><td class="mono">PlayerProfile.buffs, BuffApply, BuffFade</td><td>Active buff list</td></tr>
+        <tr><td class="mono font-semibold text-white">character_inventory</td><td class="mono text-adif-dim">003_characters.sql</td><td class="mono">InventoryList, MoveItem, LootResponse</td><td>Inventory slots</td></tr>
+        <tr><td class="mono font-semibold text-white">npc_templates</td><td class="mono text-adif-dim">004_npcs.sql</td><td class="mono">Spawn (NPC variant)</td><td>NPC template &rarr; Spawn message</td></tr>
+        <tr><td class="mono font-semibold text-white">spawn_points</td><td class="mono text-adif-dim">004_npcs.sql</td><td class="mono">Spawn (position data)</td><td>x/y/z/heading for NPC placement</td></tr>
+        <tr><td class="mono font-semibold text-white">items</td><td class="mono text-adif-dim">005_items.sql</td><td class="mono">ItemDefinition</td><td>Item row &rarr; ItemDefinition (STUB)</td></tr>
+        <tr><td class="mono font-semibold text-white">loottable + lootdrop</td><td class="mono text-adif-dim">005_items.sql</td><td class="mono">LootResponse, CorpseMoney</td><td>Loot resolution &rarr; wire messages</td></tr>
+        <tr><td class="mono font-semibold text-white">spells</td><td class="mono text-adif-dim">006_spells.sql</td><td class="mono">SpellCast, SpellEffect, BuffApply</td><td>Spell data drives combat messages</td></tr>
+        <tr><td class="mono font-semibold text-white">doors</td><td class="mono text-adif-dim">023_doors.sql</td><td class="mono">DoorSpawn, DoorInteract</td><td>Door row &rarr; DoorSpawn on zone boot</td></tr>
+        <tr><td class="mono font-semibold text-white">accounts</td><td class="mono text-adif-dim">001_accounts.sql</td><td class="mono">AuthRequest, AuthResponse</td><td>Account lookup on login</td></tr>
+        <tr><td class="mono font-semibold text-white">guilds</td><td class="mono text-adif-dim">003_characters.sql</td><td class="mono">GuildList, GuildMOTD, GuildInvite</td><td>Guild rows &rarr; guild messages</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card p-6">
+    <h3 class="font-bold text-white mb-3">JSONB Column &harr; Proto Field Mapping</h3>
+    <p class="text-sm text-adif-dim mb-4">ADIF uses JSONB columns where EQ had wide column sprawl. Here's how they map to proto fields:</p>
+    <table>
+      <thead><tr><th>Table.Column</th><th>JSONB Contents</th><th>Proto Message</th><th>Proto Field(s)</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">zones.fog</td><td class="mono">[{r,g,b,min_clip,max_clip}, ...]</td><td class="mono">ZoneConfig</td><td class="mono">fog_layers (repeated FogLayer)</td></tr>
+        <tr><td class="mono">zones.weather</td><td class="mono">{rain:[{chance,duration}], snow:[...]}</td><td class="mono">ZoneConfig</td><td class="mono">rain, snow (repeated WeatherChance)</td></tr>
+        <tr><td class="mono">characters.appearance</td><td class="mono">{hair_color, face, skin_tint, ...}</td><td class="mono">Spawn</td><td class="mono">appearance (Appearance message)</td></tr>
+        <tr><td class="mono">characters.bind_points</td><td class="mono">[{zone_id, x, y, z, heading}, ...]</td><td class="mono">PlayerProfile</td><td class="mono">bind_points (repeated BindPoint)</td></tr>
+        <tr><td class="mono">items.stats</td><td class="mono">{hp, mana, str, fire_resist, ...}</td><td class="mono">ItemDefinition</td><td class="mono">TBD (Phase 4 expansion)</td></tr>
+        <tr><td class="mono">items.effects</td><td class="mono">{worn_spell, click_spell, proc, ...}</td><td class="mono">ItemDefinition</td><td class="mono">TBD (Phase 4 expansion)</td></tr>
+        <tr><td class="mono">npc_templates.resistances</td><td class="mono">{magic, fire, cold, disease, poison}</td><td class="mono">Spawn</td><td class="mono">TBD (Phase 4 — NPC stats)</td></tr>
+        <tr><td class="mono">spells.effects</td><td class="mono">[{base, limit, max}, ...]</td><td class="mono">SpellEffect</td><td class="mono">value (simplified)</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<footer class="border-t border-adif-border py-8 text-center text-xs text-adif-dim mt-10">
+  <p>ADIF Struct &harr; Proto Source of Truth &mdash; Generated 2026-06-27 &mdash; <a href="/" class="text-adif-blue hover:underline">Back to Docs</a></p>
+</footer>
+
+<script>
+function switchTab(tab) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  document.querySelector('[data-tab="' + tab + '"]').classList.add('active');
+}
+</script>
+</body>
+</html>

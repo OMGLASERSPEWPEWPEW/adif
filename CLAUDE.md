@@ -73,6 +73,53 @@ that speaks a fixed protocol to the world server. Different zones can use
 different geometry backends (mesh, voxel, procedural) and zone-to-zone
 transitions still work seamlessly.
 
+## Running the Reference Server (PostgreSQL-backed)
+
+### Prerequisites
+Docker containers must be running (PostgreSQL on 5433, Redis on 6379):
+```
+cd database && docker compose up -d
+```
+
+### Launch Sequence
+All from `reference/eqemu-server/build/bin/RelWithDebInfo/`. **Order matters.**
+Use `.\` prefix — bare exe names fail in cmd windows launched from PowerShell.
+
+```powershell
+$dir = 'E:\development\adif\reference\eqemu-server\build\bin\RelWithDebInfo'
+
+# 1. Shared memory (loads spells/items/NPCs, finishes and stays at prompt)
+Start-Process cmd -ArgumentList '/k', "title ADIF-SharedMemory && cd /d $dir && .\shared_memory.exe"
+# Wait ~10s for it to finish
+
+# 2. Login, World, Zone(s)
+Start-Process cmd -ArgumentList '/k', "title ADIF-LoginServer && cd /d $dir && .\loginserver.exe"
+Start-Process cmd -ArgumentList '/k', "title ADIF-WorldServer && cd /d $dir && .\world.exe"
+Start-Process cmd -ArgumentList '/k', "title ADIF-Zone1 && cd /d $dir && .\zone.exe"
+Start-Process cmd -ArgumentList '/k', "title ADIF-Zone2 && cd /d $dir && .\zone.exe"
+```
+
+### Godmode (GM Status)
+```powershell
+$env:PGPASSWORD = 'adif_dev'
+psql -h localhost -p 5433 -U adif -d adif -c "UPDATE account SET status = 250 WHERE id = (SELECT account_id FROM character_data WHERE name = 'Ghouldan' LIMIT 1);"
+```
+Then in-game: `#set god_mode on`, `#set level 65`, `#damage 999999`.
+See `scripts/godmode.ps1` for full GM command reference.
+
+### HTML Architecture Docs
+```powershell
+Start-Process cmd -ArgumentList '/k', "title ADIF-Docs && python E:\development\adif\scripts\docs-server.py"
+```
+Browse to `http://localhost:5906`. Port 5906 is fixed. The server logs
+navigation to `docs/access.log` so Claude can see what page you're on.
+6 interactive pages: index, how-eq-works, adif-roadmap, postgresql-postmortem,
+tech-comparison, opcode-audit.
+
+### Client Connection
+Launch via desktop `StartEQ` shortcut. `eqhost.txt` points to `127.0.0.1:5998`.
+Account auto-creates on first login.
+
 ## Claude Code Setup
 
 This project is wired with the shared pattern libraries from

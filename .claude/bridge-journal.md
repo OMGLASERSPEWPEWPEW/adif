@@ -308,3 +308,67 @@ SESSION 2026-06-26: 100% PostgreSQL PARITY ACHIEVED.
 > docs/postgresql-parity-report.txt                  | ground truth output
 > reference/eqemu-server/zone/*.cpp                  | 7 files (debug cleanup)
 > ```
+
+### 2026-06-27 15:30
+
+SESSION 2026-06-27: Milestone 2 COMPLETE, Milestone 3 PLANNED AND APPROVED.
+
+## Milestone 2 Complete (all 6 phases in one session)
+- buf 1.50.0 installed, lint/build/breaking all clean
+- struct-proto-map.html audit doc (4 tabs, field-level EQ↔proto mapping)
+- ipc.proto: 77 IPC messages replacing 226 ServerOP_ constants
+- Expanded Spawn (27→43), ItemDefinition (12→40), PlayerProfile (39→57)
+- proto-check.ps1 CI script, proto/README.md
+- Rust codegen via prost-build, 20 Rust tests passing (117 total: 97 C# + 20 Rust)
+- protoc 28.3 installed, Rust toolchain updated to 1.96.0
+
+## Milestone 3: Rust Zone Server — PLANNED AND APPROVED
+- 12 phases, ~27-35 sessions estimated
+- Stack confirmed: Rust, tokio, bevy_ecs (standalone), sqlx, prost, tracing
+- Workspace at server/ with adif-proto, adif-common, adif-zone crates
+- Full plan at .claude/plans/ok-can-you-spin-async-clover.md
+
+## Other Session Work
+- Fixed looting (loottable had 0 rows — migrated 26,514 from MariaDB + base_data, AA tables, books, etc.)
+- Ghouldan set to GM status 250
+- Server launch process documented in CLAUDE.md (port 5906 for docs)
+- Created scripts/docs-server.py with navigation logging
+
+## What's Next
+- Update stack.md and CLAUDE.md to commit to Rust
+- Phase 1: Cargo workspace, config, sqlx DB pool, zone config loading
+- Create docs/zone-server-status.html tracker
+
+> **Session context** *(auto-gathered)*
+>
+> **What happened:**
+> - Completed all 6 phases of Milestone 2 (Protobuf Protocol Layer) in one session
+> - Fixed loot system (migrated 26,514 loottable rows + base_data, AA, books from MariaDB)
+> - Planned and approved Milestone 3 (Rust Zone Server) — 12 phases, full roadmap
+> - Confirmed Rust as official server language (replacing C#/.NET in stack.md)
+>
+> **Commits since last entry:**
+> ```
+> 54d7d92 feat(proto): add Rust codegen with prost-build and 20 round-trip tests (Phase 6)
+> b7175dc docs(proto): add CI script, proto README, update CLAUDE.md (Phase 5)
+> f817fcd feat(proto): expand Spawn, ItemDefinition, PlayerProfile to full coverage (Phase 4)
+> ec0dfac chore(infra): update session journals and memory heaps
+> fd886c9 docs(proto): add struct-proto audit, docs server, update CLAUDE.md
+> edd1de7 feat(proto): add IPC protocol, fix lint, verify toolchain (Phases 1-3)
+> 0eae0ba chore(infra): update session journals, memory heaps, and bridge journal
+> 880cf56 docs(architecture): add interactive HTML artifacts for EQ architecture study
+> ```
+>
+> **Files touched:**
+> ```
+> proto/adif/ipc.proto             | 692 +++ (new)
+> proto/adif/inventory.proto       | 104 ++
+> proto/adif/entity.proto          |  41 +-
+> proto/adif/character.proto       |  47 +-
+> docs/struct-proto-map.html       | 521 +++ (new)
+> tests/proto-rust/src/main.rs     | 175 +++ (new)
+> tests/ProtoRoundTrip/Program.cs  | 337 ++
+> scripts/proto-check.ps1          |  83 +++ (new)
+> scripts/docs-server.py           |  31 +++ (new)
+> proto/README.md                  |  59 +++ (new)
+> ```

@@ -3564,3 +3564,167 @@ But before starting that, there's also the **immediate practical stuff**: you sh
 
 ---
 
+## 2026-06-27_15-44-39 (session c49ab9bb)
+
+**assistant**: [tools: Read]
+
+**assistant**: [tools: Read]
+
+**assistant**: Good, I can see the zone server status tracker exists and documents the full 12-phase Rust plan. Now let me write up the plan.
+
+**assistant**: [tools: Write]
+
+**assistant**: Here's the summary: **There's actually nothing to stash or move** — we're in great shape:
+
+- **No C# server code exists.** The `src/` directory with LoginServer/WorldServer/ZoneServer/etc was always a planned layout in the docs, never implemented. There's zero lines of C# server code to lose.
+- **No Rust server code exists yet.** The `server/` directory is Phase 1 of Milestone 3, which hasn't started.
+- **The EQEmu C++ reference server** (the one with all our PostgreSQL conversions, 290+ files) is already safe in `reference/eqemu-server/`, which is gitignored.
+- **The Rust proto tests** at `tests/proto-rust/` (175 lines + 4,338 generated) are tracked in git and safe.
+
+The plan I wrote covers updating `stack.md` and `CLAUDE.md` to officially commit to Rust (they still say C#/.NET from the original plan). I'll add a historical note about the C# → Rust decision so the context isn't lost.
+
+Want me to proceed with those doc updates, or did you have specific files/code you were thinking about preserving that I might have missed?
+
+**assistant**: [tools: ToolSearch]
+
+**assistant**: [tools: ExitPlanMode]
+
+**assistant**: Plan approved. Let me update both files now.
+
+**assistant**: [tools: Read]
+
+**assistant**: Now I'll update both files in parallel.
+
+**assistant**: [tools: Edit]
+
+**assistant**: Now updating CLAUDE.md — replacing the TBD Stack section and the directory layout.
+
+**assistant**: [tools: Edit]
+
+**assistant**: Now update the Protocol section to reference Rust instead of C# tests.
+
+**assistant**: [tools: Edit]
+
+**assistant**: Now update the Reference section to mention the PostgreSQL-converted EQEmu server.
+
+**assistant**: [tools: Edit]
+
+**assistant**: Let me verify both files look right with a quick diff.
+
+**assistant**: [tools: Bash]
+
+**assistant**: Everything looks clean. Here's what changed:
+
+**`stack.md`** — Server section now says Rust with tokio/bevy_ecs/sqlx/prost/tracing. Includes a historical note about the C# → Rust decision. Database section updated to reference sqlx instead of Dapper. Dev environment now lists Cargo/clippy/rust-analyzer.
+
+**`CLAUDE.md`** — Status updated from "architecture study phase" to "server implementation phase" with Milestone 2 complete and Milestone 3 in progress. Stack section replaced TBD placeholder with the committed Rust stack. Added `eqemu-server/` to the reference section (the PostgreSQL-converted server). Test count updated to 117 (97 C# + 20 Rust).
+
+The EQEmu C++ reference server with all your PostgreSQL conversion work is safe in `reference/eqemu-server/` (gitignored). Nothing was lost, nothing needs stashing — we're starting fresh with Rust in `server/` when you're ready for Phase 1.
+
+---
+
+## 2026-06-27_16-06-59 (session c49ab9bb)
+
+**assistant**: [tools: Bash]
+
+**assistant**: **8 tests passing, all green.** Let me also verify it still runs against PG.
+
+**assistant**: [tools: Bash]
+
+**assistant**: Everything works. Now let me update the zone-server-status.html for Phase 2.
+
+**assistant**: [tools: Edit]
+
+**assistant**: [tools: Edit]
+
+**assistant**: Phase 1 + Phase 2 done. Here's the summary:
+
+**Phase 1: Foundation** -- Cargo workspace with 3 crates, prost-build compiling 17 protos, config loader, sqlx DB pool, binary boots and loads 618 zones from PostgreSQL.
+
+**Phase 2: ECS World & Entity Components** -- bevy_ecs 0.16 standalone, 14 components (Position, Velocity, Identity, Health, MovementSpeed, ModelAppearance, PlayerAppearance, EntityFlags, GuildMembership, NpcTemplate, ClientSession, PetOwner, CombatTarget), NpcBundle + PlayerBundle, EntityIdAllocator resource, bidirectional ECS-to-proto Spawn conversion, 8 tests all passing.
+
+Next up is **Phase 3: Spawn System** -- loading NPCs from the database (npc_types, spawn2, spawngroup, spawnentry tables), resolving the spawn chain, and populating the ECS world during zone boot. Want to keep going?
+
+**user**: lets /c&p first
+
+**assistant**: [tools: Skill]
+
+**user**: Base directory for this skill: E:\development\adif\.claude\skills\cap
+
+# /c&p — Commit and Push
+
+Group changes into logical commits with machine-readable messages, then push.
+
+## Commit Convention
+
+### Message format
+
+```
+type(scope): imperative summary (72 chars max)
+
+Why: one or two sentences explaining reasoning, not the diff
+Files: key-file-1.ts, key-file-2.ts, key-file-3.ts
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+```
+
+**Rules:**
+- Summary: imperative mood ("Add", "Fix", "Extract" — not "Added", "Fixing"), 72 chars max
+- `Why:` trailer: required for all types except `chore` and `docs`
+- `Files:` trailer: required, list the 2-5 most significant files touched
+- `Co-Authored-By:` footer: always present
+- Multi-scope: if genuinely equal, list both: `feat(palette,shared): extract helper`
+
+### Exempt types
+
+`Evolve:` and `Promote:` are ritual commit types produced by `/evolution` and `/promote`. They use their own format. **Never rewrite, absorb, or duplicate these.** If detected in today's git log, exclude their files from grouping.
+
+### Change types
+
+| Type | When to use | Example |
+|------|------------|---------|
+| `feat` | New user-facing capability | `feat(palette): add per-pane model selection` |
+| `fix` | Corrects a bug | `fix(agendas): prevent stale cache on day rollover` |
+| `refactor` | Restructuring without behavior change | `refactor(palette): extract pane registry` |
+| `perf` | Measurable performance improvement | `perf(filter): skip unchanged sentences on re-scan` |
+| `style` | CSS/visual changes only | `style(ui): tighten palette carousel spacing` |
+| `test` | Adding or fixing tests | `test(agendas): cover diffAgainstCache edge cases` |
+| `docs` | Documentation only | `docs(claude-md): add agendas cache section` |
+| `chore` | Agents, hooks, skills, config, deps | `chore(infra): add Thyra journal evolution entry` |
+
+### Module scopes
+
+| Scope | Files it covers |
+|-------|----------------|
+| `editor...
+
+**assistant**: Let me gather the full picture of what changed.
+
+**assistant**: [tools: Bash, Bash]
+
+**assistant**: [tools: Bash]
+
+**assistant**: [tools: Bash, Bash]
+
+**assistant**: [tools: Bash]
+
+**assistant**: Now let me see the new `server/` files and read the key diffs.
+
+**assistant**: [tools: Bash, Bash]
+
+**assistant**: [tools: Bash]
+
+**assistant**: [tools: Bash]
+
+**assistant**: Good. Here's the proposal:
+
+---
+
+**Proposed commits (3):**
+
+**1. `feat(server): add Rust zone server workspace with ECS (Milestone 3 Phases 1-2)`**
+
+> Why: First ADIF-original server code. Cargo workspace with 3 crates: adif-proto (prost codegen from 17 protos), adif-common (config + sqlx DB pool), adif-zone (zone binary with bevy_ecs components, entity ID allocator, and Spawn proto conversion). Boots, c...
+
+---
+

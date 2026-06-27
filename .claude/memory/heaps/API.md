@@ -710,3 +710,62 @@ The most interesting test is the **zone transition** to Innothule since that exe
 
 ---
 
+## 2026-06-27_15-44-39 (session c49ab9bb)
+
+**assistant**: [tools: Read]
+
+**assistant**: [tools: Read]
+
+**assistant**: Good, I can see the zone server status tracker exists and documents the full 12-phase Rust plan. Now let me write up the plan.
+
+**assistant**: [tools: Write]
+
+**assistant**: Here's the summary: **There's actually nothing to stash or move** — we're in great shape:
+
+- **No C# server code exists.** The `src/` directory with LoginServer/WorldServer/ZoneServer/etc was always a planned layout in the docs, never implemented. There's zero lines of C# server code to lose.
+- **No Rust server code exists yet.** The `server/` directory is Phase 1 of Milestone 3, which hasn't started.
+- **The EQEmu C++ reference server** (the one with all our PostgreSQL conversions, 290+ files) is already safe in `reference/eqemu-server/`, which is gitignored.
+- **The Rust proto tests** at `tests/proto-rust/` (175 lines + 4,338 generated) are tracked in git and safe.
+
+The plan I wrote covers updating `stack.md` and `CLAUDE.md` to officially commit to Rust (they still say C#/.NET from the original plan). I'll add a historical note about the C# → Rust decision so the context isn't lost.
+
+Want me to proceed with those doc updates, or did you have specific files/code you were thinking about preserving that I might have missed?
+
+**assistant**: [tools: ToolSearch]
+
+**assistant**: [tools: ExitPlanMode]
+
+**assistant**: Plan approved. Let me update both files now.
+
+**assistant**: [tools: Read]
+
+**assistant**: Now I'll update both files in parallel.
+
+**assistant**: [tools: Edit]
+
+**assistant**: Now updating CLAUDE.md — replacing the TBD Stack section and the directory layout.
+
+**assistant**: [tools: Edit]
+
+**assistant**: Now update the Protocol section to reference Rust instead of C# tests.
+
+**assistant**: [tools: Edit]
+
+**assistant**: Now update the Reference section to mention the PostgreSQL-converted EQEmu server.
+
+**assistant**: [tools: Edit]
+
+**assistant**: Let me verify both files look right with a quick diff.
+
+**assistant**: [tools: Bash]
+
+**assistant**: Everything looks clean. Here's what changed:
+
+**`stack.md`** — Server section now says Rust with tokio/bevy_ecs/sqlx/prost/tracing. Includes a historical note about the C# → Rust decision. Database section updated to reference sqlx instead of Dapper. Dev environment now lists Cargo/clippy/rust-analyzer.
+
+**`CLAUDE.md`** — Status updated from "architecture study phase" to "server implementation phase" with Milestone 2 complete and Milestone 3 in progress. Stack section replaced TBD placeholder with the committed Rust stack. Added `eqemu-server/` to the reference section (the PostgreSQL-converted server). Test count updated to 117 (97 C# + 20 Rust).
+
+The EQEmu C++ reference server with all your PostgreSQL conversion work is safe in `reference/eqemu-server/` (gitignored). Nothing was lost, nothing needs stashing — we're starting fresh with Rust in `server/` when you're ready for Phase 1.
+
+---
+

@@ -4,6 +4,9 @@ use bevy_ecs::prelude::*;
 use sqlx::PgPool;
 use tracing::{info, warn};
 
+use crate::ai::hate_list::HateList;
+use crate::ai::state::AiBrain;
+use crate::combat::damage::MeleeStats;
 use crate::ecs::components::*;
 use crate::ecs::EntityIdAllocator;
 use super::npc_type::NpcType;
@@ -116,7 +119,16 @@ pub async fn load_and_spawn(
                 body_type: npc.bodytype as u32,
                 animation: point.animation as u32,
             },
-        });
+        }).insert((
+            AiBrain::new(
+                point.x, point.y, point.z,
+                npc.aggroradius as f32,
+                npc.assistradius as f32,
+                point.pathgrid,
+            ),
+            HateList::default(),
+            MeleeStats::new(npc.mindmg, npc.maxdmg),
+        ));
 
         npcs_spawned += 1;
     }

@@ -7,12 +7,17 @@ use bevy_ecs::prelude::*;
 use tokio::sync::Mutex;
 use tracing::info;
 
+mod ai;
+mod chat;
+mod combat;
 mod ecs;
 mod game_loop;
+mod geometry;
 mod movement;
 mod network;
 mod spawn;
 mod zone_config;
+mod zone_transition;
 
 use ecs::EntityIdAllocator;
 use network::session::SessionManager;
@@ -62,8 +67,14 @@ async fn main() -> anyhow::Result<()> {
 
     let mut world = World::new();
     world.insert_resource(EntityIdAllocator::new());
+    world.insert_resource(geometry::ZoneGeometry::flat_plane());
 
     let result = spawn::resolver::load_and_spawn(&pool, &zone_short_name, &mut world).await?;
+
+    let zone_points = zone_transition::ZonePoint::load_for_zone(&pool, &zone_short_name).await?;
+    let zone_lines = zone_transition::ZoneLines::new(zone_points);
+    info!(zone_points = zone_lines.point_count(), "Loaded zone lines");
+    world.insert_resource(zone_lines);
 
     info!(
         npcs = result.npcs_spawned,

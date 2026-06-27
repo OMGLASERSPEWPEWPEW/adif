@@ -3,6 +3,8 @@ use std::time::{Duration, Instant};
 use bevy_ecs::prelude::*;
 use tracing::{debug, info, warn};
 
+use crate::ai::systems::{system_ai_aggro_check, system_ai_chase, system_ai_leash};
+use crate::combat::systems::{system_auto_attack, system_process_death};
 use crate::ecs::components::*;
 
 pub const TICK_RATE_HZ: u32 = 31;
@@ -175,6 +177,11 @@ pub async fn run_loop(world: &mut World, duration: Option<Duration>) {
     let mut schedule = Schedule::default();
     schedule.add_systems((
         system_advance_time,
+        system_ai_aggro_check,
+        system_ai_chase,
+        system_ai_leash,
+        system_auto_attack,
+        system_process_death,
         system_log_heartbeat,
     ));
 

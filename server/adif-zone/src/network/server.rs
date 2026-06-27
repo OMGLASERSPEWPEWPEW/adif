@@ -7,9 +7,10 @@ use tracing::{error, info, warn};
 
 use adif_proto::adif::{self, packet::Payload, Packet};
 
+use crate::chat;
 use crate::ecs::components::*;
 use crate::ecs::spawn_convert::build_spawn_from_world;
-use crate::movement::{self, PositionChanged};
+use crate::movement;
 use super::framing::{read_packet, write_packet};
 use super::session::{OutboundQueue, SessionManager, SessionState};
 
@@ -216,6 +217,39 @@ async fn client_loop(
                             break;
                         }
                     }
+                }
+            }
+
+            Some(Payload::ChatMessage(msg)) if state == SessionState::InZone => {
+                let mut w = world.lock().await;
+                let output = chat::handle_chat_message(&msg, session_id, None, &mut w);
+                drop(w);
+
+                let sessions_lock = sessions.lock().await;
+                for (target, packet) in output.packets {
+                    if let Some(target_id) = target {
+                        sessions_lock.queue_packet(target_id, packet).await;
+                    } else {
+                        sessions_lock.broadcast(packet).await;
+                    }
+                }
+            }
+
+            Some(Payload::WhoRequest(_)) if state == SessionState::InZone => {
+                let mut w = world.lock().await;
+                let response = chat::build_who_response(&mut w);
+                drop(w);
+                write_packet(stream, &response).await?;
+            }
+
+            Some(Payload::Consider(c)) if state == SessionState::InZone => {
+                let mut w = world.lock().await;
+                let mut query = w.query::<(&Identity, &Health)>();
+                let target = query.iter(&w).find(|(id, _)| id.entity_id == c.target_id);
+                let response = target.map(|(id, health)| chat::build_consider(c.entity_id, id, health));
+                drop(w);
+                if let Some(packet) = response {
+                    write_packet(stream, &packet).await?;
                 }
             }
 

@@ -1,4 +1,5 @@
 version: v2
-plugins:
-  - protoc_builtin: csharp
-    out: ../tests/ProtoRoundTrip/Generated
+# C# codegen is handled by Grpc.Tools MSBuild integration in the .csproj.
+# Rust codegen is handled by prost-build in tests/proto-rust/build.rs.
+# This file is reserved for future language targets that use buf plugins.
+plugins: []

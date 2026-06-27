@@ -6,23 +6,23 @@ architecture only.
 
 ## Status
 
-Architecture study phase. A reference EQ server (akk-stack) is running locally
-for studying zone systems, combat, networking, and world architecture. First
-ADIF-original work: a voxel zone experiment (Innothule as proof-of-concept).
+Server implementation phase. Milestone 2 (Protobuf Protocol Layer) is complete.
+Milestone 3 (Rust Zone Server) is in progress — see `docs/zone-server-status.html`
+for the 12-phase roadmap. A reference EQ server (PostgreSQL-backed EQEmu) runs
+locally for architecture study and gameplay comparison.
 
 ## Stack
 
-> TBD for ADIF's own implementation. Emerging direction:
-> - **Server**: Custom authoritative server with pluggable zone geometry
->   (supporting both voxel and mesh zones). Inspired by the EQEmu cluster
->   model but built from scratch.
-> - **Client**: TBD. Candidate engines for rendering: Godot (open-source,
->   GDScript/C#), Unity (C#), Unreal (C++), or web-based (Three.js/Babylon.js).
->   Must support voxel rendering.
-> - **Persistence**: Authoritative server for world state, accounts, inventory,
->   combat. Database TBD.
-
-Once chosen, document the real stack here and remove this placeholder.
+- **Server**: Rust — custom authoritative server with pluggable zone geometry
+  (supporting both voxel and mesh zones). Cargo workspace at `server/` with
+  crates: `adif-proto`, `adif-common`, `adif-zone`. Key dependencies: tokio
+  (async), bevy_ecs (standalone ECS), sqlx (PostgreSQL), prost (protobuf),
+  tracing (diagnostics). See `.claude/rules/stack.md` for full details.
+- **Client**: TBD. The server is client-agnostic — all rendering stays
+  client-side; the server sends entity state via protobuf.
+- **Persistence**: PostgreSQL (port 5433) for all persistent state. Redis
+  (port 6379) for ephemeral state. 45 migrations in `database/migrations/`.
+  231/231 table parity with EQEmu achieved.
 
 ## Protocol
 
@@ -36,7 +36,8 @@ files under `proto/adif/`. See `proto/README.md` for the full guide.
   for zone lifecycle, cross-zone features, and admin commands.
 - **`common.proto`** — Shared types: `Vec3`, `Vec3Int`, `Color`.
 - **Tooling**: `buf lint`, `buf build`, `buf breaking --against proto/image.bin`.
-- **Tests**: 97 round-trip tests in `tests/ProtoRoundTrip/`.
+- **Tests**: 117 round-trip tests (97 C# in `tests/ProtoRoundTrip/`, 20 Rust
+  in `tests/proto-rust/`).
 - **Validation**: Run `.\scripts\proto-check.ps1` before committing proto changes.
 - **Source of truth**: `docs/struct-proto-map.html` maps EQ structs to proto
   messages field-by-field, cross-referenced against the database schema.
@@ -46,11 +47,13 @@ files under `proto/adif/`. See `proto/README.md` for the full guide.
 The `reference/` folder is **gitignored** and holds upstream projects and client
 files for studying EQ architecture. See `reference/README.md` for full details.
 
+- **`eqemu-server/`** — Standard EQEmu server (github.com/EQEmu/Server), fully
+  converted from MySQL to PostgreSQL (290+ C++ files). Pre-built binaries at
+  `build/bin/RelWithDebInfo/`. This is the running reference server.
 - **`eqmacemu/`** — EQMacEmu server C++ source code (classic→PoP era emulator).
   Study `zone/`, `world/`, `loginserver/`, `common/` for architecture patterns.
-- **`akk-stack/`** — Docker-based EQEmu server deployment. This is the running
-  server with compiled binaries, map files (`server/maps/`), and database.
-  Start with `docker-compose up`.
+- **`akk-stack/`** — Docker-based EQEmu server deployment with compiled binaries,
+  map files (`server/maps/`), and MariaDB database.
 - **`eqemu-docker/`** — Alternative Docker Compose setup for EQEmu.
 - **`eq-client/`** — EQ Titanium client files. The active client — launched via
   the desktop `StartEQ` shortcut (`eqgame.exe patchme`, connects to

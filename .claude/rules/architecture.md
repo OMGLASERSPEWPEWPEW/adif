@@ -18,12 +18,12 @@ database/
   docker-compose.yml        # PostgreSQL + Redis containers
   migrations/               # Numbered SQL files (001_accounts.sql, ...)
 
-src/                        # Server source code
-  Common/                   # Shared library (protocol, DB access, config)
-  LoginServer/              # Login + auth process
-  WorldServer/              # Character select, zone routing, cross-zone coord
-  ZoneServer/               # Per-zone game logic (combat, AI, spells, movement)
-  ChatServer/               # Cross-zone chat/mail
+server/                     # Rust server workspace (Cargo)
+  Cargo.toml                # Workspace root
+  server.toml               # Server config (DB, logging)
+  adif-proto/               # Generated protobuf types (prost-build)
+  adif-common/              # Shared library (config, DB pool)
+  adif-zone/                # Zone server binary (game logic, ECS, networking)
 
 tests/                      # Verification projects
 scripts/                    # Dev automation (PowerShell)
@@ -35,9 +35,9 @@ reference/                  # Gitignored upstream study material
 
 - "Does it define a wire message?" -> `proto/adif/`
 - "Does it change persistent schema?" -> `database/migrations/` (new numbered file)
-- "Does it need to run in every server process?" -> `src/Common/`
-- "Is it zone-specific game logic (combat, AI, spawns)?" -> `src/ZoneServer/`
-- "Is it cross-zone coordination?" -> `src/WorldServer/`
+- "Does it need to run in every server process?" -> `server/adif-common/`
+- "Is it zone-specific game logic (combat, AI, spawns)?" -> `server/adif-zone/`
+- "Is it cross-zone coordination?" -> future `server/adif-world/` crate
 - "Is it a dev tool or setup script?" -> `scripts/`
 - "Is it analysis, comparison, or exploration?" -> `docs/` as HTML
 

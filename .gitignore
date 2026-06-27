@@ -7,3 +7,7 @@ reference/
 # .NET build output
 tests/**/bin/
 tests/**/obj/
+
+# Rust build output
+server/target/
+tests/proto-rust/target/

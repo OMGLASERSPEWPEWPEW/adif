@@ -55,10 +55,10 @@ tailwind.config = { darkMode: 'class', theme: { extend: { colors: { adif: { bg: 
   <div class="card p-6 mb-8">
     <div class="flex items-center justify-between mb-3">
       <span class="text-white font-semibold">Overall Progress</span>
-      <span class="text-adif-dim text-sm" id="progress-text">0 / 12 phases</span>
+      <span class="text-adif-dim text-sm" id="progress-text">2 / 12 phases</span>
     </div>
     <div class="progress-bar">
-      <div class="progress-fill bg-green-500" id="progress-bar" style="width: 0%"></div>
+      <div class="progress-fill bg-green-500" id="progress-bar" style="width: 16.7%"></div>
     </div>
   </div>
 
@@ -68,33 +68,42 @@ tailwind.config = { darkMode: 'class', theme: { extend: { colors: { adif: { bg: 
     <!-- Phase 1 -->
     <div class="card p-5" id="phase-1">
       <div class="flex items-center gap-3 mb-3">
-        <span class="tag tag-not-started" id="phase-1-tag">NOT STARTED</span>
+        <span class="tag tag-done" id="phase-1-tag">DONE</span>
         <h3 class="text-white font-bold flex-1">Phase 1: Foundation</h3>
-        <span class="text-adif-dim text-xs mono">3-4 sessions</span>
+        <span class="text-adif-dim text-xs mono">1 session (2026-06-27)</span>
       </div>
       <p class="text-sm text-adif-dim mb-3">Cargo workspace, config, sqlx DB pool, zone config loading from PostgreSQL.</p>
       <div class="text-xs text-adif-dim space-y-1">
-        <div>&bull; <code>server/</code> workspace with adif-proto, adif-common, adif-zone crates</div>
-        <div>&bull; prost-build compiling all 17 proto files</div>
-        <div>&bull; Config loader (server.toml &rarr; serde) + sqlx pool to PG port 5433</div>
-        <div>&bull; Binary boots, loads zone config from <code>zones</code> table</div>
-        <div>&bull; Update stack.md + CLAUDE.md to commit to Rust</div>
-        <div>&bull; Create zone-server-adr.html (architecture decisions)</div>
+        <div>&#x2705; <code>server/</code> workspace with adif-proto, adif-common, adif-zone crates</div>
+        <div>&#x2705; prost-build compiling all 17 proto files (prost 0.13, protoc 28.3)</div>
+        <div>&#x2705; Config loader (server.toml &rarr; serde) + sqlx pool to PG port 5433</div>
+        <div>&#x2705; Binary boots, loads 618 zone configs from <code>zone</code> table</div>
+        <div>&#x2705; Update stack.md + CLAUDE.md to commit to Rust</div>
+        <div>&bull; Create zone-server-adr.html (architecture decisions) &mdash; <em>deferred</em></div>
       </div>
       <div class="mt-3 pt-3 border-t border-adif-border text-xs">
         <span class="text-adif-dim">Replaces:</span> <code class="text-amber-400">zonedb.cpp</code> (zone config), <code class="text-amber-400">eqemu_config.cpp</code>
-        &mdash; <span class="text-adif-dim">Tables:</span> <code>zones</code>, <code>variables</code>, <code>rule_sets</code>
+        &mdash; <span class="text-adif-dim">Tables:</span> <code>zone</code>, <code>variables</code>, <code>rule_sets</code>
       </div>
     </div>
 
     <!-- Phase 2 -->
     <div class="card p-5" id="phase-2">
       <div class="flex items-center gap-3 mb-3">
-        <span class="tag tag-not-started">NOT STARTED</span>
+        <span class="tag tag-done">DONE</span>
         <h3 class="text-white font-bold flex-1">Phase 2: ECS World &amp; Entity Components</h3>
-        <span class="text-adif-dim text-xs mono">2-3 sessions</span>
+        <span class="text-adif-dim text-xs mono">1 session (2026-06-27)</span>
       </div>
       <p class="text-sm text-adif-dim mb-3">bevy_ecs standalone. Core components: Position, Velocity, Identity, Stats, Health, NpcTemplate, ClientSession. Entity ID allocator. ECS &harr; proto Spawn conversion.</p>
+      <div class="text-xs text-adif-dim space-y-1">
+        <div>&#x2705; bevy_ecs 0.16 standalone (no full Bevy engine)</div>
+        <div>&#x2705; 14 components: Position, Velocity, Identity, Health, MovementSpeed, ModelAppearance, PlayerAppearance, EntityFlags, GuildMembership, NpcTemplate, ClientSession, PetOwner, CombatTarget, EntityKind</div>
+        <div>&#x2705; NpcBundle + PlayerBundle for convenient entity spawning</div>
+        <div>&#x2705; EntityIdAllocator resource (u32 &harr; ECS Entity bidirectional map)</div>
+        <div>&#x2705; ECS &harr; proto Spawn conversion (build_spawn, build_spawn_from_world, spawn_to_components)</div>
+        <div>&#x2705; PositionUpdate conversion (build_position_update)</div>
+        <div>&#x2705; 8 tests: round-trip NPC/player spawn, ECS world spawn, position update, entity ID allocation</div>
+      </div>
       <div class="mt-3 pt-3 border-t border-adif-border text-xs">
         <span class="text-adif-dim">Replaces:</span> <code class="text-amber-400">entity.h</code>, <code class="text-amber-400">mob.h</code> (data), <code class="text-amber-400">entity_list.h</code> (storage)
       </div>

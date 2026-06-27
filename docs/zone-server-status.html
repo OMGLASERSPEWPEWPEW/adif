@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ADIF — Rust Zone Server Status</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = { darkMode: 'class', theme: { extend: { colors: { adif: { bg: '#0a0e17', card: '#161b22', border: '#30363d', text: '#c9d1d9', dim: '#8b949e', blue: '#58a6ff' }}}}}
+</script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+  body { font-family: 'Inter', sans-serif; background: #0a0e17; color: #c9d1d9; }
+  code, .mono { font-family: 'JetBrains Mono', monospace; font-size: 13px; }
+  .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; }
+  .tag { border-radius: 4px; font-size: 11px; padding: 2px 8px; font-weight: 600; display: inline-block; }
+  .tag-done { background: #1a3a1a; color: #4ade80; }
+  .tag-active { background: #1a2a3a; color: #60a5fa; }
+  .tag-blocked { background: #3a2a1a; color: #f59e0b; }
+  .tag-not-started { background: #1a1a2a; color: #8b949e; }
+  table { border-collapse: collapse; width: 100%; }
+  th { text-align: left; padding: 8px 12px; border-bottom: 1px solid #30363d; color: #8b949e; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+  td { padding: 8px 12px; border-bottom: 1px solid #21262d; font-size: 13px; vertical-align: top; }
+  tr:hover td { background: #1c2333; }
+  .tab-btn { cursor: pointer; transition: all 0.2s; }
+  .tab-btn.active { color: #58a6ff; border-bottom: 2px solid #58a6ff; }
+  .tab-btn:not(.active) { color: #8b949e; border-bottom: 2px solid transparent; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+  .progress-bar { height: 8px; border-radius: 4px; background: #21262d; overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
+</style>
+</head>
+<body class="min-h-screen">
+
+<nav class="sticky top-0 z-50 bg-[#0a0e17]/95 backdrop-blur border-b border-adif-border px-6 py-3">
+  <div class="max-w-7xl mx-auto flex items-center justify-between">
+    <a href="/" class="text-adif-dim hover:text-adif-blue transition text-sm">&larr; ADIF Docs</a>
+    <span class="text-adif-blue font-bold text-lg">Zone Server Status</span>
+    <div class="flex gap-4 text-sm">
+      <button class="tab-btn active" data-tab="roadmap" onclick="switchTab('roadmap')">Roadmap</button>
+      <button class="tab-btn" data-tab="components" onclick="switchTab('components')">Components</button>
+      <button class="tab-btn" data-tab="stack" onclick="switchTab('stack')">Stack</button>
+      <button class="tab-btn" data-tab="proto" onclick="switchTab('proto')">Proto Coverage</button>
+    </div>
+  </div>
+</nav>
+
+<!-- ========== ROADMAP TAB ========== -->
+<div id="tab-roadmap" class="tab-content active max-w-7xl mx-auto px-6 py-10">
+  <h1 class="text-3xl font-extrabold text-white mb-2">Milestone 3: Rust Zone Server</h1>
+  <p class="text-adif-dim mb-6">12 phases, ~27-35 sessions. From empty workspace to a zone server that boots, accepts clients, runs NPC AI, handles combat, and processes zone transitions.</p>
+
+  <!-- Overall Progress -->
+  <div class="card p-6 mb-8">
+    <div class="flex items-center justify-between mb-3">
+      <span class="text-white font-semibold">Overall Progress</span>
+      <span class="text-adif-dim text-sm" id="progress-text">0 / 12 phases</span>
+    </div>
+    <div class="progress-bar">
+      <div class="progress-fill bg-green-500" id="progress-bar" style="width: 0%"></div>
+    </div>
+  </div>
+
+  <!-- Phase Cards -->
+  <div class="space-y-4">
+
+    <!-- Phase 1 -->
+    <div class="card p-5" id="phase-1">
+      <div class="flex items-center gap-3 mb-3">
+        <span class="tag tag-not-started" id="phase-1-tag">NOT STARTED</span>
+        <h3 class="text-white font-bold flex-1">Phase 1: Foundation</h3>
+        <span class="text-adif-dim text-xs mono">3-4 sessions</span>
+      </div>
+      <p class="text-sm text-adif-dim mb-3">Cargo workspace, config, sqlx DB pool, zone config loading from PostgreSQL.</p>
+      <div class="text-xs text-adif-dim space-y-1">
+        <div>&bull; <code>server/</code> workspace with adif-proto, adif-common, adif-zone crates</div>
+        <div>&bull; prost-build compiling all 17 proto files</div>
+        <div>&bull; Config loader (server.toml &rarr; serde) + sqlx pool to PG port 5433</div>
+        <div>&bull; Binary boots, loads zone config from <code>zones</code> table</div>
+        <div>&bull; Update stack.md + CLAUDE.md to commit to Rust</div>
+        <div>&bull; Create zone-server-adr.html (architecture decisions)</div>
+      </div>
+      <div class="mt-3 pt-3 border-t border-adif-border text-xs">
+        <span class="text-adif-dim">Replaces:</span> <code class="text-amber-400">zonedb.cpp</code> (zone config), <code class="text-amber-400">eqemu_config.cpp</code>
+        &mdash; <span class="text-adif-dim">Tables:</span> <code>zones</code>, <code>variables</code>, <code>rule_sets</code>
+      </div>
+    </div>
+
+    <!-- Phase 2 -->
+    <div class="card p-5" id="phase-2">
+      <div class="flex items-center gap-3 mb-3">
+        <span class="tag tag-not-started">NOT STARTED</span>
+        <h3 class="text-white font-bold flex-1">Phase 2: ECS World &amp; Entity Components</h3>
+        <span class="text-adif-dim text-xs mono">2-3 sessions</span>
+      </div>
+      <p class="text-sm text-adif-dim mb-3">bevy_ecs standalone. Core components: Position, Velocity, Identity, Stats, Health, NpcTemplate, ClientSession. Entity ID allocator. ECS &harr; proto Spawn conversion.</p>
+      <div class="mt-3 pt-3 border-t border-adif-border text-xs">
+        <span class="text-adif-dim">Replaces:</span> <code class="text-amber-400">entity.h</code>, <code class="text-amber-400">mob.h</code> (data), <code class="text-amber-400">entity_list.h</code> (storage)
+      </div>
+    </div>
+
+    <!-- Phase 3 -->
+    <div class="card p-5" id="phase-3">
+      <div class="flex items-center gap-3 mb-3">
+        <span class="tag tag-not-started">NOT STARTED</span>
+        <h3 class="text-white font-bold flex-1">Phase 3: Spawn System &mdash; NPCs from Database</h3>
+        <span class="text-adif-dim text-xs mono">2-3 sessions</span>
+      </div>
+      <p class="text-sm text-adif-dim mb-3">NPC template loader, spawn resolver (spawn_points &rarr; spawn_groups &rarr; spawn_entries &rarr; NPC), door/zone point loading. Full zone boot populates ECS world.</p>
+      <div class="mt-3 pt-3 border-t border-adif-border text-xs">
+        <span class="text-adif-dim">Replaces:</span> <code class="text-amber-400">zonedb.cpp</code> (NPC/spawn), <code class="text-amber-400">zone.cpp</code> (boot), <code class="text-amber-400">npc.cpp</code> (construct)
+        &mdash; <span class="text-adif-dim">Tables:</span> <code>npc_templates</code>, <code>spawn_groups</code>, <code>spawn_entries</code>, <code>spawn_points</code>, <code>doors</code>, <code>zone_points</code>
+      </div>
+    </div>
+
+    <!-- Phase 4 -->
+    <div class="card p-5" id="phase-4">
+      <div class="flex items-center gap-3 mb-3">
+        <span class="tag tag-not-started">NOT STARTED</span>
+        <h3 class="text-white font-bold flex-1">Phase 4: Game Loop &amp; Tick System</h3>
+        <span class="text-adif-dim text-xs mono">2 sessions</span>
+      </div>
+      <p class="text-sm text-adif-dim mb-3">Fixed-timestep loop (32ms / ~31 Hz). Ordered ECS system scheduling. Time of day, weather transitions, respawn timers.</p>
+      <div class="mt-3 pt-3 border-t border-adif-border text-xs">
+        <span class="text-adif-dim">Replaces:</span> <code class="text-amber-400">zone.cpp</code> Zone::Process(), time/weather/spawn timers
+      </div>
+    </div>
+
+    <!-- Phase 5 -->
+    <div class="card p-5" id="phase-5">
+      <div class="flex items-center gap-3 mb-3">
+        <span class="tag tag-not-started">NOT STARTED</span>
+        <h3 class="text-white font-bold flex-1">Phase 5: TCP Networking &amp; Client Connection</h3>
+        <span class="text-adif-dim text-xs mono">3-4 sessions</span>
+      </div>
+      <p class="text-sm text-adif-dim mb-3">tokio TCP listener, length-delimited protobuf framing, session/auth handshake, character loading, zone entry data delivery, heartbeat, disconnect.</p>
+      <div class="mt-3 pt-3 border-t border-adif-border text-xs">
+        <span class="text-adif-dim">Replaces:</span> <code class="text-amber-400">client_packet.cpp</code> (session/auth), <code class="text-amber-400">client.cpp</code> (char loading)
+        &mdash; <span class="text-adif-dim">Tables:</span> <code>accounts</code>, <code>characters</code>, <code>character_skills</code>, <code>character_spells</code>, <code>character_buffs</code>
+      </div>
+    </div>
+
+    <!-- Phase 6 -->
+    <div class="card p-5" id="phase-6">
+      <div class="flex items-center gap-3 mb-3">
+        <span class="tag tag-not-started">NOT STARTED</span>
+        <h3 class="text-white font-bold flex-1">Phase 6: Movement &amp; Position Updates</h3>
+        <span class="text-adif-dim text-xs mono">2 sessions</span>
+      </div>
+      <p class="text-sm text-adif-dim mb-3">Client PositionUpdate handling, server-side speed/boundary validation, position broadcast to nearby clients, interest management (enter/exit range &rarr; Spawn/Despawn).</p>
+      <div class="mt-3 pt-3 border-t border-adif-border text-xs">
+        <span class="text-adif-dim">Replaces:</span> <code class="text-amber-400">client_packet.cpp</code> OP_ClientUpdate, <code class="text-amber-400">mob.cpp</code> position, <code class="text-amber-400">entity_list.cpp</code> broadcast
+      </div>
+    </div>
+
+    <!-- Phase 7 -->
+    <div class="card p-5" id="phase-7">
+      <div class="flex items-center gap-3 mb-3">
+        <span class="tag tag-not-started">NOT STARTED</span>
+        <h3 class="text-white font-bold flex-1">Phase 7: NPC AI &amp; Patrol System</h3>
+        <span class="text-adif-dim text-xs mono">3 sessions</span>
+      </div>
+      <p class="text-sm text-adif-dim mb-3">AI state machine (Idle &rarr; Patrol &rarr; Aggro &rarr; Chase &rarr; Leash). Faction-based aggro checks, waypoint patrol, assist radius, hate list.</p>
+      <div class="mt-3 pt-3 border-t border-adif-border text-xs">
+        <span class="text-adif-dim">Replaces:</span> <code class="text-amber-400">mob_ai.cpp</code> (91KB), <code class="text-amber-400">npc.cpp</code> (patrol), <code class="text-amber-400">hate_list.cpp</code>
+        &mdash; <span class="text-adif-dim">Tables:</span> <code>patrol_grids</code>, <code>patrol_waypoints</code>, <code>npc_faction_associations</code>
+      </div>
+    </div>
+
+    <!-- Phase 8 -->
+    <div class="card p-5" id="phase-8">
+      <div class="flex items-center gap-3 mb-3">
+        <span class="tag tag-not-started">NOT STARTED</span>
+        <h3 class="text-white font-bold flex-1">Phase 8: Basic Combat &mdash; Melee &amp; Death</h3>
+        <span class="text-adif-dim text-xs mono">3-4 sessions</span>
+      </div>
+      <p class="text-sm text-adif-dim mb-3">Targeting, auto-attack at weapon speed, damage calculation (weapon dmg, AC mitigation, hit/miss), HP broadcasts, death &rarr; corpse &rarr; respawn, XP and leveling.</p>
+      <div class="mt-3 pt-3 border-t border-adif-border text-xs">
+        <span class="text-adif-dim">Replaces:</span> <code class="text-amber-400">attack.cpp</code> (228KB simplified), <code class="text-amber-400">mob.cpp</code> (HP/death)
+        &mdash; <span class="text-adif-dim">Protos:</span> Target, MeleeAttack, MeleeDamage, HPUpdate, EntityDeath, ExperienceUpdate, LevelUpdate
+      </div>
+    </div>
+
+    <!-- Phase 9 -->
+    <div class="card p-5" id="phase-9">
+      <div class="flex items-center gap-3 mb-3">
+        <span class="tag tag-not-started">NOT STARTED</span>
+        <h3 class="text-white font-bold flex-1">Phase 9: Chat &amp; Basic Social</h3>
+        <span class="text-adif-dim text-xs mono">1-2 sessions</span>
+      </div>
+      <p class="text-sm text-adif-dim mb-3">/say (nearby), /shout (zone-wide), /ooc, /tell (same zone), system messages, /who, /consider.</p>
+      <div class="mt-3 pt-3 border-t border-adif-border text-xs">
+        <span class="text-adif-dim">Replaces:</span> <code class="text-amber-400">client_packet.cpp</code> chat handlers
+        &mdash; <span class="text-adif-dim">Protos:</span> ChatMessage, SystemMessage, WhoRequest/Response, Consider
+      </div>
+    </div>
+
+    <!-- Phase 10 -->
+    <div class="card p-5" id="phase-10">
+      <div class="flex items-center gap-3 mb-3">
+        <span class="tag tag-not-started">NOT STARTED</span>
+        <h3 class="text-white font-bold flex-1">Phase 10: Zone Transitions</h3>
+        <span class="text-adif-dim text-xs mono">2-3 sessions</span>
+      </div>
+      <p class="text-sm text-adif-dim mb-3">Zone line AABB detection, character save to DB, ZoneChangeResponse, periodic auto-save (5 min), camp/logout (30s timer &rarr; save &rarr; disconnect).</p>
+      <div class="mt-3 pt-3 border-t border-adif-border text-xs">
+        <span class="text-adif-dim">Replaces:</span> <code class="text-amber-400">zone.cpp</code> zone lines, <code class="text-amber-400">client.cpp</code> char saving, <code class="text-amber-400">zonedb.cpp</code> persistence
+      </div>
+    </div>
+
+    <!-- Phase 11 -->
+    <div class="card p-5" id="phase-11">
+      <div class="flex items-center gap-3 mb-3">
+        <span class="tag tag-not-started">NOT STARTED</span>
+        <h3 class="text-white font-bold flex-1">Phase 11: Geometry Traits &mdash; Map, WaterMap, Pathfinder</h3>
+        <span class="text-adif-dim text-xs mono">2-3 sessions</span>
+      </div>
+      <p class="text-sm text-adif-dim mb-3">Rust traits for Map (best_z, LoS, collision), WaterMap (in_water, in_lava), Pathfinder (find_path). NullGeometry and FlatPlane implementations.</p>
+      <div class="mt-3 pt-3 border-t border-adif-border text-xs">
+        <span class="text-adif-dim">Replaces:</span> <code class="text-amber-400">map.h/cpp</code>, <code class="text-amber-400">water_map.h/cpp</code>, <code class="text-amber-400">pathfinder_interface.h</code>
+      </div>
+    </div>
+
+    <!-- Phase 12 -->
+    <div class="card p-5" id="phase-12">
+      <div class="flex items-center gap-3 mb-3">
+        <span class="tag tag-not-started">NOT STARTED</span>
+        <h3 class="text-white font-bold flex-1">Phase 12: Integration Test &amp; PoC Demo</h3>
+        <span class="text-adif-dim text-xs mono">2 sessions</span>
+      </div>
+      <p class="text-sm text-adif-dim mb-3">CLI test client. Full scenario: boot &rarr; connect &rarr; move &rarr; aggro &rarr; kill &rarr; die &rarr; respawn &rarr; chat &rarr; zone transition. Benchmark: 200 NPCs + 50 clients, tick &lt; 10ms.</p>
+      <div class="mt-3 pt-3 border-t border-adif-border text-xs">
+        <span class="text-adif-dim">Deliverable:</span> Working proof-of-concept zone server in Rust
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ========== COMPONENTS TAB ========== -->
+<div id="tab-components" class="tab-content max-w-7xl mx-auto px-6 py-10">
+  <h2 class="text-2xl font-bold text-white mb-6">Component &harr; EQEmu Mapping</h2>
+  <p class="text-adif-dim mb-6 text-sm">Each ADIF Rust component mapped to the EQEmu C++ files it replaces, with line counts showing the scope of what's being replaced.</p>
+
+  <div class="card p-4">
+    <table>
+      <thead><tr><th>ADIF Component</th><th>Phase</th><th>EQEmu Files Replaced</th><th>C++ Size</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td class="text-white font-medium">Config &amp; DB Pool</td><td class="mono">1</td><td class="mono text-adif-dim">eqemu_config.cpp, zonedb.cpp (partial)</td><td class="mono">~116KB</td><td><span class="tag tag-not-started">NOT STARTED</span></td></tr>
+        <tr><td class="text-white font-medium">ECS Entity Model</td><td class="mono">2</td><td class="mono text-adif-dim">entity.h/cpp, mob.h/cpp (data), entity_list.h</td><td class="mono">~235KB</td><td><span class="tag tag-not-started">NOT STARTED</span></td></tr>
+        <tr><td class="text-white font-medium">Spawn System</td><td class="mono">3</td><td class="mono text-adif-dim">npc.cpp, spawn2.cpp, spawngroup.cpp</td><td class="mono">~175KB</td><td><span class="tag tag-not-started">NOT STARTED</span></td></tr>
+        <tr><td class="text-white font-medium">Game Loop / Tick</td><td class="mono">4</td><td class="mono text-adif-dim">zone.cpp Zone::Process(), main.cpp loop</td><td class="mono">~91KB</td><td><span class="tag tag-not-started">NOT STARTED</span></td></tr>
+        <tr><td class="text-white font-medium">Networking / Packets</td><td class="mono">5</td><td class="mono text-adif-dim">client_packet.cpp, client.cpp (session/auth)</td><td class="mono">~918KB</td><td><span class="tag tag-not-started">NOT STARTED</span></td></tr>
+        <tr><td class="text-white font-medium">Movement / Interest</td><td class="mono">6</td><td class="mono text-adif-dim">client_packet.cpp (OP_ClientUpdate), mob.cpp (pos)</td><td class="mono">~50KB</td><td><span class="tag tag-not-started">NOT STARTED</span></td></tr>
+        <tr><td class="text-white font-medium">NPC AI / Patrol</td><td class="mono">7</td><td class="mono text-adif-dim">mob_ai.cpp, npc.cpp (patrol), hate_list.cpp</td><td class="mono">~225KB</td><td><span class="tag tag-not-started">NOT STARTED</span></td></tr>
+        <tr><td class="text-white font-medium">Melee Combat</td><td class="mono">8</td><td class="mono text-adif-dim">attack.cpp, special_attacks.cpp (simplified)</td><td class="mono">~312KB</td><td><span class="tag tag-not-started">NOT STARTED</span></td></tr>
+        <tr><td class="text-white font-medium">Chat / Social</td><td class="mono">9</td><td class="mono text-adif-dim">client_packet.cpp (chat handlers)</td><td class="mono">~30KB</td><td><span class="tag tag-not-started">NOT STARTED</span></td></tr>
+        <tr><td class="text-white font-medium">Zone Transitions</td><td class="mono">10</td><td class="mono text-adif-dim">zone.cpp (zone lines), client.cpp (char save)</td><td class="mono">~80KB</td><td><span class="tag tag-not-started">NOT STARTED</span></td></tr>
+        <tr><td class="text-white font-medium">Geometry Traits</td><td class="mono">11</td><td class="mono text-adif-dim">map.h/cpp, water_map.h/cpp, pathfinder_interface.h</td><td class="mono">~37KB</td><td><span class="tag tag-not-started">NOT STARTED</span></td></tr>
+        <tr><td class="text-white font-medium">Test Client / Demo</td><td class="mono">12</td><td class="mono text-adif-dim">(new &mdash; no EQEmu equivalent)</td><td class="mono">&mdash;</td><td><span class="tag tag-not-started">NOT STARTED</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card p-6 mt-6">
+    <h3 class="text-white font-bold mb-3">NOT in Milestone 3 (Post-PoC)</h3>
+    <div class="grid md:grid-cols-3 gap-4 text-sm text-adif-dim">
+      <div>
+        <div class="text-amber-400 font-semibold mb-1">Game Systems</div>
+        <div>&bull; Spells/magic (332KB)</div>
+        <div>&bull; Inventory/loot (156KB)</div>
+        <div>&bull; NPC stat bonuses (196KB)</div>
+        <div>&bull; Quest scripting (118KB)</div>
+      </div>
+      <div>
+        <div class="text-amber-400 font-semibold mb-1">Infrastructure</div>
+        <div>&bull; World server</div>
+        <div>&bull; Login server</div>
+        <div>&bull; Real geometry parsing (.map/.wtr/.nav)</div>
+        <div>&bull; UDP/ENet transport</div>
+      </div>
+      <div>
+        <div class="text-amber-400 font-semibold mb-1">Social / Economy</div>
+        <div>&bull; Guilds, groups, raids</div>
+        <div>&bull; Merchants, trade, bazaar</div>
+        <div>&bull; Admin/GM commands</div>
+        <div>&bull; Encryption/TLS</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== STACK TAB ========== -->
+<div id="tab-stack" class="tab-content max-w-7xl mx-auto px-6 py-10">
+  <h2 class="text-2xl font-bold text-white mb-6">Technology Stack (Confirmed)</h2>
+
+  <div class="grid md:grid-cols-2 gap-4">
+    <div class="card p-5">
+      <h3 class="text-white font-bold mb-3">Core</h3>
+      <table>
+        <tbody>
+          <tr><td class="text-adif-dim">Language</td><td class="text-white font-semibold">Rust</td></tr>
+          <tr><td class="text-adif-dim">Async Runtime</td><td class="text-white">tokio</td></tr>
+          <tr><td class="text-adif-dim">ECS</td><td class="text-white">bevy_ecs (standalone)</td></tr>
+          <tr><td class="text-adif-dim">Database</td><td class="text-white">sqlx (async, compile-time checked)</td></tr>
+          <tr><td class="text-adif-dim">Protocol</td><td class="text-white">prost (protobuf)</td></tr>
+          <tr><td class="text-adif-dim">Networking</td><td class="text-white">tokio TCP + length-delimited framing</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card p-5">
+      <h3 class="text-white font-bold mb-3">Supporting</h3>
+      <table>
+        <tbody>
+          <tr><td class="text-adif-dim">Logging</td><td class="text-white">tracing + tracing-subscriber</td></tr>
+          <tr><td class="text-adif-dim">Config</td><td class="text-white">serde + toml</td></tr>
+          <tr><td class="text-adif-dim">Errors</td><td class="text-white">thiserror (lib) + anyhow (bin)</td></tr>
+          <tr><td class="text-adif-dim">Database (infra)</td><td class="text-white">PostgreSQL 16 (port 5433)</td></tr>
+          <tr><td class="text-adif-dim">Cache</td><td class="text-white">Redis 7 (port 6379)</td></tr>
+          <tr><td class="text-adif-dim">Proto Tooling</td><td class="text-white">buf 1.50.0, protoc 28.3</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card p-5 mt-4">
+    <h3 class="text-white font-bold mb-3">Workspace Layout</h3>
+    <pre class="text-sm text-adif-dim leading-relaxed"><code>server/
+  Cargo.toml                    # Workspace root
+  crates/
+    adif-proto/                 # Generated protobuf types (prost-build)
+    adif-common/                # Config, DB pool, shared types
+    adif-zone/                  # Zone server binary
+      src/main.rs
+      src/ecs/                  # ECS components and systems
+      src/net/                  # TCP listener, packet framing
+      src/db/                   # Database queries (sqlx)
+      src/game/                 # Game logic (combat, AI, spawning)
+    adif-test-client/           # CLI test client (Phase 12)</code></pre>
+  </div>
+
+  <div class="card p-5 mt-4">
+    <h3 class="text-white font-bold mb-3">Why Rust over C#</h3>
+    <div class="text-sm text-adif-dim space-y-2">
+      <div>&bull; <strong class="text-white">Memory safety without GC</strong> &mdash; no garbage collection pauses during combat ticks</div>
+      <div>&bull; <strong class="text-white">Fearless concurrency</strong> &mdash; ownership system prevents data races at compile time</div>
+      <div>&bull; <strong class="text-white">bevy_ecs</strong> &mdash; composition over EQEmu's Entity&rarr;Mob&rarr;NPC inheritance (1952-line mob.h)</div>
+      <div>&bull; <strong class="text-white">Zero-cost abstractions</strong> &mdash; traits for geometry interfaces without virtual dispatch overhead</div>
+      <div>&bull; <strong class="text-white">Ecosystem</strong> &mdash; tokio (async), sqlx (compile-time DB), prost (protobuf) are all production-grade</div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== PROTO COVERAGE TAB ========== -->
+<div id="tab-proto" class="tab-content max-w-7xl mx-auto px-6 py-10">
+  <h2 class="text-2xl font-bold text-white mb-6">Proto Message Coverage</h2>
+  <p class="text-adif-dim mb-6 text-sm">Which of the 173 client-server and 77 IPC proto messages are handled by the Rust zone server, by phase.</p>
+
+  <div class="card p-4 mb-6">
+    <table>
+      <thead><tr><th>Phase</th><th>Proto Messages Handled</th><th>Count</th></tr></thead>
+      <tbody>
+        <tr><td class="text-white">1. Foundation</td><td class="mono text-adif-dim">ZoneConfig, ZoneBootRequest, ZoneBootReady</td><td class="mono">3</td></tr>
+        <tr><td class="text-white">2. ECS</td><td class="mono text-adif-dim">Spawn (conversion only), PositionUpdate (conversion)</td><td class="mono">2</td></tr>
+        <tr><td class="text-white">3. Spawns</td><td class="mono text-adif-dim">Spawn, DoorSpawn, ZonePointList</td><td class="mono">3</td></tr>
+        <tr><td class="text-white">4. Game Loop</td><td class="mono text-adif-dim">TimeOfDay, WeatherUpdate</td><td class="mono">2</td></tr>
+        <tr><td class="text-white">5. Networking</td><td class="mono text-adif-dim">SessionRequest/Response, AuthRequest/Response, ZoneEntryRequest, PlayerProfile, ZoneReady, Heartbeat, Disconnect, Despawn, CharacterList</td><td class="mono">11</td></tr>
+        <tr><td class="text-white">6. Movement</td><td class="mono text-adif-dim">PositionUpdate (send/recv), Spawn (interest enter), Despawn (interest exit), ClientControlState</td><td class="mono">4</td></tr>
+        <tr><td class="text-white">7. NPC AI</td><td class="mono text-adif-dim">PositionUpdate (NPC movement), AppearanceUpdate (animation)</td><td class="mono">2</td></tr>
+        <tr><td class="text-white">8. Combat</td><td class="mono text-adif-dim">Target, Consider, MeleeAttack, MeleeDamage, HPUpdate, EntityDeath, ExperienceUpdate, LevelUpdate</td><td class="mono">8</td></tr>
+        <tr><td class="text-white">9. Chat</td><td class="mono text-adif-dim">ChatMessage, Emote, SystemMessage, WhoRequest/Response</td><td class="mono">5</td></tr>
+        <tr><td class="text-white">10. Zones</td><td class="mono text-adif-dim">ZoneChangeRequest/Response, ZoneToZoneTransfer (IPC), SaveRequest/Confirm, CampRequest, LogoutResponse</td><td class="mono">6</td></tr>
+        <tr><td class="text-white font-bold">Total</td><td></td><td class="mono text-green-400 font-bold">~46 of 173 client + ~6 of 77 IPC</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card p-4">
+    <h3 class="text-white font-bold mb-3">Deferred Proto Messages (~127 client + ~71 IPC)</h3>
+    <p class="text-sm text-adif-dim">Spells (SpellBeginCast, SpellCast, SpellEffect, BuffApply, BuffFade, MemorizeSpell, etc.), Inventory (InventoryList, MoveItem, LootRequest/Response, etc.), Trade (TradeRequest, MerchantOpen, etc.), Groups/Raids, Guilds, Skills/Abilities, Admin commands, and most IPC messages.</p>
+  </div>
+</div>
+
+<footer class="border-t border-adif-border py-8 text-center text-xs text-adif-dim mt-10">
+  <p>ADIF Zone Server Status &mdash; Last updated: 2026-06-27 &mdash; <a href="/" class="text-adif-blue hover:underline">Back to Docs</a></p>
+</footer>
+
+<script>
+function switchTab(tab) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  document.querySelector('[data-tab="' + tab + '"]').classList.add('active');
+}
+</script>
+</body>
+</html>

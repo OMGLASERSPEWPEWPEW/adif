@@ -1,0 +1,21 @@
+[package]
+name = "adif-bridge"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "adif-bridge"
+path = "src/main.rs"
+
+[dependencies]
+adif-proto = { path = "../adif-proto" }
+adif-common = { path = "../adif-common" }
+prost.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+anyhow.workspace = true
+flate2 = "1"
+crc32fast = "1"
+byteorder = "1"
+bytes = "1"

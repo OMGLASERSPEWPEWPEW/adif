@@ -1,5 +1,5 @@
 [workspace]
-members = ["adif-proto", "adif-common", "adif-zone"]
+members = ["adif-proto", "adif-common", "adif-zone", "adif-bridge"]
 resolver = "2"
 
 [workspace.package]

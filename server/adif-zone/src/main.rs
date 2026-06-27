@@ -1,10 +1,13 @@
 use std::path::PathBuf;
+use std::time::Duration;
 
 use anyhow::Context;
 use bevy_ecs::prelude::*;
-use tracing::{info, warn};
+use tracing::info;
 
 mod ecs;
+mod game_loop;
+mod spawn;
 mod zone_config;
 
 use ecs::EntityIdAllocator;
@@ -16,6 +19,10 @@ async fn main() -> anyhow::Result<()> {
         .nth(1)
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("server.toml"));
+
+    let zone_short_name = std::env::args()
+        .nth(2)
+        .unwrap_or_else(|| "grobb".to_string());
 
     let config = adif_common::ServerConfig::load(&config_path)
         .with_context(|| format!("Failed to load config from {}", config_path.display()))?;
@@ -36,32 +43,37 @@ async fn main() -> anyhow::Result<()> {
     info!("Connected to PostgreSQL at {}:{}", config.database.host, config.database.port);
 
     let zones = ZoneConfig::load_all(&pool).await?;
-    info!(count = zones.len(), "Loaded zone configs from database");
+    let zone = zones
+        .iter()
+        .find(|z| z.short_name == zone_short_name)
+        .ok_or_else(|| anyhow::anyhow!("Zone '{}' not found in database", zone_short_name))?;
 
-    if zones.is_empty() {
-        warn!("No zones found in database — is the zones table populated?");
-    } else {
-        for zone in zones.iter().take(5) {
-            info!(
-                id = zone.zoneidnumber,
-                short_name = %zone.short_name,
-                long_name = %zone.long_name,
-                "  zone"
-            );
-        }
-        if zones.len() > 5 {
-            info!("  ... and {} more", zones.len() - 5);
-        }
-    }
+    info!(
+        zone = %zone.short_name,
+        long_name = %zone.long_name,
+        id = zone.zoneidnumber,
+        "Booting zone"
+    );
 
     let mut world = World::new();
     world.insert_resource(EntityIdAllocator::new());
-    info!("ECS world initialized");
+
+    let result = spawn::resolver::load_and_spawn(&pool, &zone_short_name, &mut world).await?;
 
     info!(
-        zones = zones.len(),
-        "Zone server boot complete"
+        npcs = result.npcs_spawned,
+        spawn_points = result.spawn_points_total,
+        "Zone populated"
     );
+
+    // Run the game loop (pass --duration N to stop after N seconds, else runs forever)
+    let duration = std::env::args()
+        .position(|a| a == "--duration")
+        .and_then(|i| std::env::args().nth(i + 1))
+        .and_then(|s| s.parse::<u64>().ok())
+        .map(Duration::from_secs);
+
+    game_loop::run_loop(&mut world, duration).await;
 
     Ok(())
 }

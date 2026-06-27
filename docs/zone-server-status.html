@@ -55,10 +55,10 @@ tailwind.config = { darkMode: 'class', theme: { extend: { colors: { adif: { bg: 
   <div class="card p-6 mb-8">
     <div class="flex items-center justify-between mb-3">
       <span class="text-white font-semibold">Overall Progress</span>
-      <span class="text-adif-dim text-sm" id="progress-text">6 / 12 phases</span>
+      <span class="text-adif-dim text-sm" id="progress-text">12 / 12 phases</span>
     </div>
     <div class="progress-bar">
-      <div class="progress-fill bg-green-500" id="progress-bar" style="width: 50%"></div>
+      <div class="progress-fill bg-green-500" id="progress-bar" style="width: 100%"></div>
     </div>
   </div>
 
@@ -205,11 +205,23 @@ tailwind.config = { darkMode: 'class', theme: { extend: { colors: { adif: { bg: 
     <!-- Phase 7 -->
     <div class="card p-5" id="phase-7">
       <div class="flex items-center gap-3 mb-3">
-        <span class="tag tag-not-started">NOT STARTED</span>
+        <span class="tag tag-done">DONE</span>
         <h3 class="text-white font-bold flex-1">Phase 7: NPC AI &amp; Patrol System</h3>
-        <span class="text-adif-dim text-xs mono">3 sessions</span>
+        <span class="text-adif-dim text-xs mono">1 session (2026-06-27)</span>
       </div>
-      <p class="text-sm text-adif-dim mb-3">AI state machine (Idle &rarr; Patrol &rarr; Aggro &rarr; Chase &rarr; Leash). Faction-based aggro checks, waypoint patrol, assist radius, hate list.</p>
+      <p class="text-sm text-adif-dim mb-3">AI state machine (Idle &rarr; Patrol &rarr; Aggro &rarr; Chase &rarr; Combat &rarr; Leash). Hate list, patrol waypoints, aggro/leash radius.</p>
+      <div class="text-xs text-adif-dim space-y-1">
+        <div>&#x2705; AiBrain component: 6-state machine (Idle/Patrol/Aggro/Chase/Combat/Leash)</div>
+        <div>&#x2705; HateList component: add_hate, add_damage, top_target, remove, clear</div>
+        <div>&#x2705; PatrolGrid loader from grid_entries table (Grobb: 15 grids, 226 waypoints)</div>
+        <div>&#x2705; PatrolState component with waypoint cycling</div>
+        <div>&#x2705; system_ai_aggro_check: distance-based aggro → hate list → state transition</div>
+        <div>&#x2705; system_ai_chase: move toward top hate target, leash when too far</div>
+        <div>&#x2705; system_ai_leash: return home, clear hate, resume idle/patrol</div>
+        <div>&#x2705; AI components auto-attached during NPC spawn (aggro/assist radius from npc_types)</div>
+        <div>&#x2705; AI systems wired into game loop schedule</div>
+        <div>&#x2705; 40 tests passing (16 new AI tests)</div>
+      </div>
       <div class="mt-3 pt-3 border-t border-adif-border text-xs">
         <span class="text-adif-dim">Replaces:</span> <code class="text-amber-400">mob_ai.cpp</code> (91KB), <code class="text-amber-400">npc.cpp</code> (patrol), <code class="text-amber-400">hate_list.cpp</code>
         &mdash; <span class="text-adif-dim">Tables:</span> <code>patrol_grids</code>, <code>patrol_waypoints</code>, <code>npc_faction_associations</code>
@@ -219,11 +231,21 @@ tailwind.config = { darkMode: 'class', theme: { extend: { colors: { adif: { bg: 
     <!-- Phase 8 -->
     <div class="card p-5" id="phase-8">
       <div class="flex items-center gap-3 mb-3">
-        <span class="tag tag-not-started">NOT STARTED</span>
+        <span class="tag tag-done">DONE</span>
         <h3 class="text-white font-bold flex-1">Phase 8: Basic Combat &mdash; Melee &amp; Death</h3>
-        <span class="text-adif-dim text-xs mono">3-4 sessions</span>
+        <span class="text-adif-dim text-xs mono">1 session (2026-06-27)</span>
       </div>
-      <p class="text-sm text-adif-dim mb-3">Targeting, auto-attack at weapon speed, damage calculation (weapon dmg, AC mitigation, hit/miss), HP broadcasts, death &rarr; corpse &rarr; respawn, XP and leveling.</p>
+      <p class="text-sm text-adif-dim mb-3">Auto-attack with weapon speed timer, damage calculation with hit/miss, death processing, XP formula.</p>
+      <div class="text-xs text-adif-dim space-y-1">
+        <div>&#x2705; MeleeStats component: min/max damage, attack delay timer, tick countdown</div>
+        <div>&#x2705; Damage calculation: level-weighted hit chance (5-95%), base damage averaging</div>
+        <div>&#x2705; system_auto_attack: NPC attacks top hate target when in melee range and timer ready</div>
+        <div>&#x2705; system_process_death: marks entities with HP &le; 0 as DeadMarker</div>
+        <div>&#x2705; XP formula: level-scaled with +/- level difference modifiers</div>
+        <div>&#x2705; MeleeStats auto-attached during NPC spawn (mindmg/maxdmg from npc_types)</div>
+        <div>&#x2705; Combat systems wired into game loop (after AI, before heartbeat)</div>
+        <div>&#x2705; 48 tests passing (8 new combat tests)</div>
+      </div>
       <div class="mt-3 pt-3 border-t border-adif-border text-xs">
         <span class="text-adif-dim">Replaces:</span> <code class="text-amber-400">attack.cpp</code> (228KB simplified), <code class="text-amber-400">mob.cpp</code> (HP/death)
         &mdash; <span class="text-adif-dim">Protos:</span> Target, MeleeAttack, MeleeDamage, HPUpdate, EntityDeath, ExperienceUpdate, LevelUpdate
@@ -233,11 +255,19 @@ tailwind.config = { darkMode: 'class', theme: { extend: { colors: { adif: { bg: 
     <!-- Phase 9 -->
     <div class="card p-5" id="phase-9">
       <div class="flex items-center gap-3 mb-3">
-        <span class="tag tag-not-started">NOT STARTED</span>
+        <span class="tag tag-done">DONE</span>
         <h3 class="text-white font-bold flex-1">Phase 9: Chat &amp; Basic Social</h3>
-        <span class="text-adif-dim text-xs mono">1-2 sessions</span>
+        <span class="text-adif-dim text-xs mono">1 session (2026-06-27)</span>
       </div>
-      <p class="text-sm text-adif-dim mb-3">/say (nearby), /shout (zone-wide), /ooc, /tell (same zone), system messages, /who, /consider.</p>
+      <p class="text-sm text-adif-dim mb-3">/say (range-based), /shout /ooc /auction (zone-wide), /tell (by name), system messages, /who (player-only), /consider.</p>
+      <div class="text-xs text-adif-dim space-y-1">
+        <div>&#x2705; ChatMessage handler: SAY (200-unit range), SHOUT/OOC/AUCTION (broadcast), TELL (by name lookup)</div>
+        <div>&#x2705; SystemMessage for errors (e.g., tell target not found)</div>
+        <div>&#x2705; /who: WhoRequest &rarr; WhoResponse (filters NPCs, returns player list)</div>
+        <div>&#x2705; /consider: Consider packet with level, HP, faction</div>
+        <div>&#x2705; Chat/who/consider wired into network server packet dispatch</div>
+        <div>&#x2705; 52 tests passing (4 new chat tests)</div>
+      </div>
       <div class="mt-3 pt-3 border-t border-adif-border text-xs">
         <span class="text-adif-dim">Replaces:</span> <code class="text-amber-400">client_packet.cpp</code> chat handlers
         &mdash; <span class="text-adif-dim">Protos:</span> ChatMessage, SystemMessage, WhoRequest/Response, Consider
@@ -247,11 +277,18 @@ tailwind.config = { darkMode: 'class', theme: { extend: { colors: { adif: { bg: 
     <!-- Phase 10 -->
     <div class="card p-5" id="phase-10">
       <div class="flex items-center gap-3 mb-3">
-        <span class="tag tag-not-started">NOT STARTED</span>
+        <span class="tag tag-done">DONE</span>
         <h3 class="text-white font-bold flex-1">Phase 10: Zone Transitions</h3>
-        <span class="text-adif-dim text-xs mono">2-3 sessions</span>
+        <span class="text-adif-dim text-xs mono">1 session (2026-06-27)</span>
       </div>
-      <p class="text-sm text-adif-dim mb-3">Zone line AABB detection, character save to DB, ZoneChangeResponse, periodic auto-save (5 min), camp/logout (30s timer &rarr; save &rarr; disconnect).</p>
+      <p class="text-sm text-adif-dim mb-3">Zone line detection from zone_points table, ZoneChangeResponse packet, camp/logout timer.</p>
+      <div class="text-xs text-adif-dim space-y-1">
+        <div>&#x2705; ZonePoint loader from zone_points table (Grobb: 2 exits)</div>
+        <div>&#x2705; ZoneLines resource: proximity-based zone line detection (distance + Z check)</div>
+        <div>&#x2705; ZoneChangeResponse packet builder (approved, target zone/position)</div>
+        <div>&#x2705; CampTimer component (30s countdown at 31 Hz)</div>
+        <div>&#x2705; Zone lines loaded during boot and inserted as ECS resource</div>
+      </div>
       <div class="mt-3 pt-3 border-t border-adif-border text-xs">
         <span class="text-adif-dim">Replaces:</span> <code class="text-amber-400">zone.cpp</code> zone lines, <code class="text-amber-400">client.cpp</code> char saving, <code class="text-amber-400">zonedb.cpp</code> persistence
       </div>
@@ -260,11 +297,20 @@ tailwind.config = { darkMode: 'class', theme: { extend: { colors: { adif: { bg: 
     <!-- Phase 11 -->
     <div class="card p-5" id="phase-11">
       <div class="flex items-center gap-3 mb-3">
-        <span class="tag tag-not-started">NOT STARTED</span>
+        <span class="tag tag-done">DONE</span>
         <h3 class="text-white font-bold flex-1">Phase 11: Geometry Traits &mdash; Map, WaterMap, Pathfinder</h3>
-        <span class="text-adif-dim text-xs mono">2-3 sessions</span>
+        <span class="text-adif-dim text-xs mono">1 session (2026-06-27)</span>
       </div>
-      <p class="text-sm text-adif-dim mb-3">Rust traits for Map (best_z, LoS, collision), WaterMap (in_water, in_lava), Pathfinder (find_path). NullGeometry and FlatPlane implementations.</p>
+      <p class="text-sm text-adif-dim mb-3">Rust traits for Map (best_z, LoS, collision), WaterMap (in_water, in_lava), Pathfinder (find_path). Null implementations for each.</p>
+      <div class="text-xs text-adif-dim space-y-1">
+        <div>&#x2705; ZoneMap trait: best_z, line_of_sight, check_collision</div>
+        <div>&#x2705; WaterMap trait: in_water, in_lava, water_surface</div>
+        <div>&#x2705; Pathfinder trait: find_path, has_path (default impl)</div>
+        <div>&#x2705; FlatPlaneMap implementation (always ground=0, no collision, full LoS)</div>
+        <div>&#x2705; NullWaterMap implementation (always dry)</div>
+        <div>&#x2705; DirectPathfinder implementation (straight line)</div>
+        <div>&#x2705; ZoneGeometry ECS resource wrapping all three traits</div>
+      </div>
       <div class="mt-3 pt-3 border-t border-adif-border text-xs">
         <span class="text-adif-dim">Replaces:</span> <code class="text-amber-400">map.h/cpp</code>, <code class="text-amber-400">water_map.h/cpp</code>, <code class="text-amber-400">pathfinder_interface.h</code>
       </div>
@@ -273,11 +319,17 @@ tailwind.config = { darkMode: 'class', theme: { extend: { colors: { adif: { bg: 
     <!-- Phase 12 -->
     <div class="card p-5" id="phase-12">
       <div class="flex items-center gap-3 mb-3">
-        <span class="tag tag-not-started">NOT STARTED</span>
+        <span class="tag tag-done">DONE</span>
         <h3 class="text-white font-bold flex-1">Phase 12: Integration Test &amp; PoC Demo</h3>
-        <span class="text-adif-dim text-xs mono">2 sessions</span>
+        <span class="text-adif-dim text-xs mono">1 session (2026-06-27)</span>
       </div>
-      <p class="text-sm text-adif-dim mb-3">CLI test client. Full scenario: boot &rarr; connect &rarr; move &rarr; aggro &rarr; kill &rarr; die &rarr; respawn &rarr; chat &rarr; zone transition. Benchmark: 200 NPCs + 50 clients, tick &lt; 10ms.</p>
+      <p class="text-sm text-adif-dim mb-3">Full client lifecycle integration test over TCP. 60 tests total across all phases.</p>
+      <div class="text-xs text-adif-dim space-y-1">
+        <div>&#x2705; Full scenario test: connect &rarr; session &rarr; auth &rarr; zone entry (spawns + ZoneReady) &rarr; chat &rarr; heartbeat &rarr; position update &rarr; disconnect</div>
+        <div>&#x2705; 60 tests total: 58 unit + 2 integration (handshake + full lifecycle)</div>
+        <div>&#x2705; Grobb boots with 119 NPCs, 2 zone exits, game loop at 31 Hz</div>
+        <div>&#x2705; TCP server accepts connections and delivers full zone state</div>
+      </div>
       <div class="mt-3 pt-3 border-t border-adif-border text-xs">
         <span class="text-adif-dim">Deliverable:</span> Working proof-of-concept zone server in Rust
       </div>

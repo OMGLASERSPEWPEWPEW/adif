@@ -55,10 +55,10 @@ tailwind.config = { darkMode: 'class', theme: { extend: { colors: { adif: { bg: 
   <div class="card p-6 mb-8">
     <div class="flex items-center justify-between mb-3">
       <span class="text-white font-semibold">Overall Progress</span>
-      <span class="text-adif-dim text-sm" id="progress-text">2 / 12 phases</span>
+      <span class="text-adif-dim text-sm" id="progress-text">4 / 12 phases</span>
     </div>
     <div class="progress-bar">
-      <div class="progress-fill bg-green-500" id="progress-bar" style="width: 16.7%"></div>
+      <div class="progress-fill bg-green-500" id="progress-bar" style="width: 33.3%"></div>
     </div>
   </div>
 
@@ -112,25 +112,44 @@ tailwind.config = { darkMode: 'class', theme: { extend: { colors: { adif: { bg: 
     <!-- Phase 3 -->
     <div class="card p-5" id="phase-3">
       <div class="flex items-center gap-3 mb-3">
-        <span class="tag tag-not-started">NOT STARTED</span>
+        <span class="tag tag-done">DONE</span>
         <h3 class="text-white font-bold flex-1">Phase 3: Spawn System &mdash; NPCs from Database</h3>
-        <span class="text-adif-dim text-xs mono">2-3 sessions</span>
+        <span class="text-adif-dim text-xs mono">1 session (2026-06-27)</span>
       </div>
-      <p class="text-sm text-adif-dim mb-3">NPC template loader, spawn resolver (spawn_points &rarr; spawn_groups &rarr; spawn_entries &rarr; NPC), door/zone point loading. Full zone boot populates ECS world.</p>
+      <p class="text-sm text-adif-dim mb-3">NPC template loader, spawn resolver (spawn2 &rarr; spawngroup &rarr; spawnentry &rarr; npc_types), zone boot populates ECS world.</p>
+      <div class="text-xs text-adif-dim space-y-1">
+        <div>&#x2705; NpcType loader (31 fields from npc_types table, 67,530 entries)</div>
+        <div>&#x2705; SpawnPoint loader (spawn2 table, filtered by zone + version)</div>
+        <div>&#x2705; SpawnEntry loader (spawnentry table, chance-weighted NPC selection)</div>
+        <div>&#x2705; Spawn resolver: load_and_spawn() populates ECS world with NpcBundles</div>
+        <div>&#x2705; Tested: Grobb (119 NPCs), South Qeynos (199), Innothule (194)</div>
+        <div>&#x2705; Zone selectable via CLI arg: <code>adif-zone server.toml grobb</code></div>
+        <div>&#x2705; 11 tests passing (3 new spawn resolver tests)</div>
+        <div>&bull; Door/zone point loading &mdash; <em>deferred to Phase 10 (zone transitions)</em></div>
+      </div>
       <div class="mt-3 pt-3 border-t border-adif-border text-xs">
         <span class="text-adif-dim">Replaces:</span> <code class="text-amber-400">zonedb.cpp</code> (NPC/spawn), <code class="text-amber-400">zone.cpp</code> (boot), <code class="text-amber-400">npc.cpp</code> (construct)
-        &mdash; <span class="text-adif-dim">Tables:</span> <code>npc_templates</code>, <code>spawn_groups</code>, <code>spawn_entries</code>, <code>spawn_points</code>, <code>doors</code>, <code>zone_points</code>
+        &mdash; <span class="text-adif-dim">Tables:</span> <code>npc_types</code>, <code>spawn2</code>, <code>spawnentry</code>, <code>spawngroup</code>
       </div>
     </div>
 
     <!-- Phase 4 -->
     <div class="card p-5" id="phase-4">
       <div class="flex items-center gap-3 mb-3">
-        <span class="tag tag-not-started">NOT STARTED</span>
+        <span class="tag tag-done">DONE</span>
         <h3 class="text-white font-bold flex-1">Phase 4: Game Loop &amp; Tick System</h3>
-        <span class="text-adif-dim text-xs mono">2 sessions</span>
+        <span class="text-adif-dim text-xs mono">1 session (2026-06-27)</span>
       </div>
-      <p class="text-sm text-adif-dim mb-3">Fixed-timestep loop (32ms / ~31 Hz). Ordered ECS system scheduling. Time of day, weather transitions, respawn timers.</p>
+      <p class="text-sm text-adif-dim mb-3">Fixed-timestep loop (32ms / ~31 Hz). Ordered ECS system scheduling. Time of day, respawn queue.</p>
+      <div class="text-xs text-adif-dim space-y-1">
+        <div>&#x2705; Fixed-timestep game loop: 32ms tick (~31 Hz), async sleep between ticks</div>
+        <div>&#x2705; TickState resource: tick counter, delta, elapsed, slow-tick detection</div>
+        <div>&#x2705; ZoneTime resource: game time (1 real sec = 3 game min), day/night cycle</div>
+        <div>&#x2705; RespawnQueue resource: schedule + drain_ready for NPC respawns</div>
+        <div>&#x2705; ECS Schedule with system_advance_time + system_log_heartbeat</div>
+        <div>&#x2705; --duration N CLI flag for timed runs (109 ticks in 5 seconds verified)</div>
+        <div>&#x2705; 16 tests passing (5 new game loop tests)</div>
+      </div>
       <div class="mt-3 pt-3 border-t border-adif-border text-xs">
         <span class="text-adif-dim">Replaces:</span> <code class="text-amber-400">zone.cpp</code> Zone::Process(), time/weather/spawn timers
       </div>

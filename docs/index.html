@@ -44,7 +44,7 @@
   <header class="pt-20 pb-16 text-center">
     <div class="flex items-center justify-center gap-3 mb-6">
       <div class="w-2 h-2 rounded-full bg-green-400 pulse"></div>
-      <span class="text-xs mono text-gray-500 uppercase tracking-[0.2em]">Architecture Study Phase</span>
+      <span class="text-xs mono text-gray-500 uppercase tracking-[0.2em]">Server Implementation Phase</span>
     </div>
     <h1 class="text-5xl font-bold text-white mb-4 tracking-tight">ADIF</h1>
     <p class="text-xl text-gray-400 mb-2">Another Day In Forever</p>
@@ -120,6 +120,28 @@
       </div>
     </a>
 
+    <!-- Rust Server -->
+    <a href="rust-server.html" class="card-link p-6">
+      <div class="flex items-start justify-between">
+        <div class="flex-1">
+          <div class="flex items-center gap-3 mb-3">
+            <span class="tag tag-done">In Progress</span>
+            <span class="text-xs text-gray-600 mono">Milestone 3</span>
+          </div>
+          <h2 class="card-title text-xl font-semibold text-white mb-2 transition-colors">Rust Zone Server</h2>
+          <p class="text-sm text-gray-400 leading-relaxed">Architecture, crate structure, ECS components, and design decisions for the ADIF zone server. Built from scratch in Rust with tokio, bevy_ecs, sqlx, and prost. Boots and loads 618 zones from PostgreSQL.</p>
+          <div class="flex gap-4 mt-4 text-xs text-gray-600">
+            <span>3 crates</span>
+            <span class="text-gray-700">|</span>
+            <span>14 ECS components</span>
+            <span class="text-gray-700">|</span>
+            <span class="text-green-600 font-medium">2/12 phases done</span>
+          </div>
+        </div>
+        <div class="card-arrow text-gray-500 text-2xl ml-4 mt-2">→</div>
+      </div>
+    </a>
+
     <!-- Zone Server Status -->
     <a href="zone-server-status.html" class="card-link p-6">
       <div class="flex items-start justify-between">
@@ -128,14 +150,14 @@
             <span class="tag tag-vision">Milestone 3</span>
             <span class="text-xs text-gray-600 mono">Source of Truth</span>
           </div>
-          <h2 class="card-title text-xl font-semibold text-white mb-2 transition-colors">Rust Zone Server Status</h2>
-          <p class="text-sm text-gray-400 leading-relaxed">12-phase roadmap from empty workspace to proof-of-concept. Tracks component status, EQEmu file mapping, proto message coverage, and the confirmed Rust/tokio/bevy_ecs/sqlx stack.</p>
+          <h2 class="card-title text-xl font-semibold text-white mb-2 transition-colors">Phase Roadmap &amp; Status</h2>
+          <p class="text-sm text-gray-400 leading-relaxed">12-phase roadmap from empty workspace to proof-of-concept. Tracks component status, EQEmu file mapping, proto message coverage. The operational tracker.</p>
           <div class="flex gap-4 mt-4 text-xs text-gray-600">
             <span>12 phases</span>
             <span class="text-gray-700">|</span>
             <span>27-35 sessions</span>
             <span class="text-gray-700">|</span>
-            <span class="text-amber-500 font-medium">Not Started</span>
+            <span class="text-green-600 font-medium">2/12 complete</span>
           </div>
         </div>
         <div class="card-arrow text-gray-500 text-2xl ml-4 mt-2">→</div>

@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rust Zone Server — ADIF</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #0a0e17; color: #c9d1d9; margin: 0; }
+        code, pre, .mono { font-family: 'JetBrains Mono', monospace; }
+        .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; }
+        .accent-blue { color: #58a6ff; }
+        .accent-red { color: #f85149; }
+        .accent-green { color: #3fb950; }
+        .accent-orange { color: #f0883e; }
+        .accent-purple { color: #d2a8ff; }
+        .accent-rust { color: #dea584; }
+        .dim { color: #8b949e; }
+        .stat-card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 24px; text-align: center; }
+        .stat-card .number { font-size: 2.5rem; font-weight: 800; line-height: 1; margin-bottom: 8px; }
+        .stat-card .label { font-size: 0.875rem; color: #8b949e; }
+        .code-block { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 20px; overflow-x: auto; font-size: 0.8125rem; line-height: 1.6; }
+        .crate-card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 24px; border-top: 3px solid #dea584; }
+        .crate-card.proto { border-top-color: #58a6ff; }
+        .crate-card.common { border-top-color: #3fb950; }
+        .crate-card.zone { border-top-color: #f0883e; }
+        .dep-tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.6875rem; font-weight: 600; background: #21262d; border: 1px solid #30363d; margin: 2px; }
+        .section-number { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 6px; font-size: 0.875rem; font-weight: 700; margin-right: 12px; flex-shrink: 0; }
+        .tab-btn { cursor: pointer; transition: all 0.2s; padding: 8px 16px; border-bottom: 2px solid transparent; }
+        .tab-btn.active { color: #dea584; border-bottom-color: #dea584; }
+        .tab-btn:not(.active) { color: #8b949e; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .component-row { display: flex; align-items: center; padding: 8px 12px; border-bottom: 1px solid #21262d; font-size: 0.8125rem; }
+        .component-row:hover { background: #1c2333; }
+        .test-pass { color: #3fb950; }
+        .gradient-bg { background: radial-gradient(ellipse at 50% 0%, rgba(222, 165, 132, 0.06) 0%, transparent 60%); }
+        html { scroll-behavior: smooth; }
+
+        .arch-diagram { position: relative; }
+        .arch-box { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; text-align: center; }
+        .arch-box.highlight { border-color: #dea584; }
+        .arch-arrow { color: #30363d; font-size: 1.5rem; }
+    </style>
+</head>
+<body class="min-h-screen gradient-bg">
+
+<!-- Nav -->
+<nav class="sticky top-0 z-50 bg-[#0a0e17]/95 backdrop-blur border-b border-[#30363d] px-6 py-3">
+  <div class="max-w-6xl mx-auto flex items-center justify-between">
+    <a href="/" class="dim hover:text-[#58a6ff] transition text-sm">&larr; ADIF Docs</a>
+    <span class="accent-rust font-bold text-lg">Rust Zone Server</span>
+    <div class="flex gap-1 text-sm">
+      <button class="tab-btn active" onclick="switchTab('overview')">Overview</button>
+      <button class="tab-btn" onclick="switchTab('architecture')">Architecture</button>
+      <button class="tab-btn" onclick="switchTab('crates')">Crates</button>
+      <button class="tab-btn" onclick="switchTab('ecs')">ECS</button>
+      <button class="tab-btn" onclick="switchTab('decisions')">Decisions</button>
+    </div>
+  </div>
+</nav>
+
+<!-- ========== OVERVIEW TAB ========== -->
+<div id="tab-overview" class="tab-content active max-w-6xl mx-auto px-6 py-10">
+
+  <!-- Hero -->
+  <div class="text-center mb-12">
+    <div class="flex items-center justify-center gap-3 mb-4">
+      <div class="w-2 h-2 rounded-full bg-[#dea584] animate-pulse"></div>
+      <span class="text-xs mono dim uppercase tracking-[0.2em]">Milestone 3 — In Progress</span>
+    </div>
+    <h1 class="text-4xl font-extrabold text-white mb-3">ADIF Zone Server</h1>
+    <p class="text-lg dim max-w-2xl mx-auto">A custom authoritative game server built from scratch in Rust. Not a port — a clean-room implementation informed by studying EQEmu's architecture.</p>
+  </div>
+
+  <!-- Stats -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
+    <div class="stat-card">
+      <div class="number accent-rust">3</div>
+      <div class="label">Crates</div>
+    </div>
+    <div class="stat-card">
+      <div class="number accent-blue">17</div>
+      <div class="label">Proto Files Compiled</div>
+    </div>
+    <div class="stat-card">
+      <div class="number accent-green">618</div>
+      <div class="label">Zones Loaded</div>
+    </div>
+    <div class="stat-card">
+      <div class="number accent-orange">8</div>
+      <div class="label">Tests Passing</div>
+    </div>
+  </div>
+
+  <!-- What It Does Today -->
+  <div class="card p-6 mb-8">
+    <h2 class="text-xl font-bold text-white mb-4">What It Does Today</h2>
+    <div class="code-block mono text-sm mb-4">
+      <span class="dim">$</span> <span class="accent-rust">cargo run</span> --bin adif-zone -- server.toml<br><br>
+      <span class="dim">[INFO]</span> ADIF Zone Server starting <span class="dim">name=</span>ADIF Dev<br>
+      <span class="dim">[INFO]</span> Connected to PostgreSQL at localhost:5433<br>
+      <span class="dim">[INFO]</span> Loaded zone configs from database <span class="dim">count=</span><span class="accent-green">618</span><br>
+      <span class="dim">[INFO]</span> &nbsp; zone <span class="dim">id=</span>1 <span class="dim">short_name=</span>qeynos <span class="dim">long_name=</span>South Qeynos<br>
+      <span class="dim">[INFO]</span> &nbsp; zone <span class="dim">id=</span>2 <span class="dim">short_name=</span>qeynos2 <span class="dim">long_name=</span>North Qeynos<br>
+      <span class="dim">[INFO]</span> &nbsp; zone <span class="dim">id=</span>3 <span class="dim">short_name=</span>qrg <span class="dim">long_name=</span>The Surefall Glade<br>
+      <span class="dim">[INFO]</span> &nbsp; ... and 613 more<br>
+      <span class="dim">[INFO]</span> ECS world initialized<br>
+      <span class="dim">[INFO]</span> Zone server boot complete <span class="dim">zones=</span><span class="accent-green">618</span>
+    </div>
+    <div class="flex flex-wrap gap-3 text-sm dim">
+      <span class="dep-tag">Reads server.toml config</span>
+      <span class="dep-tag">Connects to PostgreSQL (sqlx)</span>
+      <span class="dep-tag">Loads all zone configs</span>
+      <span class="dep-tag">Initializes bevy_ecs World</span>
+      <span class="dep-tag">Proto codegen from 17 files</span>
+      <span class="dep-tag">Structured logging (tracing)</span>
+    </div>
+  </div>
+
+  <!-- Technology Stack -->
+  <div class="card p-6 mb-8">
+    <h2 class="text-xl font-bold text-white mb-4">Technology Stack</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="flex items-start gap-3">
+        <span class="section-number bg-[#dea584]/20 accent-rust">🦀</span>
+        <div>
+          <div class="text-white font-semibold">Rust 1.96</div>
+          <div class="text-sm dim">Memory safety without GC pauses. Ownership model prevents data races between ECS systems. Zero-cost abstractions for hot game loop paths.</div>
+        </div>
+      </div>
+      <div class="flex items-start gap-3">
+        <span class="section-number bg-[#58a6ff]/20 accent-blue">⚡</span>
+        <div>
+          <div class="text-white font-semibold">tokio</div>
+          <div class="text-sm dim">Async runtime for TCP networking, database queries, and I/O. Multi-threaded work-stealing scheduler. The standard for async Rust servers.</div>
+        </div>
+      </div>
+      <div class="flex items-start gap-3">
+        <span class="section-number bg-[#3fb950]/20 accent-green">🎮</span>
+        <div>
+          <div class="text-white font-semibold">bevy_ecs 0.16</div>
+          <div class="text-sm dim">Standalone ECS — no full Bevy engine. Cache-friendly archetypal storage. Systems run as plain functions querying component tuples. Already used in production game servers.</div>
+        </div>
+      </div>
+      <div class="flex items-start gap-3">
+        <span class="section-number bg-[#f0883e]/20 accent-orange">🗄️</span>
+        <div>
+          <div class="text-white font-semibold">sqlx + PostgreSQL</div>
+          <div class="text-sm dim">Async PostgreSQL driver. Compile-time query checking catches schema drift at build time. Port 5433, database "adif", 231 tables at 100% EQEmu parity.</div>
+        </div>
+      </div>
+      <div class="flex items-start gap-3">
+        <span class="section-number bg-[#d2a8ff]/20 accent-purple">📦</span>
+        <div>
+          <div class="text-white font-semibold">prost + protoc 28.3</div>
+          <div class="text-sm dim">Protobuf serialization via code generation at build time. All 17 proto files (173 client-server + 77 IPC messages) compile to type-safe Rust structs.</div>
+        </div>
+      </div>
+      <div class="flex items-start gap-3">
+        <span class="section-number bg-[#f85149]/20 accent-red">📊</span>
+        <div>
+          <div class="text-white font-semibold">tracing</div>
+          <div class="text-sm dim">Structured, context-aware logging. Spans for request tracing. Filterable by module (adif_zone, adif_common). Production-ready from day one.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Why Not... -->
+  <div class="card p-6">
+    <h2 class="text-xl font-bold text-white mb-4">Why Rust Over C# / .NET?</h2>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-[#30363d]">
+            <th class="text-left py-3 px-4 dim font-medium text-xs uppercase">Concern</th>
+            <th class="text-left py-3 px-4 dim font-medium text-xs uppercase">C# / .NET</th>
+            <th class="text-left py-3 px-4 dim font-medium text-xs uppercase">Rust</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="border-b border-[#21262d]"><td class="py-3 px-4 text-white font-medium">GC pauses</td><td class="py-3 px-4 dim">Stop-the-world pauses spike tick times unpredictably</td><td class="py-3 px-4 accent-green">No GC — deterministic memory management</td></tr>
+          <tr class="border-b border-[#21262d]"><td class="py-3 px-4 text-white font-medium">Concurrency safety</td><td class="py-3 px-4 dim">Runtime exceptions for data races (shared mutable state)</td><td class="py-3 px-4 accent-green">Compile-time enforcement via ownership + borrow checker</td></tr>
+          <tr class="border-b border-[#21262d]"><td class="py-3 px-4 text-white font-medium">ECS ecosystem</td><td class="py-3 px-4 dim">Limited options; roll your own or use Unity's</td><td class="py-3 px-4 accent-green">bevy_ecs: battle-tested, cache-friendly archetypal storage</td></tr>
+          <tr class="border-b border-[#21262d]"><td class="py-3 px-4 text-white font-medium">Memory layout</td><td class="py-3 px-4 dim">Objects on heap, fragmented by GC generations</td><td class="py-3 px-4 accent-green">Contiguous arrays, cache-line aligned, struct-of-arrays via ECS</td></tr>
+          <tr class="border-b border-[#21262d]"><td class="py-3 px-4 text-white font-medium">Async I/O</td><td class="py-3 px-4 dim">Good (async/await + Kestrel)</td><td class="py-3 px-4 accent-green">Excellent (tokio — industry standard, 0-cost futures)</td></tr>
+          <tr><td class="py-3 px-4 text-white font-medium">Protobuf</td><td class="py-3 px-4 dim">Good (Google.Protobuf NuGet)</td><td class="py-3 px-4 accent-green">Good (prost — compile-time codegen, no reflection)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="text-sm dim mt-4 italic">The original plan was C#/.NET. Switched to Rust before any server code was written (June 27, 2026). The deciding factor: an MMORPG zone server runs hundreds of entities at 31 Hz with hard tick deadlines — GC pauses are the #1 risk to game feel.</p>
+  </div>
+</div>
+
+<!-- ========== ARCHITECTURE TAB ========== -->
+<div id="tab-architecture" class="tab-content max-w-6xl mx-auto px-6 py-10">
+  <h2 class="text-2xl font-bold text-white mb-6">Server Architecture</h2>
+
+  <!-- Cluster Model -->
+  <div class="card p-6 mb-8">
+    <h3 class="text-lg font-bold text-white mb-4">ADIF Cluster Model</h3>
+    <p class="text-sm dim mb-6">Inspired by EQEmu's cluster architecture. Each server process is independent — a zone crash never takes down the world server. Zone processes are the unit of scaling.</p>
+
+    <div class="grid grid-cols-1 md:grid-cols-5 gap-4 text-center text-sm">
+      <div class="arch-box">
+        <div class="accent-blue font-bold mb-1">Login Server</div>
+        <div class="dim text-xs">Authentication<br>Server list</div>
+      </div>
+      <div class="arch-box">
+        <div class="accent-purple font-bold mb-1">World Server</div>
+        <div class="dim text-xs">Character select<br>Zone routing<br>Cross-zone coord</div>
+      </div>
+      <div class="arch-box highlight">
+        <div class="accent-rust font-bold mb-1">Zone Server ×N</div>
+        <div class="dim text-xs">Game logic<br>Combat, AI, spawns<br>Per-zone process</div>
+        <div class="text-[10px] accent-green mt-2 font-semibold">← BUILDING THIS</div>
+      </div>
+      <div class="arch-box">
+        <div class="accent-orange font-bold mb-1">Chat Server</div>
+        <div class="dim text-xs">Cross-zone chat<br>Mail system</div>
+      </div>
+      <div class="arch-box">
+        <div class="accent-green font-bold mb-1">PostgreSQL</div>
+        <div class="dim text-xs">231 tables<br>All persistent state<br>Port 5433</div>
+      </div>
+    </div>
+
+    <div class="mt-6 text-sm dim">
+      <strong class="text-white">Key constraint:</strong> Zone servers never talk directly to each other. All cross-zone communication flows through the World Server. This enables scaling zones across machines and prevents crash cascades.
+    </div>
+  </div>
+
+  <!-- Data Flow -->
+  <div class="card p-6 mb-8">
+    <h3 class="text-lg font-bold text-white mb-4">Zone Server Data Flow</h3>
+    <div class="code-block mono text-xs leading-relaxed">
+<span class="accent-rust">┌─────────────────────────────────────────────────────────────────┐</span>
+<span class="accent-rust">│</span>                        <span class="text-white font-bold">Zone Server Process</span>                       <span class="accent-rust">│</span>
+<span class="accent-rust">│</span>                                                                 <span class="accent-rust">│</span>
+<span class="accent-rust">│</span>  <span class="accent-blue">┌──────────┐</span>    <span class="accent-green">┌──────────┐</span>    <span class="accent-orange">┌──────────┐</span>    <span class="accent-purple">┌────────┐</span>  <span class="accent-rust">│</span>
+<span class="accent-rust">│</span>  <span class="accent-blue">│  Network  │</span>───▶<span class="accent-green">│   ECS    │</span>───▶<span class="accent-orange">│  Proto   │</span>───▶<span class="accent-purple">│  Send  │</span>  <span class="accent-rust">│</span>
+<span class="accent-rust">│</span>  <span class="accent-blue">│ (tokio)   │</span>    <span class="accent-green">│(bevy_ecs)│</span>    <span class="accent-orange">│ (prost)  │</span>    <span class="accent-purple">│        │</span>  <span class="accent-rust">│</span>
+<span class="accent-rust">│</span>  <span class="accent-blue">└──────────┘</span>    <span class="accent-green">└────┬─────┘</span>    <span class="accent-orange">└──────────┘</span>    <span class="accent-purple">└────────┘</span>  <span class="accent-rust">│</span>
+<span class="accent-rust">│</span>                       <span class="accent-green">│</span>                                            <span class="accent-rust">│</span>
+<span class="accent-rust">│</span>                  <span class="accent-green">┌────▼─────┐</span>                                       <span class="accent-rust">│</span>
+<span class="accent-rust">│</span>                  <span class="accent-green">│   sqlx   │</span>  ◀── Async queries                       <span class="accent-rust">│</span>
+<span class="accent-rust">│</span>                  <span class="accent-green">│(Postgres)│</span>                                       <span class="accent-rust">│</span>
+<span class="accent-rust">│</span>                  <span class="accent-green">└──────────┘</span>                                       <span class="accent-rust">│</span>
+<span class="accent-rust">└─────────────────────────────────────────────────────────────────┘</span>
+    </div>
+    <div class="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+      <div class="flex items-center gap-2"><div class="w-3 h-3 rounded bg-[#58a6ff]"></div><span>Network layer (tokio TCP)</span></div>
+      <div class="flex items-center gap-2"><div class="w-3 h-3 rounded bg-[#3fb950]"></div><span>Game state (bevy_ecs)</span></div>
+      <div class="flex items-center gap-2"><div class="w-3 h-3 rounded bg-[#f0883e]"></div><span>Serialization (prost)</span></div>
+      <div class="flex items-center gap-2"><div class="w-3 h-3 rounded bg-[#d2a8ff]"></div><span>Client response</span></div>
+    </div>
+  </div>
+
+  <!-- Pluggable Geometry -->
+  <div class="card p-6">
+    <h3 class="text-lg font-bold text-white mb-4">Pluggable Zone Geometry</h3>
+    <p class="text-sm dim mb-4">Zone geometry is decoupled from game logic through three trait interfaces. Different zones can use different geometry backends (mesh, voxel, procedural) and zone-to-zone transitions still work seamlessly.</p>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="card p-4">
+        <div class="font-mono text-sm accent-rust font-bold mb-2">trait Map</div>
+        <div class="text-xs dim">Collision detection, ground height (best_z), line-of-sight queries. The physics backbone.</div>
+        <div class="text-xs dim mt-2 italic">EQ format: .map (AABB tree)</div>
+      </div>
+      <div class="card p-4">
+        <div class="font-mono text-sm accent-blue font-bold mb-2">trait WaterMap</div>
+        <div class="text-xs dim">Liquid region detection — water, lava, slime. Affects movement speed, breathing, damage.</div>
+        <div class="text-xs dim mt-2 italic">EQ format: .wtr (region volumes)</div>
+      </div>
+      <div class="card p-4">
+        <div class="font-mono text-sm accent-green font-bold mb-2">trait Pathfinder</div>
+        <div class="text-xs dim">NPC navigation with terrain costs. A* over navmesh. Drives patrol routes and chase behavior.</div>
+        <div class="text-xs dim mt-2 italic">EQ format: .nav (Recast/Detour)</div>
+      </div>
+    </div>
+    <div class="mt-4 text-xs dim italic">Phase 11 deliverable. Null implementations (flat plane) used until then.</div>
+  </div>
+</div>
+
+<!-- ========== CRATES TAB ========== -->
+<div id="tab-crates" class="tab-content max-w-6xl mx-auto px-6 py-10">
+  <h2 class="text-2xl font-bold text-white mb-2">Workspace Crates</h2>
+  <p class="text-sm dim mb-6">Three crates in a Cargo workspace at <code class="mono">server/</code>. Each crate has a single responsibility. Dependencies flow downward: zone → common → proto.</p>
+
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <!-- adif-proto -->
+    <div class="crate-card proto">
+      <div class="flex items-center gap-2 mb-3">
+        <span class="accent-blue font-bold text-lg">adif-proto</span>
+      </div>
+      <p class="text-sm dim mb-4">Generated protobuf types. Build script compiles all 17 .proto files via prost-build at cargo build time. Zero hand-written code.</p>
+      <div class="text-xs dim mb-3">
+        <div class="font-semibold text-white mb-1">Key files</div>
+        <div class="mono">build.rs — prost-build config</div>
+        <div class="mono">src/lib.rs — include!(OUT_DIR/adif.rs)</div>
+      </div>
+      <div class="flex flex-wrap gap-1">
+        <span class="dep-tag">prost 0.13</span>
+        <span class="dep-tag">prost-build 0.13</span>
+        <span class="dep-tag">protoc 28.3</span>
+      </div>
+    </div>
+
+    <!-- adif-common -->
+    <div class="crate-card common">
+      <div class="flex items-center gap-2 mb-3">
+        <span class="accent-green font-bold text-lg">adif-common</span>
+      </div>
+      <p class="text-sm dim mb-4">Shared infrastructure for all server processes. Config loading from TOML, database pool creation, and any cross-process utilities.</p>
+      <div class="text-xs dim mb-3">
+        <div class="font-semibold text-white mb-1">Key files</div>
+        <div class="mono">src/config.rs — ServerConfig (serde)</div>
+        <div class="mono">src/db.rs — PgPool via sqlx</div>
+      </div>
+      <div class="flex flex-wrap gap-1">
+        <span class="dep-tag">sqlx 0.8</span>
+        <span class="dep-tag">serde 1</span>
+        <span class="dep-tag">toml 0.8</span>
+        <span class="dep-tag">tokio 1</span>
+        <span class="dep-tag">tracing 0.1</span>
+        <span class="dep-tag">anyhow 1</span>
+      </div>
+    </div>
+
+    <!-- adif-zone -->
+    <div class="crate-card zone">
+      <div class="flex items-center gap-2 mb-3">
+        <span class="accent-orange font-bold text-lg">adif-zone</span>
+      </div>
+      <p class="text-sm dim mb-4">The zone server binary. Boots, connects to PostgreSQL, loads zone configs, initializes the ECS world. Will grow to handle networking, game loop, combat, and AI.</p>
+      <div class="text-xs dim mb-3">
+        <div class="font-semibold text-white mb-1">Key files</div>
+        <div class="mono">src/main.rs — binary entry point</div>
+        <div class="mono">src/zone_config.rs — zone table loader</div>
+        <div class="mono">src/ecs/ — components, entity IDs, proto conversion</div>
+      </div>
+      <div class="flex flex-wrap gap-1">
+        <span class="dep-tag">bevy_ecs 0.16</span>
+        <span class="dep-tag">sqlx 0.8</span>
+        <span class="dep-tag">tokio 1</span>
+        <span class="dep-tag">tracing 0.1</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Directory Tree -->
+  <div class="card p-6">
+    <h3 class="text-lg font-bold text-white mb-4">Directory Structure</h3>
+    <div class="code-block mono text-xs">
+server/
+├── Cargo.toml              <span class="dim"># Workspace root (shared deps)</span>
+├── Cargo.lock
+├── server.toml             <span class="dim"># Runtime config (DB, logging)</span>
+│
+├── adif-proto/
+│   ├── Cargo.toml
+│   ├── build.rs            <span class="dim"># prost-build: 17 proto files → Rust structs</span>
+│   └── src/
+│       └── lib.rs          <span class="dim"># pub mod adif { include!(...) }</span>
+│
+├── adif-common/
+│   ├── Cargo.toml
+│   └── src/
+│       ├── lib.rs
+│       ├── config.rs       <span class="dim"># server.toml → ServerConfig</span>
+│       └── db.rs           <span class="dim"># PgPool creation</span>
+│
+└── adif-zone/
+    ├── Cargo.toml
+    └── src/
+        ├── main.rs         <span class="dim"># Binary: boot → PG → zones → ECS</span>
+        ├── zone_config.rs  <span class="dim"># ZoneConfig struct + SQL query</span>
+        └── ecs/
+            ├── mod.rs
+            ├── components.rs    <span class="dim"># 14 ECS components + 2 bundles</span>
+            ├── entity_id.rs     <span class="dim"># u32 ↔ Entity bidirectional map</span>
+            └── spawn_convert.rs <span class="dim"># ECS ↔ proto Spawn conversion</span>
+    </div>
+  </div>
+</div>
+
+<!-- ========== ECS TAB ========== -->
+<div id="tab-ecs" class="tab-content max-w-6xl mx-auto px-6 py-10">
+  <h2 class="text-2xl font-bold text-white mb-2">ECS Components</h2>
+  <p class="text-sm dim mb-6">bevy_ecs 0.16 standalone — no full Bevy engine, just the ECS. 14 components map cleanly to the Spawn protobuf message (43 fields). Bundles group components for convenient entity creation.</p>
+
+  <!-- Component Table -->
+  <div class="card overflow-hidden mb-8">
+    <div class="p-4 border-b border-[#30363d]">
+      <span class="text-white font-bold">Components (14)</span>
+    </div>
+    <div class="component-row font-semibold text-xs dim border-b border-[#30363d]">
+      <div class="w-48">Component</div>
+      <div class="w-32">Fields</div>
+      <div class="flex-1">Maps to Proto</div>
+      <div class="w-48">EQEmu Equivalent</div>
+    </div>
+    <div class="component-row"><div class="w-48 mono accent-rust">Position</div><div class="w-32 dim">x, y, z, heading</div><div class="flex-1 dim">Spawn.position + heading</div><div class="w-48 dim mono text-xs">Mob::position</div></div>
+    <div class="component-row"><div class="w-48 mono accent-rust">Velocity</div><div class="w-32 dim">x, y, z, heading_delta</div><div class="flex-1 dim">Spawn.velocity</div><div class="w-48 dim mono text-xs">Mob::delta_*</div></div>
+    <div class="component-row"><div class="w-48 mono accent-rust">Identity</div><div class="w-32 dim">9 fields</div><div class="flex-1 dim">Spawn.entity_id/name/race/class/level/...</div><div class="w-48 dim mono text-xs">Mob::name, NPC::npc_type_id</div></div>
+    <div class="component-row"><div class="w-48 mono accent-rust">Health</div><div class="w-32 dim">hp, mana, endurance</div><div class="flex-1 dim">Spawn.current_hp/max_hp + ManaUpdate</div><div class="w-48 dim mono text-xs">Mob::cur_hp, max_hp</div></div>
+    <div class="component-row"><div class="w-48 mono accent-rust">MovementSpeed</div><div class="w-32 dim">run, walk, fly_mode</div><div class="flex-1 dim">Spawn.run_speed/walk_speed/fly_mode</div><div class="w-48 dim mono text-xs">Mob::runspeed</div></div>
+    <div class="component-row"><div class="w-48 mono accent-rust">ModelAppearance</div><div class="w-32 dim">size, light, texture, helm, radius</div><div class="flex-1 dim">Spawn.size/light_source/texture/...</div><div class="w-48 dim mono text-xs">Mob::size, NPC::texture</div></div>
+    <div class="component-row"><div class="w-48 mono accent-rust">PlayerAppearance</div><div class="w-32 dim">hair, beard, eyes, face</div><div class="flex-1 dim">Spawn.appearance</div><div class="w-48 dim mono text-xs">pp.haircolor, pp.face</div></div>
+    <div class="component-row"><div class="w-48 mono accent-rust">EntityFlags</div><div class="w-32 dim">11 bool flags</div><div class="flex-1 dim">Spawn.gm/afk/invis/findable/...</div><div class="w-48 dim mono text-xs">Mob::IsInvisible(), etc.</div></div>
+    <div class="component-row"><div class="w-48 mono accent-rust">GuildMembership</div><div class="w-32 dim">guild_id, rank</div><div class="flex-1 dim">Spawn.guild_id/guild_rank</div><div class="w-48 dim mono text-xs">Client::GuildID()</div></div>
+    <div class="component-row"><div class="w-48 mono accent-rust">NpcTemplate</div><div class="w-32 dim">npc_type_id, body_type, animation</div><div class="flex-1 dim">Spawn.body_type/animation</div><div class="w-48 dim mono text-xs">NPC::npctype_id</div></div>
+    <div class="component-row"><div class="w-48 mono accent-rust">ClientSession</div><div class="w-32 dim">account_id, character_id</div><div class="flex-1 dim">—</div><div class="w-48 dim mono text-xs">Client::account_id</div></div>
+    <div class="component-row"><div class="w-48 mono accent-rust">PetOwner</div><div class="w-32 dim">owner_entity_id</div><div class="flex-1 dim">Spawn.pet_owner_id</div><div class="w-48 dim mono text-xs">Mob::ownerid</div></div>
+    <div class="component-row"><div class="w-48 mono accent-rust">CombatTarget</div><div class="w-32 dim">target_entity_id</div><div class="flex-1 dim">Target.target_id</div><div class="w-48 dim mono text-xs">Mob::target</div></div>
+    <div class="component-row"><div class="w-48 mono accent-rust">EntityKind</div><div class="w-32 dim">enum (4 variants)</div><div class="flex-1 dim">Spawn.entity_type</div><div class="w-48 dim mono text-xs">Mob::IsNPC() / IsClient()</div></div>
+  </div>
+
+  <!-- Bundles -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+    <div class="card p-5">
+      <h3 class="accent-orange font-bold mb-3 mono">NpcBundle</h3>
+      <div class="text-xs dim space-y-1">
+        <div>Identity + Position + Velocity + Health</div>
+        <div>MovementSpeed + ModelAppearance + EntityFlags</div>
+        <div>NpcTemplate</div>
+      </div>
+      <div class="mt-3 text-xs italic dim">Used when spawning NPCs from database templates</div>
+    </div>
+    <div class="card p-5">
+      <h3 class="accent-blue font-bold mb-3 mono">PlayerBundle</h3>
+      <div class="text-xs dim space-y-1">
+        <div>Identity + Position + Velocity + Health</div>
+        <div>MovementSpeed + ModelAppearance + PlayerAppearance</div>
+        <div>EntityFlags + GuildMembership + ClientSession</div>
+      </div>
+      <div class="mt-3 text-xs italic dim">Used when a player character enters the zone</div>
+    </div>
+  </div>
+
+  <!-- Tests -->
+  <div class="card p-6">
+    <h3 class="text-lg font-bold text-white mb-4">Tests <span class="test-pass">(8 passing)</span></h3>
+    <div class="space-y-2 text-sm mono">
+      <div class="flex items-center gap-2"><span class="test-pass">✓</span> entity_id::allocate_returns_sequential_ids</div>
+      <div class="flex items-center gap-2"><span class="test-pass">✓</span> entity_id::lookup_both_directions</div>
+      <div class="flex items-center gap-2"><span class="test-pass">✓</span> entity_id::deallocate_removes_mapping</div>
+      <div class="flex items-center gap-2"><span class="test-pass">✓</span> entity_id::skips_zero_on_wrap</div>
+      <div class="flex items-center gap-2"><span class="test-pass">✓</span> spawn_convert::round_trip_npc_spawn</div>
+      <div class="flex items-center gap-2"><span class="test-pass">✓</span> spawn_convert::round_trip_player_spawn</div>
+      <div class="flex items-center gap-2"><span class="test-pass">✓</span> spawn_convert::build_spawn_from_ecs_world</div>
+      <div class="flex items-center gap-2"><span class="test-pass">✓</span> spawn_convert::position_update_conversion</div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== DECISIONS TAB ========== -->
+<div id="tab-decisions" class="tab-content max-w-6xl mx-auto px-6 py-10">
+  <h2 class="text-2xl font-bold text-white mb-2">Architecture Decisions</h2>
+  <p class="text-sm dim mb-6">Key choices made during Milestone 3 design, with rationale and alternatives considered.</p>
+
+  <div class="space-y-6">
+    <!-- ADR 1 -->
+    <div class="card p-6">
+      <div class="flex items-center gap-3 mb-3">
+        <span class="section-number bg-[#dea584]/20 accent-rust font-mono">1</span>
+        <h3 class="text-white font-bold">bevy_ecs standalone, not full Bevy</h3>
+      </div>
+      <div class="text-sm dim mb-3">We use bevy_ecs as a library crate — no Bevy App, no rendering pipeline, no asset system. Just the ECS: World, Components, Systems, Queries.</div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+        <div>
+          <div class="text-white font-semibold mb-1">Why</div>
+          <div class="dim">An MMORPG server is headless — it never renders anything. Pulling in the full Bevy engine adds 200+ transitive crates (wgpu, winit, gilrs, etc.) that we'd never use. bevy_ecs alone gives us archetypal storage, parallel system scheduling, and change detection.</div>
+        </div>
+        <div>
+          <div class="text-white font-semibold mb-1">Alternatives Considered</div>
+          <div class="dim"><span class="text-white">hecs</span> — simpler but lacks system scheduling, change detection, and resources. <span class="text-white">specs</span> — older, less maintained. <span class="text-white">legion</span> — good but smaller community. bevy_ecs wins on ecosystem, documentation, and the option to adopt more of Bevy later if needed.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ADR 2 -->
+    <div class="card p-6">
+      <div class="flex items-center gap-3 mb-3">
+        <span class="section-number bg-[#3fb950]/20 accent-green font-mono">2</span>
+        <h3 class="text-white font-bold">sqlx over diesel / sea-orm</h3>
+      </div>
+      <div class="text-sm dim mb-3">Raw SQL with sqlx, no ORM. Queries are hand-written strings checked at compile time against the real database schema.</div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+        <div>
+          <div class="text-white font-semibold mb-1">Why</div>
+          <div class="dim">MMO data is relational but access patterns are highly specialized (hot paths: NPC lookups, spawn resolution, character saves). An ORM's object-graph assumptions fight the ECS data model. sqlx gives full control over query plans while catching typos and schema drift at build time.</div>
+        </div>
+        <div>
+          <div class="text-white font-semibold mb-1">Alternatives Considered</div>
+          <div class="dim"><span class="text-white">Diesel</span> — compile-time safety but invasive DSL, fight over schema ownership with migrations. <span class="text-white">SeaORM</span> — ActiveRecord pattern doesn't fit ECS. Raw SQL with sqlx is the thinnest possible layer over PostgreSQL.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ADR 3 -->
+    <div class="card p-6">
+      <div class="flex items-center gap-3 mb-3">
+        <span class="section-number bg-[#58a6ff]/20 accent-blue font-mono">3</span>
+        <h3 class="text-white font-bold">prost over tonic / protobuf-native</h3>
+      </div>
+      <div class="text-sm dim mb-3">prost for serialization only. No gRPC layer — we use raw TCP with length-delimited protobuf frames. The existing buf toolchain handles linting and breaking-change detection.</div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+        <div>
+          <div class="text-white font-semibold mb-1">Why</div>
+          <div class="dim">Game servers need precise control over the wire format. gRPC's HTTP/2 framing adds overhead and complexity for no benefit — game packets are small, frequent, and don't need HTTP semantics. prost generates plain Rust structs that encode/decode protobuf without any networking assumptions.</div>
+        </div>
+        <div>
+          <div class="text-white font-semibold mb-1">Alternatives Considered</div>
+          <div class="dim"><span class="text-white">tonic</span> — gRPC is wrong for game traffic (latency, framing overhead). <span class="text-white">protobuf</span> (Google's Rust bindings) — heavier, requires protoc plugin, less idiomatic. prost is the community standard for protobuf in Rust.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ADR 4 -->
+    <div class="card p-6">
+      <div class="flex items-center gap-3 mb-3">
+        <span class="section-number bg-[#f0883e]/20 accent-orange font-mono">4</span>
+        <h3 class="text-white font-bold">Entity ID allocator over raw ECS Entity</h3>
+      </div>
+      <div class="text-sm dim mb-3">A u32 entity_id is allocated per game entity and sent over the wire. bevy_ecs::Entity is internal only. The allocator maintains a bidirectional HashMap.</div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+        <div>
+          <div class="text-white font-semibold mb-1">Why</div>
+          <div class="dim">bevy_ecs::Entity is a 64-bit value with an internal generation counter — it's an implementation detail that shouldn't leak into the protocol. A u32 entity_id is smaller on the wire (4 bytes vs 8), stable across server restarts, and matches EQ's entity numbering convention. ID 0 is reserved (skipped on wrap).</div>
+        </div>
+        <div>
+          <div class="text-white font-semibold mb-1">Alternatives Considered</div>
+          <div class="dim"><span class="text-white">Send Entity directly</span> — leaks ECS internals, doubles wire cost, breaks if we switch ECS. <span class="text-white">UUID</span> — 16 bytes per entity × thousands of position updates per second = unnecessary bandwidth. u32 gives 4 billion IDs before wrap.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ADR 5 -->
+    <div class="card p-6">
+      <div class="flex items-center gap-3 mb-3">
+        <span class="section-number bg-[#d2a8ff]/20 accent-purple font-mono">5</span>
+        <h3 class="text-white font-bold">Components mirror proto fields, not EQEmu classes</h3>
+      </div>
+      <div class="text-sm dim mb-3">ECS components are designed to map cleanly to protobuf Spawn message fields — not to replicate EQEmu's C++ class hierarchy (Mob → NPC → Client → Corpse).</div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+        <div>
+          <div class="text-white font-semibold mb-1">Why</div>
+          <div class="dim">EQEmu's inheritance hierarchy (Entity → Mob → NPC / Client) bakes entity type into the class structure. ECS replaces this with composition: an entity is Player because it has a ClientSession component, not because it inherits from a Player class. This makes the Spawn conversion trivial — each component maps to a proto field group.</div>
+        </div>
+        <div>
+          <div class="text-white font-semibold mb-1">Design Principle</div>
+          <div class="dim">The proto Spawn message is the canonical "what does an entity look like to the outside world" definition. If a field exists in Spawn, there's a component for it. If a component doesn't map to Spawn, it's internal state (e.g., NpcTemplate.npc_type_id, ClientSession).</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Footer -->
+<footer class="border-t border-[#21262d] py-8 text-center text-xs dim max-w-6xl mx-auto">
+  <p>ADIF Rust Zone Server — Milestone 3 — Started June 27, 2026</p>
+  <p class="mt-1">Phases 1-2 complete. 10 remaining. <a href="zone-server-status.html" class="accent-blue hover:underline">Full roadmap →</a></p>
+</footer>
+
+<script>
+function switchTab(name) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  document.querySelector(`[onclick="switchTab('${name}')"]`).classList.add('active');
+}
+</script>
+
+</body>
+</html>

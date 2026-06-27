@@ -133,8 +133,8 @@ Start-Process cmd -ArgumentList '/k', "title ADIF-Docs && python E:\development\
 ```
 Browse to `http://localhost:5906`. Port 5906 is fixed. The server logs
 navigation to `docs/access.log` so Claude can see what page you're on.
-6 interactive pages: index, how-eq-works, adif-roadmap, postgresql-postmortem,
-tech-comparison, opcode-audit.
+7 interactive pages: index, how-eq-works, adif-roadmap, postgresql-postmortem,
+tech-comparison, opcode-audit, rust-server.
 
 ### Client Connection
 Launch via desktop `StartEQ` shortcut. `eqhost.txt` points to `127.0.0.1:5998`.

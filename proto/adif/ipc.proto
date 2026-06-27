@@ -1,0 +1,692 @@
+syntax = "proto3";
+
+package adif;
+
+option csharp_namespace = "Adif.Protocol";
+
+import "adif/common.proto";
+
+// Server-to-server IPC envelope. Separate from the client-facing Packet
+// because IPC messages never touch the client, carry routing metadata,
+// and won't be versioned against client protocol changes.
+//
+// Replaces EQEmu's 226 ServerOP_ constants in servertalk.h.
+// Field numbers grouped by tier with gaps for future additions.
+message IpcMessage {
+  uint32 source_zone_id = 1;
+  uint32 target_zone_id = 2;
+  uint64 timestamp = 3;
+
+  oneof payload {
+    // ── Tier 1: Zone Lifecycle (10-39) ──
+    // Required for any multi-process ADIF server.
+    IpcKeepAlive ipc_keep_alive = 10;
+    ZoneBootRequest zone_boot_request = 11;
+    ZoneBootReady zone_boot_ready = 12;
+    ZoneShutdownRequest zone_shutdown_request = 13;
+    ZoneShutdownAll zone_shutdown_all = 14;
+    ZoneStatusRequest zone_status_request = 15;
+    ZoneStatusResponse zone_status_response = 16;
+    SetConnectInfo set_connect_info = 17;
+    IncomingClient incoming_client = 18;
+    DropClientIpc drop_client_ipc = 19;
+    ZoneToZoneTransfer zone_to_zone_transfer = 20;
+    ClientListUpdate client_list_update = 21;
+    ChangeWorldId change_world_id = 22;
+    ZonePlayerAction zone_player_action = 23;
+    AcceptWorldEntrance accept_world_entrance = 24;
+    ZoneReboot zone_reboot = 25;
+    LockZone lock_zone = 26;
+    SpawnPlayerCorpse spawn_player_corpse = 27;
+    UpdateSpawnIpc update_spawn_ipc = 28;
+    SpawnStatusChange spawn_status_change = 29;
+
+    // ── Tier 2: Cross-Zone Features (40-79) ──
+    // Chat, groups, guilds, raids — anything that spans zones.
+    IpcChannelMessage ipc_channel_message = 40;
+    IpcWhoRequest ipc_who_request = 41;
+    IpcWhoResponse ipc_who_response = 42;
+    IpcGroupIdRequest ipc_group_id_request = 43;
+    IpcGroupIdResponse ipc_group_id_response = 44;
+    IpcGroupJoin ipc_group_join = 45;
+    IpcGroupLeave ipc_group_leave = 46;
+    IpcGroupDisband ipc_group_disband = 47;
+    IpcGroupUpdate ipc_group_update = 48;
+    IpcGroupInvite ipc_group_invite = 49;
+    IpcForceGroupUpdate ipc_force_group_update = 50;
+    IpcOozGroupMessage ipc_ooz_group_message = 51;
+    IpcRaidAdd ipc_raid_add = 52;
+    IpcRaidRemove ipc_raid_remove = 53;
+    IpcRaidDisband ipc_raid_disband = 54;
+    IpcRaidLeader ipc_raid_leader = 55;
+    IpcRaidGroupLeader ipc_raid_group_leader = 56;
+    IpcRaidSay ipc_raid_say = 57;
+    IpcRaidGroupSay ipc_raid_group_say = 58;
+    IpcRaidMOTD ipc_raid_motd = 59;
+    IpcRaidChangeGroup ipc_raid_change_group = 60;
+    IpcRaidLockFlag ipc_raid_lock_flag = 61;
+    IpcGuildRefresh ipc_guild_refresh = 62;
+    IpcGuildMemberUpdate ipc_guild_member_update = 63;
+    IpcGuildRankUpdate ipc_guild_rank_update = 64;
+    IpcGuildChannel ipc_guild_channel = 65;
+    IpcGuildDelete ipc_guild_delete = 66;
+    IpcGuildPermissionUpdate ipc_guild_permission_update = 67;
+    IpcGuildMembersList ipc_guild_members_list = 68;
+    IpcRezPlayer ipc_rez_player = 69;
+    IpcRezPlayerAccept ipc_rez_player_accept = 70;
+    IpcConsent ipc_consent = 71;
+    IpcConsentResponse ipc_consent_response = 72;
+    IpcSpawnCondition ipc_spawn_condition = 73;
+    IpcSpawnEvent ipc_spawn_event = 74;
+    IpcQGlobalUpdate ipc_qglobal_update = 75;
+    IpcQGlobalDelete ipc_qglobal_delete = 76;
+
+    // ── Tier 3: Admin & Infrastructure (80-109) ──
+    IpcGMGoto ipc_gm_goto = 80;
+    IpcGMSummon ipc_gm_summon = 81;
+    IpcKillPlayer ipc_kill_player = 82;
+    IpcKickPlayer ipc_kick_player = 83;
+    IpcMotd ipc_motd = 84;
+    IpcServerLock ipc_server_lock = 85;
+    IpcSetWorldTime ipc_set_world_time = 86;
+    IpcGetWorldTime ipc_get_world_time = 87;
+    IpcSyncWorldTime ipc_sync_world_time = 88;
+    IpcEmoteMessage ipc_emote_message = 89;
+    IpcMultiLineMsg ipc_multi_line_msg = 90;
+    IpcFlagUpdate ipc_flag_update = 91;
+    IpcUpdateGM ipc_update_gm = 92;
+    IpcOOCMute ipc_ooc_mute = 93;
+    IpcRevoke ipc_revoke = 94;
+    IpcIPLookup ipc_ip_lookup = 95;
+    IpcCameraShake ipc_camera_shake = 96;
+    IpcHotReloadQuests ipc_hot_reload_quests = 97;
+    IpcDepopCorpses ipc_depop_corpses = 98;
+    IpcRequestTellQueue ipc_request_tell_queue = 99;
+    IpcIsOwnerOnline ipc_is_owner_online = 100;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Tier 1: Zone Lifecycle Messages
+// EQEmu: ServerOP_KeepAlive through ServerOP_DropClient (0x0001-0x0042)
+// ═══════════════════════════════════════════════════════════════════
+
+// ServerOP_KeepAlive (0x0001)
+message IpcKeepAlive {}
+
+// ServerOP_ZoneBootup (0x0006) — World tells a zone process to load a zone.
+message ZoneBootRequest {
+  uint32 zone_id = 1;
+  uint32 instance_id = 2;
+  string zone_short_name = 3;
+}
+
+// ServerOP_SetZone (0x0003) — Zone reports it's ready.
+message ZoneBootReady {
+  uint32 zone_id = 1;
+  uint32 instance_id = 2;
+  string zone_short_name = 3;
+  string zone_long_name = 4;
+  uint32 zone_port = 5;
+}
+
+// ServerOP_ZoneShutdown (0x0005)
+message ZoneShutdownRequest {
+  uint32 zone_id = 1;
+  uint32 instance_id = 2;
+}
+
+// ServerOP_ShutdownAll (0x0004)
+message ZoneShutdownAll {}
+
+// ServerOP_ZoneStatus (0x0007) — Request or report zone status.
+message ZoneStatusRequest {}
+
+message ZoneStatusResponse {
+  repeated ZoneProcessStatus zones = 1;
+}
+
+message ZoneProcessStatus {
+  uint32 zone_id = 1;
+  string zone_short_name = 2;
+  uint32 player_count = 3;
+  ZoneProcessState state = 4;
+  uint32 port = 5;
+}
+
+enum ZoneProcessState {
+  ZONE_PROCESS_STATE_UNSPECIFIED = 0;
+  ZONE_PROCESS_STATE_IDLE = 1;
+  ZONE_PROCESS_STATE_BOOTING = 2;
+  ZONE_PROCESS_STATE_RUNNING = 3;
+  ZONE_PROCESS_STATE_SHUTTING_DOWN = 4;
+}
+
+// ServerOP_SetConnectInfo (0x0008)
+message SetConnectInfo {
+  string host = 1;
+  uint32 port = 2;
+}
+
+// ServerOP_ZoneIncClient (0x0027) — Incoming player from world.
+message IncomingClient {
+  uint32 account_id = 1;
+  string account_name = 2;
+  uint32 character_id = 3;
+  string character_name = 4;
+  uint32 world_client_id = 5;
+  string ip_address = 6;
+  uint32 gm_status = 7;
+  bool is_local = 8;
+}
+
+// ServerOP_DropClient (0x0041)
+message DropClientIpc {
+  uint32 world_client_id = 1;
+  string reason = 2;
+}
+
+// ServerOP_ZoneToZoneRequest (0x0023) — Player wants to zone.
+message ZoneToZoneTransfer {
+  uint32 character_id = 1;
+  string character_name = 2;
+  uint32 current_zone_id = 3;
+  uint32 target_zone_id = 4;
+  uint32 target_instance_id = 5;
+  Vec3 target_position = 6;
+  float target_heading = 7;
+  bool approved = 8;
+  string deny_reason = 9;
+}
+
+// ServerOP_ClientList (0x000A)
+message ClientListUpdate {
+  uint32 account_id = 1;
+  string account_name = 2;
+  uint32 character_id = 3;
+  string character_name = 4;
+  uint32 zone_id = 5;
+  uint32 world_client_id = 6;
+  uint32 level = 7;
+  uint32 class_id = 8;
+  uint32 race = 9;
+  bool online = 10;
+  string ip_address = 11;
+  uint32 gm_status = 12;
+  bool is_lfg = 13;
+  uint32 guild_id = 14;
+}
+
+// ServerOP_ChangeWID (0x0029)
+message ChangeWorldId {
+  uint32 character_id = 1;
+  uint32 new_world_client_id = 2;
+}
+
+// ServerOP_ZonePlayer (0x000C) — Move a player between zones.
+message ZonePlayerAction {
+  string character_name = 1;
+  uint32 target_zone_id = 2;
+  uint32 target_instance_id = 3;
+  Vec3 target_position = 4;
+  float target_heading = 5;
+  bool is_summon = 6;
+}
+
+// ServerOP_AcceptWorldEntrance (0x0024)
+message AcceptWorldEntrance {
+  uint32 account_id = 1;
+  bool accepted = 2;
+}
+
+// ServerOP_ZoneReboot (0x0022)
+message ZoneReboot {
+  uint32 zone_id = 1;
+}
+
+// ServerOP_LockZone (0x002B)
+message LockZone {
+  uint32 zone_id = 1;
+  bool locked = 2;
+  string locked_by = 3;
+}
+
+// ServerOP_SpawnPlayerCorpse (0x0038)
+message SpawnPlayerCorpse {
+  uint32 character_id = 1;
+  uint32 zone_id = 2;
+  Vec3 position = 3;
+}
+
+// ServerOP_UpdateSpawn (0x003f)
+message UpdateSpawnIpc {
+  uint32 zone_id = 1;
+  uint32 spawn_id = 2;
+  uint32 npc_type_id = 3;
+  bool enabled = 4;
+}
+
+// ServerOP_SpawnStatusChange (0x0040)
+message SpawnStatusChange {
+  uint32 zone_id = 1;
+  uint32 spawn_id = 2;
+  bool active = 3;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Tier 2: Cross-Zone Feature Messages
+// ═══════════════════════════════════════════════════════════════════
+
+// ServerOP_ChannelMessage (0x0002)
+message IpcChannelMessage {
+  string sender_name = 1;
+  string target_name = 2;
+  uint32 channel = 3;
+  uint32 language = 4;
+  string message = 5;
+  uint32 guild_id = 6;
+  uint32 min_status = 7;
+}
+
+// ServerOP_Who (0x000B) / ServerOP_WhoAll (0x0210)
+message IpcWhoRequest {
+  string requester_name = 1;
+  string filter_name = 2;
+  uint32 filter_class = 3;
+  uint32 filter_race = 4;
+  uint32 min_level = 5;
+  uint32 max_level = 6;
+  bool friends_only = 7;
+  uint32 filter_zone = 8;
+  bool lfg_only = 9;
+  uint32 requester_zone_id = 10;
+  uint32 gm_status = 11;
+}
+
+message IpcWhoResponse {
+  string requester_name = 1;
+  repeated IpcWhoEntry entries = 2;
+  uint32 total_online = 3;
+}
+
+message IpcWhoEntry {
+  string name = 1;
+  uint32 level = 2;
+  uint32 race = 3;
+  uint32 class_id = 4;
+  string guild_name = 5;
+  uint32 zone_id = 6;
+  bool anonymous = 7;
+  bool lfg = 8;
+  uint32 gm_status = 9;
+  string account_name = 10;
+}
+
+// ServerOP_GroupIDReq/Reply (0x0030-0x0031)
+message IpcGroupIdRequest {
+  uint32 requester_zone_id = 1;
+}
+
+message IpcGroupIdResponse {
+  uint32 group_id = 1;
+}
+
+// ServerOP_GroupJoin (0x003e)
+message IpcGroupJoin {
+  uint32 group_id = 1;
+  string member_name = 2;
+  uint32 zone_id = 3;
+}
+
+// ServerOP_GroupLeave (0x0032)
+message IpcGroupLeave {
+  uint32 group_id = 1;
+  string member_name = 2;
+}
+
+// ServerOP_DisbandGroup (0x003d)
+message IpcGroupDisband {
+  uint32 group_id = 1;
+}
+
+// ServerOP_UpdateGroup (0x010A)
+message IpcGroupUpdate {
+  uint32 group_id = 1;
+  string leader_name = 2;
+  repeated string member_names = 3;
+}
+
+// ServerOP_GroupInvite (0x010F)
+message IpcGroupInvite {
+  string inviter_name = 1;
+  string invitee_name = 2;
+  uint32 invitee_zone_id = 3;
+}
+
+// ServerOP_ForceGroupUpdate (0x003b)
+message IpcForceGroupUpdate {
+  uint32 group_id = 1;
+}
+
+// ServerOP_OOZGroupMessage (0x003c)
+message IpcOozGroupMessage {
+  uint32 group_id = 1;
+  string sender_name = 2;
+  string message = 3;
+}
+
+// ServerOP_RaidAdd (0x0100)
+message IpcRaidAdd {
+  uint32 raid_id = 1;
+  string member_name = 2;
+  uint32 group_number = 3;
+  bool is_leader = 4;
+}
+
+// ServerOP_RaidRemove (0x0101)
+message IpcRaidRemove {
+  uint32 raid_id = 1;
+  string member_name = 2;
+}
+
+// ServerOP_RaidDisband (0x0102)
+message IpcRaidDisband {
+  uint32 raid_id = 1;
+}
+
+// ServerOP_RaidLeader (0x0105)
+message IpcRaidLeader {
+  uint32 raid_id = 1;
+  string leader_name = 2;
+}
+
+// ServerOP_RaidGroupLeader (0x0104)
+message IpcRaidGroupLeader {
+  uint32 raid_id = 1;
+  uint32 group_number = 2;
+  string leader_name = 3;
+}
+
+// ServerOP_RaidSay (0x0107)
+message IpcRaidSay {
+  uint32 raid_id = 1;
+  string sender_name = 2;
+  string message = 3;
+}
+
+// ServerOP_RaidGroupSay (0x0106)
+message IpcRaidGroupSay {
+  uint32 raid_id = 1;
+  uint32 group_number = 2;
+  string sender_name = 3;
+  string message = 4;
+}
+
+// ServerOP_RaidMOTD (0x0113)
+message IpcRaidMOTD {
+  uint32 raid_id = 1;
+  string motd = 2;
+}
+
+// ServerOP_RaidChangeGroup (0x010C)
+message IpcRaidChangeGroup {
+  uint32 raid_id = 1;
+  string member_name = 2;
+  uint32 new_group_number = 3;
+}
+
+// ServerOP_RaidLockFlag (0x0103)
+message IpcRaidLockFlag {
+  uint32 raid_id = 1;
+  bool locked = 2;
+}
+
+// ServerOP_RefreshGuild (0x000E)
+message IpcGuildRefresh {
+  uint32 guild_id = 1;
+}
+
+// ServerOP_GuildMemberUpdate (0x0014)
+message IpcGuildMemberUpdate {
+  uint32 guild_id = 1;
+  uint32 character_id = 2;
+  string character_name = 3;
+  uint32 zone_id = 4;
+  uint32 level = 5;
+  uint32 class_id = 6;
+  uint32 rank = 7;
+  bool online = 8;
+  uint32 last_seen = 9;
+}
+
+// ServerOP_GuildRankUpdate (0x0012)
+message IpcGuildRankUpdate {
+  uint32 guild_id = 1;
+  uint32 character_id = 2;
+  uint32 new_rank = 3;
+  string promoted_by = 4;
+}
+
+// ServerOP_GuildChannel (0x007C)
+message IpcGuildChannel {
+  uint32 guild_id = 1;
+  string sender_name = 2;
+  string message = 3;
+}
+
+// ServerOP_DeleteGuild (0x0011)
+message IpcGuildDelete {
+  uint32 guild_id = 1;
+}
+
+// ServerOP_GuildPermissionUpdate (0x0069)
+message IpcGuildPermissionUpdate {
+  uint32 guild_id = 1;
+  uint32 rank = 2;
+  uint32 permission_id = 3;
+  bool enabled = 4;
+}
+
+// ServerOP_GuildMembersList (0x007F)
+message IpcGuildMembersList {
+  uint32 guild_id = 1;
+  uint32 requester_zone_id = 2;
+}
+
+// ServerOP_RezzPlayer (0x0021)
+message IpcRezPlayer {
+  string caster_name = 1;
+  string target_name = 2;
+  uint32 spell_id = 3;
+  uint32 corpse_zone_id = 4;
+  Vec3 corpse_position = 5;
+  float exp_percent = 6;
+}
+
+// ServerOP_RezzPlayerAccept (0x0033)
+message IpcRezPlayerAccept {
+  string target_name = 1;
+  bool accepted = 2;
+  uint32 target_zone_id = 3;
+}
+
+// ServerOP_Consent (0x0039)
+message IpcConsent {
+  string owner_name = 1;
+  string target_name = 2;
+  bool grant = 3;
+}
+
+// ServerOP_Consent_Response (0x003a)
+message IpcConsentResponse {
+  string owner_name = 1;
+  string target_name = 2;
+  bool granted = 3;
+}
+
+// ServerOP_SpawnCondition (0x0034)
+message IpcSpawnCondition {
+  uint32 zone_id = 1;
+  uint32 condition_id = 2;
+  int32 value = 3;
+}
+
+// ServerOP_SpawnEvent (0x0035)
+message IpcSpawnEvent {
+  uint32 zone_id = 1;
+  uint32 event_id = 2;
+}
+
+// ServerOP_QGlobalUpdate (0x0061)
+message IpcQGlobalUpdate {
+  string name = 1;
+  string value = 2;
+  uint32 npc_id = 3;
+  uint32 character_id = 4;
+  uint32 zone_id = 5;
+  uint32 expiry = 6;
+}
+
+// ServerOP_QGlobalDelete (0x0062)
+message IpcQGlobalDelete {
+  string name = 1;
+  uint32 npc_id = 2;
+  uint32 character_id = 3;
+  uint32 zone_id = 4;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Tier 3: Admin & Infrastructure
+// ═══════════════════════════════════════════════════════════════════
+
+// ServerOP_GMGoto (0x0019)
+message IpcGMGoto {
+  string gm_name = 1;
+  string target_name = 2;
+  uint32 target_zone_id = 3;
+}
+
+// ServerOP_GMSummon (part of ZonePlayer)
+message IpcGMSummon {
+  string gm_name = 1;
+  string target_name = 2;
+  uint32 gm_zone_id = 3;
+  Vec3 gm_position = 4;
+}
+
+// ServerOP_KillPlayer (0x001F)
+message IpcKillPlayer {
+  string gm_name = 1;
+  string target_name = 2;
+}
+
+// ServerOP_KickPlayer (0x000D)
+message IpcKickPlayer {
+  string target_name = 1;
+  string reason = 2;
+}
+
+// ServerOP_Motd (0x001C)
+message IpcMotd {
+  string motd = 1;
+  string set_by = 2;
+}
+
+// ServerOP_Lock (0x001B)
+message IpcServerLock {
+  bool locked = 1;
+  string locked_by = 2;
+}
+
+// ServerOP_SetWorldTime (0x200B)
+message IpcSetWorldTime {
+  uint32 hour = 1;
+  uint32 minute = 2;
+  uint32 day = 3;
+  uint32 month = 4;
+  uint32 year = 5;
+}
+
+// ServerOP_GetWorldTime (0x200C)
+message IpcGetWorldTime {}
+
+// ServerOP_SyncWorldTime (0x200E)
+message IpcSyncWorldTime {
+  uint32 hour = 1;
+  uint32 minute = 2;
+  uint32 day = 3;
+  uint32 month = 4;
+  uint32 year = 5;
+}
+
+// ServerOP_EmoteMessage (0x0009)
+message IpcEmoteMessage {
+  string sender_name = 1;
+  string message = 2;
+  uint32 type = 3;
+}
+
+// ServerOP_MultiLineMsg (0x001A)
+message IpcMultiLineMsg {
+  string target_name = 1;
+  repeated string lines = 2;
+}
+
+// ServerOP_FlagUpdate (0x0018)
+message IpcFlagUpdate {
+  uint32 account_id = 1;
+  string character_name = 2;
+  uint32 gm_status = 3;
+}
+
+// ServerOP_UpdateGM (0x0020)
+message IpcUpdateGM {
+  uint32 account_id = 1;
+  uint32 gm_status = 2;
+}
+
+// ServerOP_OOCMute (0x002D)
+message IpcOOCMute {
+  bool muted = 1;
+}
+
+// ServerOP_Revoke (0x002E)
+message IpcRevoke {
+  string target_name = 1;
+  bool revoked = 2;
+}
+
+// ServerOP_IPLookup (0x002A)
+message IpcIPLookup {
+  string requester_name = 1;
+  string target_name = 2;
+  string ip_address = 3;
+}
+
+// ServerOP_CameraShake (0x4000)
+message IpcCameraShake {
+  float intensity = 1;
+  uint32 duration_ms = 2;
+}
+
+// ServerOP_HotReloadQuests (0x4001)
+message IpcHotReloadQuests {
+  uint32 zone_id = 1;
+}
+
+// ServerOP_DepopAllPlayersCorpses (0x0060) / DepopPlayerCorpse (0x0063)
+message IpcDepopCorpses {
+  uint32 character_id = 1;
+  bool all_players = 2;
+}
+
+// ServerOP_RequestTellQueue (0x0064)
+message IpcRequestTellQueue {
+  string character_name = 1;
+}
+
+// ServerOP_IsOwnerOnline (0x0042)
+message IpcIsOwnerOnline {
+  uint32 character_id = 1;
+  bool is_online = 2;
+}

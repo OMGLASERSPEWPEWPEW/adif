@@ -227,6 +227,136 @@ Console.WriteLine("\n[Test 6] Chat message round-trip");
     Console.WriteLine($"  Serialized size: {bytes.Length} bytes");
 }
 
+// ── Test 7: IPC ZoneBootRequest round-trip ────────────────────
+Console.WriteLine("\n[Test 7] IPC ZoneBootRequest round-trip");
+{
+    var original = new IpcMessage
+    {
+        SourceZoneId = 0,
+        TargetZoneId = 1,
+        Timestamp = 90000,
+        ZoneBootRequest = new ZoneBootRequest
+        {
+            ZoneId = 52,
+            InstanceId = 0,
+            ZoneShortName = "gukbottom"
+        }
+    };
+
+    byte[] bytes = original.ToByteArray();
+    var decoded = IpcMessage.Parser.ParseFrom(bytes);
+
+    Assert(decoded.SourceZoneId == 0, "source_zone_id preserved (world=0)");
+    Assert(decoded.TargetZoneId == 1, "target_zone_id preserved");
+    Assert(decoded.PayloadCase == IpcMessage.PayloadOneofCase.ZoneBootRequest,
+        "oneof dispatches to ZoneBootRequest");
+    Assert(decoded.ZoneBootRequest.ZoneId == 52, "zone_id preserved");
+    Assert(decoded.ZoneBootRequest.ZoneShortName == "gukbottom", "zone_short_name preserved");
+
+    Console.WriteLine($"  Serialized size: {bytes.Length} bytes");
+}
+
+// ── Test 8: IPC ChannelMessage round-trip ─────────────────────
+Console.WriteLine("\n[Test 8] IPC ChannelMessage (cross-zone tell)");
+{
+    var original = new IpcMessage
+    {
+        SourceZoneId = 15,
+        TargetZoneId = 0,
+        Timestamp = 91000,
+        IpcChannelMessage = new IpcChannelMessage
+        {
+            SenderName = "Ghouldan",
+            TargetName = "Soandso",
+            Channel = 2,
+            Language = 0,
+            Message = "Hey, are you in Grobb?",
+            GuildId = 0,
+            MinStatus = 0
+        }
+    };
+
+    byte[] bytes = original.ToByteArray();
+    var decoded = IpcMessage.Parser.ParseFrom(bytes);
+
+    Assert(decoded.PayloadCase == IpcMessage.PayloadOneofCase.IpcChannelMessage,
+        "oneof dispatches to IpcChannelMessage");
+    Assert(decoded.IpcChannelMessage.SenderName == "Ghouldan", "sender preserved");
+    Assert(decoded.IpcChannelMessage.TargetName == "Soandso", "target preserved");
+    Assert(decoded.IpcChannelMessage.Message == "Hey, are you in Grobb?", "message preserved");
+
+    Console.WriteLine($"  Serialized size: {bytes.Length} bytes");
+}
+
+// ── Test 9: IPC ZoneToZoneTransfer round-trip ─────────────────
+Console.WriteLine("\n[Test 9] IPC ZoneToZoneTransfer");
+{
+    var original = new IpcMessage
+    {
+        SourceZoneId = 65,
+        TargetZoneId = 0,
+        Timestamp = 92000,
+        ZoneToZoneTransfer = new ZoneToZoneTransfer
+        {
+            CharacterId = 1,
+            CharacterName = "Ghouldan",
+            CurrentZoneId = 65,
+            TargetZoneId = 46,
+            TargetInstanceId = 0,
+            TargetPosition = new Vec3 { X = -500.0f, Y = 200.0f, Z = -10.0f },
+            TargetHeading = 128.0f,
+            Approved = true
+        }
+    };
+
+    byte[] bytes = original.ToByteArray();
+    var decoded = IpcMessage.Parser.ParseFrom(bytes);
+
+    Assert(decoded.PayloadCase == IpcMessage.PayloadOneofCase.ZoneToZoneTransfer,
+        "oneof dispatches to ZoneToZoneTransfer");
+    Assert(decoded.ZoneToZoneTransfer.CharacterName == "Ghouldan", "character name preserved");
+    Assert(decoded.ZoneToZoneTransfer.CurrentZoneId == 65, "current zone (grobb) preserved");
+    Assert(decoded.ZoneToZoneTransfer.TargetZoneId == 46, "target zone (innothule) preserved");
+    Assert(decoded.ZoneToZoneTransfer.Approved, "approved flag preserved");
+    Assert(decoded.ZoneToZoneTransfer.TargetPosition.X == -500.0f, "target position preserved");
+
+    Console.WriteLine($"  Serialized size: {bytes.Length} bytes");
+}
+
+// ── Test 10: IPC IncomingClient round-trip ─────────────────────
+Console.WriteLine("\n[Test 10] IPC IncomingClient");
+{
+    var original = new IpcMessage
+    {
+        SourceZoneId = 0,
+        TargetZoneId = 65,
+        Timestamp = 93000,
+        IncomingClient = new IncomingClient
+        {
+            AccountId = 1,
+            AccountName = "darklight",
+            CharacterId = 1,
+            CharacterName = "Ghouldan",
+            WorldClientId = 42,
+            IpAddress = "127.0.0.1",
+            GmStatus = 250,
+            IsLocal = true
+        }
+    };
+
+    byte[] bytes = original.ToByteArray();
+    var decoded = IpcMessage.Parser.ParseFrom(bytes);
+
+    Assert(decoded.PayloadCase == IpcMessage.PayloadOneofCase.IncomingClient,
+        "oneof dispatches to IncomingClient");
+    Assert(decoded.IncomingClient.CharacterName == "Ghouldan", "character name preserved");
+    Assert(decoded.IncomingClient.GmStatus == 250, "GM status 250 preserved");
+    Assert(decoded.IncomingClient.IsLocal, "is_local flag preserved");
+    Assert(decoded.IncomingClient.WorldClientId == 42, "world client id preserved");
+
+    Console.WriteLine($"  Serialized size: {bytes.Length} bytes");
+}
+
 // ── Summary ────────────────────────────────────────────────────
 Console.WriteLine($"\n{'=',-40}");
 Console.WriteLine($"Results: {passed} passed, {failed} failed");

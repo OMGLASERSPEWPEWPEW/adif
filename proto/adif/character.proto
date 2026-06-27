@@ -42,7 +42,7 @@ message CharacterCreate {
   uint32 sta = 15;
   uint32 dex = 16;
   uint32 agi = 17;
-  uint32 int_ = 18;
+  uint32 intelligence = 18;
   uint32 wis = 19;
   uint32 cha = 20;
 }
@@ -84,7 +84,7 @@ message PlayerProfile {
   uint32 sta = 11;
   uint32 dex = 12;
   uint32 agi = 13;
-  uint32 int_ = 14;
+  uint32 intelligence = 14;
   uint32 wis = 15;
   uint32 cha = 16;
 

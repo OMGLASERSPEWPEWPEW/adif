@@ -1,0 +1,18 @@
+[package]
+name = "adif-zone"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "adif-zone"
+path = "src/main.rs"
+
+[dependencies]
+adif-proto = { path = "../adif-proto" }
+adif-common = { path = "../adif-common" }
+tokio.workspace = true
+sqlx.workspace = true
+bevy_ecs.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+anyhow.workspace = true

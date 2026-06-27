@@ -1,0 +1,13 @@
+[package]
+name = "adif-common"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+adif-proto = { path = "../adif-proto" }
+tokio.workspace = true
+sqlx.workspace = true
+serde.workspace = true
+toml.workspace = true
+tracing.workspace = true
+anyhow.workspace = true

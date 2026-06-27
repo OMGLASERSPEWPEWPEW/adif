@@ -357,6 +357,213 @@ Console.WriteLine("\n[Test 10] IPC IncomingClient");
     Console.WriteLine($"  Serialized size: {bytes.Length} bytes");
 }
 
+// ── Test 11: Expanded Spawn with Phase 4 fields ──────────────
+Console.WriteLine("\n[Test 11] Expanded Spawn (speed, size, visibility, title)");
+{
+    var original = new Spawn
+    {
+        EntityId = 2001,
+        EntityType = EntityType.Npc,
+        Name = "Guard_Granin",
+        Level = 40,
+        Race = 1,
+        ClassId = 1,
+        Position = new Vec3 { X = 100.0f, Y = -200.0f, Z = 5.0f },
+        Heading = 45.0f,
+        CurrentHp = 5000,
+        MaxHp = 5000,
+        RunSpeed = 1.25f,
+        WalkSpeed = 0.46f,
+        Size = 6.0f,
+        LightSource = 3,
+        Texture = 2,
+        HelmTexture = 1,
+        Invis = false,
+        Findable = true,
+        ShowHelm = true,
+        FlyMode = 0,
+        Title = "Captain",
+        Suffix = "of the Guard",
+        GuildRank = 0,
+        BoundingRadius = 5.5f,
+        IsPet = false,
+        PlayerState = 0
+    };
+
+    byte[] bytes = original.ToByteArray();
+    var decoded = Spawn.Parser.ParseFrom(bytes);
+
+    Assert(decoded.RunSpeed == 1.25f, "run_speed preserved");
+    Assert(decoded.WalkSpeed == 0.46f, "walk_speed preserved");
+    Assert(decoded.Size == 6.0f, "size preserved");
+    Assert(decoded.LightSource == 3, "light_source preserved");
+    Assert(decoded.Texture == 2, "texture preserved");
+    Assert(decoded.HelmTexture == 1, "helm_texture preserved");
+    Assert(decoded.Findable, "findable preserved");
+    Assert(decoded.ShowHelm, "show_helm preserved");
+    Assert(decoded.Title == "Captain", "title preserved");
+    Assert(decoded.Suffix == "of the Guard", "suffix preserved");
+    Assert(decoded.BoundingRadius == 5.5f, "bounding_radius preserved");
+
+    Console.WriteLine($"  Serialized size: {bytes.Length} bytes (EQ: ~383 bytes)");
+}
+
+// ── Test 12: Expanded ItemDefinition ─────────────────────────
+Console.WriteLine("\n[Test 12] Expanded ItemDefinition (weapon with stats + proc)");
+{
+    var original = new ItemDefinition
+    {
+        ItemId = 5023,
+        Name = "Sword of the Morning",
+        Icon = 512,
+        LoreText = "A blade forged in the light of dawn.",
+        Weight = 35,
+        SlotBitmask = 8192,
+        ItemClass = 0,
+        ClassBitmask = 65535,
+        RaceBitmask = 65535,
+        NoTrade = false,
+        Lore = true,
+        Magic = true,
+        ItemType = ItemType.Weapon1HSlash,
+        Damage = 15,
+        Delay = 24,
+        Range = 0,
+        Ac = 0,
+        Stats = new ItemStats
+        {
+            Str = 10,
+            Sta = 5,
+            Hp = 50,
+            Mana = 25,
+            Haste = 21,
+            FireResist = 10
+        },
+        RequiredLevel = 20,
+        RecommendedLevel = 25,
+        Price = 50000,
+        SellRate = 0.25f,
+        StackSize = 1,
+        Charges = -1
+    };
+    original.Effects.Add(new ItemEffect
+    {
+        Type = ItemEffectType.Proc,
+        SpellId = 1234,
+        Charges = -1,
+        Level = 50,
+        RecastDelay = 0
+    });
+
+    byte[] bytes = original.ToByteArray();
+    var decoded = ItemDefinition.Parser.ParseFrom(bytes);
+
+    Assert(decoded.Name == "Sword of the Morning", "item name preserved");
+    Assert(decoded.ItemType == ItemType.Weapon1HSlash, "item type is 1H slash");
+    Assert(decoded.Damage == 15, "damage preserved");
+    Assert(decoded.Delay == 24, "delay preserved");
+    Assert(decoded.Stats.Str == 10, "str stat preserved");
+    Assert(decoded.Stats.Hp == 50, "hp stat preserved");
+    Assert(decoded.Stats.Haste == 21, "haste stat preserved");
+    Assert(decoded.Stats.FireResist == 10, "fire resist preserved");
+    Assert(decoded.Effects.Count == 1, "has 1 effect");
+    Assert(decoded.Effects[0].Type == ItemEffectType.Proc, "effect type is PROC");
+    Assert(decoded.Effects[0].SpellId == 1234, "proc spell_id preserved");
+    Assert(decoded.Lore, "lore flag preserved");
+    Assert(decoded.Magic, "magic flag preserved");
+    Assert(decoded.RequiredLevel == 20, "required_level preserved");
+    Assert(decoded.Price == 50000, "price preserved");
+
+    Console.WriteLine($"  Serialized size: {bytes.Length} bytes");
+}
+
+// ── Test 13: Expanded PlayerProfile ──────────────────────────
+Console.WriteLine("\n[Test 13] Expanded PlayerProfile (languages, sustenance, disciplines)");
+{
+    var profile = new PlayerProfile
+    {
+        Name = "Ghouldan",
+        LastName = "Deathwalker",
+        Race = 2,
+        ClassId = 10,
+        Level = 50,
+        Gender = 0,
+        Deity = 201,
+        Str = 200, Sta = 180, Dex = 150, Agi = 130,
+        Intelligence = 75, Wis = 75, Cha = 120,
+        CurrentHp = 4500, MaxHp = 4500,
+        CurrentMana = 0, MaxMana = 0,
+        CurrentEndurance = 1200, MaxEndurance = 1200,
+        Experience = 500000,
+        ZoneId = 65,
+        HungerLevel = 5000,
+        ThirstLevel = 5000,
+        Intoxication = 0,
+        AutoSplit = true,
+        Title = "Vanquisher",
+        Suffix = "the Undying",
+        AirRemaining = 255,
+        Toxicity = 0,
+        PracticePoints = 5,
+        Appearance = new Appearance { Face = 3, HairColor = 1 }
+    };
+    profile.Languages.Add(100);
+    profile.Languages.Add(50);
+    profile.Languages.Add(0);
+    profile.Disciplines.Add(4500);
+    profile.Disciplines.Add(4501);
+    profile.RecastTimers.Add(0);
+    profile.RecastTimers.Add(300);
+
+    byte[] bytes = profile.ToByteArray();
+    var decoded = PlayerProfile.Parser.ParseFrom(bytes);
+
+    Assert(decoded.HungerLevel == 5000, "hunger_level preserved");
+    Assert(decoded.ThirstLevel == 5000, "thirst_level preserved");
+    Assert(decoded.AutoSplit, "auto_split preserved");
+    Assert(decoded.Title == "Vanquisher", "title preserved");
+    Assert(decoded.Suffix == "the Undying", "suffix preserved");
+    Assert(decoded.AirRemaining == 255, "air_remaining preserved");
+    Assert(decoded.PracticePoints == 5, "practice_points preserved");
+    Assert(decoded.Languages.Count == 3, "3 languages preserved");
+    Assert(decoded.Languages[0] == 100, "common tongue skill preserved");
+    Assert(decoded.Disciplines.Count == 2, "2 disciplines preserved");
+    Assert(decoded.RecastTimers.Count == 2, "2 recast timers preserved");
+    Assert(decoded.RecastTimers[1] == 300, "recast timer value preserved");
+    Assert(decoded.Appearance.Face == 3, "appearance.face preserved");
+
+    Console.WriteLine($"  Serialized size: {bytes.Length} bytes");
+}
+
+// ── Test 14: ItemDefinition container ────────────────────────
+Console.WriteLine("\n[Test 14] ItemDefinition container (bag with slots)");
+{
+    var bag = new ItemDefinition
+    {
+        ItemId = 17005,
+        Name = "Rawhide Bag",
+        Weight = 5,
+        ItemType = ItemType.Container,
+        BagSlots = 8,
+        BagSize = 80,
+        BagWeightReduction = 10,
+        BagType = 1,
+        NoTrade = true,
+        Price = 200
+    };
+
+    byte[] bytes = bag.ToByteArray();
+    var decoded = ItemDefinition.Parser.ParseFrom(bytes);
+
+    Assert(decoded.ItemType == ItemType.Container, "item type is CONTAINER");
+    Assert(decoded.BagSlots == 8, "bag_slots preserved");
+    Assert(decoded.BagSize == 80, "bag_size preserved");
+    Assert(decoded.BagWeightReduction == 10, "weight reduction preserved");
+    Assert(decoded.NoTrade, "no_trade preserved");
+
+    Console.WriteLine($"  Serialized size: {bytes.Length} bytes");
+}
+
 // ── Summary ────────────────────────────────────────────────────
 Console.WriteLine($"\n{'=',-40}");
 Console.WriteLine($"Results: {passed} passed, {failed} failed");

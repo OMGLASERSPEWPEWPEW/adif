@@ -5,6 +5,7 @@ package adif;
 option csharp_namespace = "Adif.Protocol";
 
 import "adif/common.proto";
+import "adif/entity.proto";
 
 // Character select screen.
 message CharacterList {
@@ -130,6 +131,48 @@ message PlayerProfile {
   bool gm = 37;
   bool pvp = 38;
   bool anonymous = 39;
+
+  // Language skills (EQ: PlayerProfile_Struct.languages[])
+  repeated uint32 languages = 40;
+
+  // Leadership (EQ: group/raid_leadership_exp/points)
+  uint32 group_leadership_exp = 41;
+  uint32 raid_leadership_exp = 42;
+  uint32 group_leadership_points = 43;
+  uint32 raid_leadership_points = 44;
+
+  // Sustenance (EQ: hunger_level, thirst_level, intoxication)
+  int32 hunger_level = 45;
+  int32 thirst_level = 46;
+  uint32 intoxication = 47;
+
+  // Disciplines (EQ: Disciplines_Struct)
+  repeated uint32 disciplines = 48;
+
+  // Recast timers (index = timer type, value = seconds remaining)
+  repeated uint32 recast_timers = 49;
+
+  // Auto-split loot with group
+  bool auto_split = 50;
+
+  // Appearance data for character select / inspect
+  Appearance appearance = 51;
+
+  // Title and suffix
+  string title = 52;
+  string suffix = 53;
+
+  // Cursor money (held on cursor, separate from inventory)
+  Money cursor_money = 54;
+
+  // Air remaining (underwater breath counter)
+  uint32 air_remaining = 55;
+
+  // Toxicity (from potions)
+  int32 toxicity = 56;
+
+  // Practice points (unspent stat/skill points)
+  uint32 practice_points = 57;
 }
 
 message BindPoint {

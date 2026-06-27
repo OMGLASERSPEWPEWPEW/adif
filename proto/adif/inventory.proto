@@ -5,8 +5,13 @@ package adif;
 option csharp_namespace = "Adif.Protocol";
 
 import "adif/character.proto";
+import "adif/common.proto";
 
+// Full item definition sent to client. Replaces EQ's serialized item
+// packets (170+ columns in items table). Stats and effects use nested
+// messages mirroring ADIF's JSONB columns rather than EQ's wide columns.
 message ItemDefinition {
+  // Original fields (1-12) — preserved from initial definition
   uint32 item_id = 1;
   string name = 2;
   uint32 icon = 3;
@@ -19,6 +24,105 @@ message ItemDefinition {
   bool no_trade = 10;
   bool lore = 11;
   bool magic = 12;
+
+  // Phase 4 additions (13+)
+  ItemType item_type = 13;
+  uint32 id_file = 14;
+  uint32 size = 15;
+  uint32 material = 16;
+  Color tint = 17;
+  uint32 damage = 18;
+  uint32 delay = 19;
+  uint32 range = 20;
+  uint32 skill_type = 21;
+  int32 ac = 22;
+  ItemStats stats = 23;
+  repeated ItemEffect effects = 24;
+  uint32 bag_slots = 25;
+  uint32 bag_size = 26;
+  uint32 bag_weight_reduction = 27;
+  uint32 bag_type = 28;
+  uint32 stack_size = 29;
+  int32 charges = 30;
+  uint32 required_level = 31;
+  uint32 recommended_level = 32;
+  uint32 price = 33;
+  float sell_rate = 34;
+  bool no_rent = 35;
+  bool artifact = 36;
+  bool no_drop = 37;
+  bool temporary = 38;
+  repeated uint32 augment_slots = 39;
+  uint32 augment_type = 40;
+}
+
+enum ItemType {
+  ITEM_TYPE_UNSPECIFIED = 0;
+  ITEM_TYPE_GENERIC = 1;
+  ITEM_TYPE_FOOD = 2;
+  ITEM_TYPE_DRINK = 3;
+  ITEM_TYPE_ARMOR = 4;
+  ITEM_TYPE_WEAPON_1H_SLASH = 5;
+  ITEM_TYPE_WEAPON_2H_SLASH = 6;
+  ITEM_TYPE_WEAPON_1H_BLUNT = 7;
+  ITEM_TYPE_WEAPON_2H_BLUNT = 8;
+  ITEM_TYPE_WEAPON_PIERCE = 9;
+  ITEM_TYPE_WEAPON_BOW = 10;
+  ITEM_TYPE_WEAPON_THROWING = 11;
+  ITEM_TYPE_ARROW = 12;
+  ITEM_TYPE_SHIELD = 13;
+  ITEM_TYPE_CONTAINER = 14;
+  ITEM_TYPE_SPELL_SCROLL = 15;
+  ITEM_TYPE_KEY = 16;
+  ITEM_TYPE_POTION = 17;
+  ITEM_TYPE_INSTRUMENT = 18;
+  ITEM_TYPE_BOOK = 19;
+  ITEM_TYPE_NOTE = 20;
+  ITEM_TYPE_COMBINABLE = 21;
+}
+
+// Stat bonuses on an item. Mirrors the items.stats JSONB column.
+message ItemStats {
+  int32 hp = 1;
+  int32 mana = 2;
+  int32 endurance = 3;
+  int32 str = 4;
+  int32 sta = 5;
+  int32 dex = 6;
+  int32 agi = 7;
+  int32 intelligence = 8;
+  int32 wis = 9;
+  int32 cha = 10;
+  int32 attack = 11;
+  int32 haste = 12;
+  int32 magic_resist = 13;
+  int32 fire_resist = 14;
+  int32 cold_resist = 15;
+  int32 disease_resist = 16;
+  int32 poison_resist = 17;
+  int32 hp_regen = 18;
+  int32 mana_regen = 19;
+  int32 damage_shield = 20;
+}
+
+// A spell effect on an item (worn, click, proc, focus, scroll).
+// Mirrors the items.effects JSONB column.
+message ItemEffect {
+  ItemEffectType type = 1;
+  uint32 spell_id = 2;
+  int32 charges = 3;
+  uint32 level = 4;
+  uint32 recast_delay = 5;
+}
+
+enum ItemEffectType {
+  ITEM_EFFECT_TYPE_UNSPECIFIED = 0;
+  ITEM_EFFECT_TYPE_WORN = 1;
+  ITEM_EFFECT_TYPE_CLICK = 2;
+  ITEM_EFFECT_TYPE_PROC = 3;
+  ITEM_EFFECT_TYPE_FOCUS = 4;
+  ITEM_EFFECT_TYPE_SCROLL = 5;
+  ITEM_EFFECT_TYPE_BARD = 6;
 }
 
 message InventoryList {

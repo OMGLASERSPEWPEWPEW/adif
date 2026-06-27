@@ -15,7 +15,8 @@ enum EntityType {
 }
 
 // Full entity data sent when an entity enters view.
-// Equivalent to EQ's Spawn_Struct (383 bytes).
+// Replaces EQ's Spawn_Struct (86 fields, 383 bytes).
+// Fields 28-40 added in Phase 4 from Spawn_Struct audit.
 message Spawn {
   uint32 entity_id = 1;
   EntityType entity_type = 2;
@@ -29,7 +30,7 @@ message Spawn {
   uint32 gender = 8;
   uint32 deity = 9;
 
-  // Position
+  // Position & movement
   Vec3 position = 10;
   float heading = 11;
   Vec3 velocity = 12;
@@ -51,13 +52,43 @@ message Spawn {
   bool pvp = 22;
   bool linkdead = 23;
 
-  // NPC-specific
+  // Guild / social
   uint32 guild_id = 24;
   uint32 pet_owner_id = 25;
   uint32 body_type = 26;
-
-  // Animation
   uint32 animation = 27;
+
+  // Movement speeds (EQ: Spawn_Struct.runspeed/walkspeed)
+  float run_speed = 28;
+  float walk_speed = 29;
+
+  // Model properties (EQ: Spawn_Struct.size/light/texture/helm)
+  float size = 30;
+  uint32 light_source = 31;
+  uint32 texture = 32;
+  uint32 helm_texture = 33;
+
+  // Visibility (EQ: Spawn_Struct.invis/findable/showhelm/flymode)
+  bool invis = 34;
+  bool findable = 35;
+  bool show_helm = 36;
+  uint32 fly_mode = 37;
+
+  // Titles (EQ: Spawn_Struct.title[32]/suffix[32])
+  string title = 38;
+  string suffix = 39;
+
+  // Guild rank (EQ: Spawn_Struct.guildrank)
+  uint32 guild_rank = 40;
+
+  // Melee range override (EQ: Spawn_Struct.bounding_radius)
+  float bounding_radius = 41;
+
+  // Is this entity a pet? (EQ: Spawn_Struct.is_pet)
+  bool is_pet = 42;
+
+  // Player state flags (EQ: Spawn_Struct.PlayerState bitmask)
+  uint32 player_state = 43;
 }
 
 message Appearance {

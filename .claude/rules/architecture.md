@@ -6,8 +6,11 @@
 proto/
   buf.yaml                  # Module config + lint/breaking rules
   buf.gen.yaml              # Code generation targets
+  image.bin                 # Breaking-change baseline (buf build output)
+  README.md                 # Protocol guide
   adif/                     # All .proto files (one per domain)
-    packet.proto            # Top-level envelope (the only import a server needs)
+    packet.proto            # Client-server envelope (173-message oneof)
+    ipc.proto               # Server-to-server envelope (77-message oneof)
     common.proto            # Shared types (Vec3, Color)
     <domain>.proto          # Domain messages (zone, entity, combat, ...)
 

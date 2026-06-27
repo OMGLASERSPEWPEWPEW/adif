@@ -24,6 +24,23 @@ ADIF-original work: a voxel zone experiment (Innothule as proof-of-concept).
 
 Once chosen, document the real stack here and remove this placeholder.
 
+## Protocol
+
+All client-server and server-to-server messages are defined in Protobuf 3
+files under `proto/adif/`. See `proto/README.md` for the full guide.
+
+- **`packet.proto`** — Client-server envelope. 173-message `oneof payload`
+  covering connection, zone, entity, character, combat, chat, inventory,
+  trade, groups, guilds, skills, social, and admin.
+- **`ipc.proto`** — Server-to-server envelope. 77-message `oneof payload`
+  for zone lifecycle, cross-zone features, and admin commands.
+- **`common.proto`** — Shared types: `Vec3`, `Vec3Int`, `Color`.
+- **Tooling**: `buf lint`, `buf build`, `buf breaking --against proto/image.bin`.
+- **Tests**: 97 round-trip tests in `tests/ProtoRoundTrip/`.
+- **Validation**: Run `.\scripts\proto-check.ps1` before committing proto changes.
+- **Source of truth**: `docs/struct-proto-map.html` maps EQ structs to proto
+  messages field-by-field, cross-referenced against the database schema.
+
 ## Reference
 
 The `reference/` folder is **gitignored** and holds upstream projects and client

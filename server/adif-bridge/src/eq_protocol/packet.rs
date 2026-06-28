@@ -161,7 +161,7 @@ pub fn build_session_response(
     buf.extend_from_slice(&connect_code.to_be_bytes());
     buf.extend_from_slice(&encode_key.to_be_bytes());
     buf.push(crc_bytes);
-    buf.push(0x01); // encode_pass1 = Compression
+    buf.push(0x00); // encode_pass1 = None (disable compression for now)
     buf.push(0x00); // encode_pass2 = None
     buf.extend_from_slice(&max_packet_size.to_be_bytes());
     buf

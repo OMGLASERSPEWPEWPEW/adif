@@ -1,6 +1,6 @@
 use std::net::SocketAddr;
 
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 use super::codec;
 use super::fragment::FragmentAssembler;
@@ -33,7 +33,7 @@ impl EqSession {
             state: SessionState::Connected,
             connect_code,
             encode_key,
-            crc_bytes: 2,
+            crc_bytes: 0,
             max_packet_size: max_packet_size.min(512),
             sequence_in: 0,
             sequence_out: 0,
@@ -47,19 +47,15 @@ impl EqSession {
             return true;
         }
 
-        if !codec::verify_and_strip_crc(raw, self.encode_key, self.crc_bytes) {
-            debug!(addr = %self.addr, "CRC verification failed");
-            return false;
-        }
-
-        if raw.len() > 2 && raw[1] != super::OP_SESSION_DISCONNECT {
-            let body = &raw[2..];
-            if let Ok(decompressed) = codec::decompress(body) {
-                raw.truncate(2);
-                raw.extend_from_slice(&decompressed);
+        if self.crc_bytes > 0 {
+            if !codec::verify_and_strip_crc(raw, self.encode_key, self.crc_bytes) {
+                let hex: String = raw.iter().take(32).map(|b| format!("{b:02X}")).collect::<Vec<_>>().join(" ");
+                warn!(addr = %self.addr, len = raw.len(), hex = %hex, "CRC failed");
+                return false;
             }
         }
 
+        // No decompression — encode passes are set to None
         true
     }
 
@@ -90,20 +86,16 @@ impl EqSession {
         app_payload.extend_from_slice(&app_opcode.to_le_bytes());
         app_payload.extend_from_slice(app_data);
 
-        let compressed = codec::compress(&app_payload);
-
         let mut buf = Vec::new();
         buf.push(0x00);
+        buf.push(super::OP_PACKET);
+        buf.extend_from_slice(&seq.to_be_bytes());
+        buf.extend_from_slice(&app_payload);
 
-        if compressed.len() + 6 > self.max_packet_size as usize {
-            self.build_fragmented_packet(seq, &app_payload)
-        } else {
-            buf.push(super::OP_PACKET);
-            buf.extend_from_slice(&seq.to_be_bytes());
-            buf.extend_from_slice(&compressed);
+        if self.crc_bytes > 0 {
             codec::append_crc(&mut buf, self.encode_key, self.crc_bytes);
-            buf
         }
+        buf
     }
 
     fn build_fragmented_packet(&mut self, _first_seq: u16, app_payload: &[u8]) -> Vec<u8> {

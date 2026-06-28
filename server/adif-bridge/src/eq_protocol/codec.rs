@@ -47,7 +47,7 @@ pub fn decompress(data: &[u8]) -> anyhow::Result<Vec<u8>> {
     }
 
     let flag = data[0];
-    if flag == 0xa5 {
+    if flag == 0x5a {
         let mut decoder = ZlibDecoder::new(&data[1..]);
         let mut out = Vec::new();
         decoder.read_to_end(&mut out)?;
@@ -63,13 +63,12 @@ pub fn compress(data: &[u8]) -> Vec<u8> {
     let compressed = encoder.finish().unwrap();
 
     if compressed.len() < data.len() {
-        let mut out = vec![0xa5];
+        let mut out = vec![0x5a];
         out.extend_from_slice(&compressed);
         out
     } else {
-        let mut out = vec![0x00];
-        out.extend_from_slice(data);
-        out
+        // Not worth compressing — send raw (no flag byte, EQEmu just sends raw if not 0x5a)
+        data.to_vec()
     }
 }
 

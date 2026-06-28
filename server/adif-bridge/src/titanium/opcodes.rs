@@ -1,6 +1,26 @@
 // Titanium client opcode values from patch_Titanium.conf
 // These are the application-layer opcodes (inside OP_Packet payloads)
 
+// Login server opcodes
+pub const OP_LOGIN_SESSION_READY: u16 = 0x0001;
+pub const OP_LOGIN_LOGIN: u16 = 0x0002;
+pub const OP_LOGIN_SERVER_LIST_REQUEST: u16 = 0x0004;
+pub const OP_LOGIN_PLAY_REQUEST: u16 = 0x000d;
+pub const OP_LOGIN_CHAT_MESSAGE: u16 = 0x0016;
+pub const OP_LOGIN_SERVER_LIST_RESPONSE: u16 = 0x0018;
+pub const OP_LOGIN_ACCEPTED: u16 = 0x0017;
+pub const OP_LOGIN_PLAY_RESPONSE: u16 = 0x0021;
+
+// World server opcodes
+pub const OP_GUILDS_LIST: u16 = 0x6957;
+pub const OP_APPROVE_WORLD: u16 = 0x3c25;
+pub const OP_LOG_SERVER: u16 = 0x0fa6;
+pub const OP_MOTD: u16 = 0x024d;
+pub const OP_EXPANSION_INFO: u16 = 0x04ec;
+pub const OP_POST_ENTER_WORLD: u16 = 0x52A4;
+pub const OP_SEND_CHAR_INFO: u16 = 0x4513;
+pub const OP_ZONE_SERVER_INFO: u16 = 0x61b6;
+
 pub const OP_ZONE_ENTRY: u16 = 0x7213;
 pub const OP_PLAYER_PROFILE: u16 = 0x75df;
 pub const OP_NEW_ZONE: u16 = 0x0920;

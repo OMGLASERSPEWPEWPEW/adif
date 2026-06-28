@@ -17,6 +17,7 @@ dependencies = [
  "des",
  "flate2",
  "prost",
+ "rand",
  "sqlx",
  "tokio",
  "tracing",

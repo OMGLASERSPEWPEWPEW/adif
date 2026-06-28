@@ -126,13 +126,7 @@ pub async fn handle_world_opcode(
                 );
                 crate::send_app_packet(session, socket, addr, opcodes::OP_ZONE_SERVER_INFO, &zsi).await?;
 
-                info!(port = crate::ZONE_PORT, "World: sent zone server info -- client will reconnect for zone");
-
-                // SessionDisconnect to close world connection (client won't connect to zone without this)
-                let mut disconnect = vec![0x00u8, 0x05];
-                disconnect.extend_from_slice(&session.connect_code.to_be_bytes());
-                crate::eq_protocol::codec::append_crc(&mut disconnect, session.encode_key, session.crc_bytes);
-                socket.send_to(&disconnect, addr).await?;
+                info!(port = crate::ZONE_PORT, "World: sent zone server info -- waiting for WorldComplete");
             } else {
                 warn!(character = %char_name, account_id, "World: character not found or not owned");
             }
@@ -140,6 +134,14 @@ pub async fn handle_world_opcode(
 
         opcodes::OP_APPROVE_WORLD => {
             info!("World: client approved world");
+        }
+
+        opcodes::OP_WORLD_COMPLETE => {
+            info!("World: client confirmed zone transition (WorldComplete)");
+            let mut disconnect = vec![0x00u8, 0x05];
+            disconnect.extend_from_slice(&session.connect_code.to_be_bytes());
+            crate::eq_protocol::codec::append_crc(&mut disconnect, session.encode_key, session.crc_bytes);
+            socket.send_to(&disconnect, addr).await?;
         }
 
         _ => {

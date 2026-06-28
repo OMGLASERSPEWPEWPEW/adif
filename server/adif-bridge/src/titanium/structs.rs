@@ -314,6 +314,14 @@ pub fn build_player_profile_full(pp: &PlayerProfileData) -> Vec<u8> {
     // showhelm at 19580
     write_u32_le(&mut buf, 19580, 1);
 
+    // EQ checksum (CRC32 over bytes 4..end, raw accumulator without final NOT)
+    let mut check: u32 = 0xFFFFFFFF;
+    for &byte in &buf[4..] {
+        let index = ((byte as u32) ^ check) & 0xFF;
+        check = (check >> 8) ^ crate::eq_protocol::codec::CRC32_TABLE[index as usize];
+    }
+    buf[0..4].copy_from_slice(&check.to_le_bytes());
+
     buf
 }
 

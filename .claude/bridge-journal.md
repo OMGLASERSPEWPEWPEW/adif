@@ -372,3 +372,60 @@ SESSION 2026-06-27: Milestone 2 COMPLETE, Milestone 3 PLANNED AND APPROVED.
 > scripts/docs-server.py           |  31 +++ (new)
 > proto/README.md                  |  59 +++ (new)
 > ```
+
+### 2026-06-27 23:57
+
+Session 2026-06-27: MASSIVE session. Completed ALL 12 phases of Milestone 3 (Rust Zone Server) and started the EQ protocol bridge.
+
+## Milestone 3 Complete
+- All 12 phases done in one session: Foundation, ECS, Spawn System, Game Loop, TCP Networking, Movement, NPC AI, Combat, Chat, Zone Transitions, Geometry Traits, Integration Test
+- 60 tests, 119 NPCs in Grobb, 31 Hz game loop, TCP on port 7000
+- server/ workspace with adif-proto, adif-common, adif-zone crates
+
+## Protocol Bridge Progress
+- Built adif-bridge crate: EQ UDP reliability protocol (session, CRC, compression, fragmentation)
+- BREAKTHROUGH: DES-encrypted login response (zero-key CBC) — EQ Titanium client shows "ADIF Dev" in server list!
+- Login flow working: handshake → credentials → encrypted LoginAccepted → server list → play request approved
+- Next blocker: World server phase (OP_SendLoginInfo → character list → zone redirect)
+
+## What's Next
+1. Implement world server handler: proactive GuildsList+ApproveWorld packets, handle OP_SendLoginInfo, send character list, handle OP_EnterWorld, send OP_ZoneServerInfo pointing to ourselves
+2. Then zone entry sequence (already built): OP_ZoneEntry → PlayerProfile + Spawns + NewZone
+3. Key reference: world/client.cpp lines 441-1070 for world packet handlers
+
+## Key Technical Discoveries
+- EQ login protocol uses DES CBC encryption with all-zero key/IV for LoginAccepted
+- Server list uses null-terminated strings (not length-prefixed)
+- LoginBaseMessage (10 bytes) is the header on all login packets
+- Session response crc_bytes=0 and encode_passes=None works for disabling encoding
+- Connection phase detection by tracking connection count per IP (1st=login, 2nd=world, 3rd=zone)
+
+> **Session context** *(auto-gathered)*
+>
+> **What happened:**
+> - Built entire Rust zone server in 12 phases (ECS, spawns, game loop, networking, AI, combat, chat)
+> - Built EQ protocol bridge with UDP reliability layer and DES encryption
+> - EQ Titanium client successfully shows "ADIF Dev" in server select screen
+> - Debugged login protocol through 5 iterations (CRC, compression, offsets, strings, DES)
+>
+> **Commits since last entry:**
+> ```
+> a8e2274 chore(infra): update session journal
+> f6f3e2a feat(server): EQ client sees "ADIF Dev" in server list via protocol bridge
+> 0528018 feat(server): add EQ-to-protobuf protocol bridge with zone entry state machine
+> 667528e docs(server): mark Milestone 3 complete — 12/12 phases, 100% progress
+> cf93ee1 feat(server): complete Milestone 3 — AI, combat, chat, zones, geometry (Phases 7-12)
+> 97a3872 feat(server): add TCP networking, movement validation (Phases 5-6)
+> 0d6039c feat(server): add spawn system and game loop (Phases 3-4)
+> 1f3be96 feat(server): add Rust zone server workspace with ECS (Phases 1-2)
+> ... and 8 more (docs, infra)
+> ```
+>
+> **Files touched:**
+> ```
+> server/adif-zone/src/**          | 2800+ lines (zone server)
+> server/adif-bridge/src/**        | 1900+ lines (protocol bridge)
+> docs/zone-server-status.html     | 128 ++
+> docs/rust-server.html            | 600+ (new)
+> scripts/StartBridge.bat          | 24 (new)
+> ```

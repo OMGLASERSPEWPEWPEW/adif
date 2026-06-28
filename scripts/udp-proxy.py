@@ -71,6 +71,7 @@ APP_OPCODES = {
     0x61B6: "OP_ZoneServerInfo",
     0x4DD0: "OP_SendLoginInfo",
     0x7CBA: "OP_EnterWorld",
+    0x509D: "OP_WorldComplete",
     # Zone
     0x7213: "OP_ZoneEntry",
     0x75DF: "OP_PlayerProfile",

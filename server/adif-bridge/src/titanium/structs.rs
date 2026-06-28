@@ -309,14 +309,32 @@ pub fn build_player_profile_full(pp: &PlayerProfileData) -> Vec<u8> {
     // air_remaining at 14900
     write_u32_le(&mut buf, 14900, 60);
 
+    // available_slots at 12860 (must be 0xFFFFFFFF)
+    write_u32_le(&mut buf, 12860, 0xFFFFFFFF);
+
+    // unknown12864 — required magic bytes from EQEmu titanium.cpp lines 1600-1606
+    let magic: [u8; 57] = [
+        0x78, 0x03, 0x00, 0x00, 0x1A, 0x04, 0x00, 0x00, 0x1A, 0x04, 0x00, 0x00, 0x19, 0x00, 0x00, 0x00,
+        0x19, 0x00, 0x00, 0x00, 0x19, 0x00, 0x00, 0x00, 0x0F, 0x00, 0x00, 0x00, 0x0F, 0x00, 0x00, 0x00,
+        0x0F, 0x00, 0x00, 0x00, 0x1F, 0x85, 0xEB, 0x3E, 0x33, 0x33, 0x33, 0x3F, 0x09, 0x00, 0x00, 0x00,
+        0x02, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x14,
+    ];
+    buf[12864..12864 + 57].copy_from_slice(&magic);
+
     // level3 at 19576 (for leadership AA max)
     write_u32_le(&mut buf, 19576, pp.level as u32);
     // showhelm at 19580
     write_u32_le(&mut buf, 19580, 1);
 
-    // EQ checksum (CRC32 over bytes 4..end, raw accumulator without final NOT)
+    // unknown04396 at offset 4396 — 32 bytes must be 0xFF (EQEmu titanium.cpp line 1339)
+    for i in 0..32 {
+        buf[4396 + i] = 0xFF;
+    }
+
+    // EQ checksum: CRC32 over bytes 4..len-4 (EQEmu skips last 4 bytes of struct)
+    let crc_end = buf.len() - 4;
     let mut check: u32 = 0xFFFFFFFF;
-    for &byte in &buf[4..] {
+    for &byte in &buf[4..crc_end] {
         let index = ((byte as u32) ^ check) & 0xFF;
         check = (check >> 8) ^ crate::eq_protocol::codec::CRC32_TABLE[index as usize];
     }

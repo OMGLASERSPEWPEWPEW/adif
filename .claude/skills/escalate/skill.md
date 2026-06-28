@@ -1,19 +1,28 @@
 ---
 name: escalate
-description: Consult GPT-5.5, Gemini 3.1 Pro, DeepSeek V4 Pro, and Claude Opus 4.8 in parallel for independent analysis. Modes: diagnosis (stubborn bugs), review (code/approach review), architecture (design decisions), freeform (any question). Use when you've struck out on a fix 3+ times.
+description: >
+  Consult GPT-5.5, Gemini 3.1 Pro, DeepSeek V4 Pro, and Claude Opus 4.8
+  in parallel for independent analysis. Modes: diagnosis (stubborn bugs),
+  review (code/approach review), architecture (design decisions), freeform
+  (any question). Use when you've struck out on a fix 3+ times.
+user_invocable: true
 ---
 
 # Escalate: Multi-Model Panel
 
-Consult four frontier models in parallel for independent analysis. Not just for bugs — use it for code review, architecture decisions, or any question where diverse expert perspectives add value.
+Consult four frontier models in parallel for independent analysis. Not just
+for bugs — use it for code review, architecture decisions, or any question
+where diverse expert perspectives add value.
 
 <!-- === CONFIGURATION START === -->
 ## Configuration
 
 | Setting | Value |
 |---------|-------|
-| **Diagnostic Log Path** | `.diagnostics/console.log` |
-| **Diagnose CLI Command** | `npx tsx diagnosis/diagnose.ts` |
+| **Diagnose CLI** | `E:/development/patterns/diagnostics/diagnosis/diagnose.ts` |
+| **API Keys .env** | `E:/development/patterns/.env` |
+| **Input file** | `/tmp/diagnosis-input.json` |
+| **Output file** | `/tmp/diagnosis-report.json` |
 
 <!-- === CONFIGURATION END === -->
 
@@ -41,94 +50,63 @@ Read the conversation context to determine which mode fits:
 
 ### Phase 2: Gather
 
-Collect everything the panel needs:
+Collect everything the panel needs. **Be thorough.** The models have no
+context from this conversation — you must give them everything they need
+to reason independently. Include:
 
-1. **For diagnosis mode:**
-   - Bug description (2-3 sentences from conversation history)
-   - Fix attempt history (description, outcome, code diff for each)
-   - Diagnostic log (check `.diagnostics/console.log`)
-   - 2-5 most relevant source files
+- Full bug description with observable symptoms
+- All fix attempts with outcomes
+- Relevant source code (read the actual files, don't summarize)
+- Capture data, wire traces, log output — anything empirical
+- What works vs what doesn't
+- Reference implementations or working examples to compare against
 
-2. **For review mode:**
-   - What's being reviewed (code, approach, PR)
-   - The specific question or concern
-   - Relevant source files
-
-3. **For architecture mode:**
-   - The design question or decision being made
-   - Options being considered
-   - Constraints and context
-   - Relevant source files and ADRs
-
-4. **For freeform mode:**
-   - The question
-   - Any relevant context, code, or files
-   - What kind of answer would be most useful
+**Do NOT bias the models.** Present facts and data. Let them form their
+own hypotheses. Don't lead with "I think the issue is X."
 
 ### Phase 3: Construct
 
-Write the input to `/tmp/diagnosis-input.json`:
+Write the input to `/tmp/diagnosis-input.json`.
 
-**Diagnosis mode:**
+The `additionalContext` field is your main canvas — use it generously.
+Include source code snippets, hex dumps, capture data, struct layouts,
+and anything else the models need. Don't be stingy with context.
+
 ```json
 {
   "mode": "diagnosis",
-  "bugDescription": "Clear summary of the bug",
+  "bugDescription": "Clear summary of the bug with observable symptoms",
   "fixAttempts": [
-    { "description": "What was tried", "outcome": "What went wrong", "codeChange": "optional diff" }
+    { "description": "What was tried", "outcome": "What happened" }
   ],
-  "additionalContext": "Tech stack, architecture notes"
+  "additionalContext": "FULL context here — source code, captures, struct layouts, wire traces, working vs broken comparisons. Be exhaustive."
 }
 ```
-
-**Review mode:**
-```json
-{
-  "mode": "review",
-  "question": "Is this approach to X sound? Specific concern about Y.",
-  "bugDescription": "Context about the code being reviewed",
-  "fixAttempts": [],
-  "additionalContext": "Relevant constraints"
-}
-```
-
-**Architecture mode:**
-```json
-{
-  "mode": "architecture",
-  "question": "Should we use approach A or B for X?",
-  "bugDescription": "Context about the system and constraints",
-  "fixAttempts": [],
-  "additionalContext": "ADR references, scaling requirements, etc."
-}
-```
-
-**Freeform mode:**
-```json
-{
-  "mode": "freeform",
-  "question": "The specific question to analyze",
-  "bugDescription": "Background context",
-  "fixAttempts": [],
-  "additionalContext": "Any additional context"
-}
-```
-
-Use the Write tool to create this file.
 
 ### Phase 4: Query
 
-Run the diagnosis CLI (see Configuration for the command):
+Source the API keys from the .env file and run the CLI. The CLI's internal
+`~/Development/patterns/.env` path doesn't resolve correctly on Windows
+(wrong drive), so we source the keys as env vars explicitly.
 
 ```bash
-<diagnose-command> --input /tmp/diagnosis-input.json \
-  --files "path/to/file1.ts,path/to/file2.ts" \
-  --log --log-lines 100 \
+export $(cat E:/development/patterns/.env | grep -E "^(OPENAI|GEMINI|DEEPSEEK|ANTHROPIC)_API_KEY=" | xargs) && \
+cd E:/development/adif && \
+npx tsx E:/development/patterns/diagnostics/diagnosis/diagnose.ts \
+  --input /tmp/diagnosis-input.json \
+  --files "file1.rs,file2.rs,file3.h" \
   --output /tmp/diagnosis-report.json \
   --verbose
 ```
 
-Adjust `--files` to include the source files identified in Phase 2.
+**Important:**
+- Use the Bash tool, not PowerShell (the `export` syntax is bash)
+- Set timeout to 300000 (5 minutes) — models take time
+- The `--files` flag sends FULL file contents to every model. Include
+  the 2-5 most critical files. For large reference files (like
+  titanium_structs.h at 1000+ lines), put the relevant excerpts in
+  `additionalContext` instead
+- Always use `--verbose` so we can see which models succeed/fail
 
 ### Phase 5: Evaluate
 
@@ -140,26 +118,15 @@ Read `/tmp/diagnosis-report.json`. For each model that returned a result:
 3. Proposed fix — Concrete and actionable?
 4. Confidence level (0.0-1.0)
 
-**Review mode — evaluate:**
-1. Assessment — Overall take on the code/approach
-2. Strengths identified
-3. Concerns — severity, description, suggestions
-4. Recommendations — actionable next steps
-
-**Architecture mode — evaluate:**
-1. Assessment — Overall architectural take
-2. Tradeoffs — pros/cons of each approach
-3. Recommendation — which approach and why
-4. Risks identified
-
-**Freeform mode — evaluate:**
-1. Analysis — depth and quality of reasoning
-2. Key points — most important insights
-3. Recommendations — actionable next steps
+**Review/Architecture/Freeform — evaluate:**
+1. Key insights and recommendations
+2. Strengths and concerns identified
+3. Actionable next steps
 
 **Across all modes, synthesize:**
 - **Consensus** — Where do 2+ models agree?
-- **Divergence** — Where do models disagree? Which view has strongest reasoning?
+- **Divergence** — Where do models disagree? Which view has strongest
+  reasoning? Verify claims against actual code before trusting.
 - **Novel insights** — Did any model surface something unexpected?
 
 ### Phase 6: Present
@@ -193,18 +160,22 @@ Present your synthesized analysis to the user:
 
 ## Golden Rule
 
-**YOU evaluate the model responses. YOU determine how they guide your next plan. Do NOT present the raw model outputs to the user for evaluation.** The user should see your synthesized analysis and informed plan — not four competing walls of JSON.
+**YOU evaluate the model responses. YOU determine how they guide your next
+plan. Do NOT present the raw model outputs to the user for evaluation.**
+The user should see your synthesized analysis and informed plan — not four
+competing walls of JSON.
 
 ## When NOT to Escalate
 
 - The issue is straightforward and you haven't exhausted your own analysis
 - It's a simple configuration or typo problem
-- You already understand the root cause and just need to decide between approaches (use planning)
+- You already understand the root cause and just need to decide between
+  approaches (use planning)
 - The question doesn't benefit from diverse perspectives
 
 ## Requirements
 
-- API keys must be available (env vars or `~/Development/patterns/.env`)
-- At least one of: `OPENAI_API_KEY`, `GEMINI_API_KEY`, `DEEPSEEK_API_KEY`, `ANTHROPIC_API_KEY`
-- The `tsx` package must be installed
-- The `diagnose` CLI must exist in the project (see Configuration)
+- API keys at `E:/development/patterns/.env` (OPENAI, GEMINI, DEEPSEEK,
+  ANTHROPIC — need at least one)
+- Node.js with `tsx` available (`npx tsx --version` to verify)
+- Diagnose CLI at `E:/development/patterns/diagnostics/diagnosis/diagnose.ts`

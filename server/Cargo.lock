@@ -8,6 +8,7 @@ version = "0.1.0"
 dependencies = [
  "adif-common",
  "adif-proto",
+ "adif-world",
  "anyhow",
  "byteorder",
  "bytes",
@@ -16,6 +17,7 @@ dependencies = [
  "des",
  "flate2",
  "prost",
+ "sqlx",
  "tokio",
  "tracing",
  "tracing-subscriber",
@@ -40,6 +42,19 @@ version = "0.1.0"
 dependencies = [
  "prost",
  "prost-build",
+]
+
+[[package]]
+name = "adif-world"
+version = "0.1.0"
+dependencies = [
+ "adif-common",
+ "anyhow",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]

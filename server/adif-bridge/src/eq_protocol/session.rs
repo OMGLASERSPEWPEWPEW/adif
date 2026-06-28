@@ -32,14 +32,14 @@ pub struct EqSession {
 }
 
 impl EqSession {
-    pub fn new(addr: SocketAddr, connect_code: u32, max_packet_size: u32) -> Self {
-        let encode_key = connect_code ^ 0x5A3C_96D7;
+    pub fn new(addr: SocketAddr, connect_code: u32, max_packet_size: u32, crc_bytes: u8) -> Self {
+        let encode_key = rand::random::<u32>();
         Self {
             addr,
             state: SessionState::Connected,
             connect_code,
             encode_key,
-            crc_bytes: 0,
+            crc_bytes,
             max_packet_size: max_packet_size.min(512),
             sequence_in: 0,
             sequence_out: 0,
@@ -117,7 +117,7 @@ mod tests {
     #[test]
     fn session_creation() {
         let addr: SocketAddr = "127.0.0.1:5998".parse().unwrap();
-        let session = EqSession::new(addr, 0xDEADBEEF, 512);
+        let session = EqSession::new(addr, 0xDEADBEEF, 512, 2);
         assert_eq!(session.state, SessionState::Connected);
         assert_eq!(session.crc_bytes, 2);
         assert_eq!(session.max_packet_size, 512);
@@ -128,7 +128,7 @@ mod tests {
     #[test]
     fn sequence_increments() {
         let addr: SocketAddr = "127.0.0.1:5998".parse().unwrap();
-        let mut session = EqSession::new(addr, 0x1234, 512);
+        let mut session = EqSession::new(addr, 0x1234, 512, 2);
         assert_eq!(session.next_sequence_out(), 0);
         assert_eq!(session.next_sequence_out(), 1);
         assert_eq!(session.next_sequence_out(), 2);
@@ -137,7 +137,7 @@ mod tests {
     #[test]
     fn incoming_sequence_tracking() {
         let addr: SocketAddr = "127.0.0.1:5998".parse().unwrap();
-        let mut session = EqSession::new(addr, 0x1234, 512);
+        let mut session = EqSession::new(addr, 0x1234, 512, 2);
         assert!(session.process_incoming_sequence(0));
         assert!(session.process_incoming_sequence(1));
         assert!(!session.process_incoming_sequence(5)); // out of order

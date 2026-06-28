@@ -194,7 +194,8 @@ async fn handle_udp_packet(
                     "New {:?} connection", phase
                 );
 
-                let session = EqSession::new(addr, connect_code, max_packet_size);
+                let crc_bytes = if phase == ConnectionPhase::Login { 0 } else { 2 };
+                let session = EqSession::new(addr, connect_code, max_packet_size, crc_bytes);
                 let response = packet::build_session_response(
                     connect_code,
                     session.encode_key,
@@ -220,13 +221,11 @@ async fn handle_udp_packet(
 
     let mut raw_owned = raw.to_vec();
 
+    // CRC decode: only SessionRequest/SessionResponse/OutOfSession are exempt (per EQEmu PacketCanBeEncoded)
     if raw[0] == 0x00 {
         let proto_op = raw[1];
         match proto_op {
-            eq_protocol::OP_SESSION_DISCONNECT
-            | eq_protocol::OP_KEEP_ALIVE
-            | eq_protocol::OP_SESSION_STAT_REQUEST
-            | eq_protocol::OP_OUTBOUND_PING => {}
+            eq_protocol::OP_SESSION_REQUEST | eq_protocol::OP_SESSION_RESPONSE | eq_protocol::OP_OUT_OF_SESSION => {}
             _ => {
                 if !session.decode_packet(&mut raw_owned) {
                     return Ok(());
@@ -237,7 +236,7 @@ async fn handle_udp_packet(
 
     match packet::parse_protocol_packet(&raw_owned) {
         Ok(ProtocolPacket::KeepAlive) => {
-            socket.send_to(&packet::build_keep_alive(), addr).await?;
+            send_proto_packet(session, socket, addr, &packet::build_keep_alive()).await?;
         }
 
         Ok(ProtocolPacket::SessionStatRequest { .. }) => {}
@@ -252,7 +251,7 @@ async fn handle_udp_packet(
 
         Ok(ProtocolPacket::AppPacket { sequence, data }) => {
             session.process_incoming_sequence(sequence);
-            socket.send_to(&packet::build_ack(sequence), addr).await?;
+            send_proto_packet(session, socket, addr, &packet::build_ack(sequence)).await?;
 
             if data.len() >= 2 {
                 let app_opcode = u16::from_le_bytes([data[0], data[1]]);
@@ -263,7 +262,7 @@ async fn handle_udp_packet(
 
         Ok(ProtocolPacket::Fragment { sequence, data }) => {
             session.process_incoming_sequence(sequence);
-            socket.send_to(&packet::build_ack(sequence), addr).await?;
+            send_proto_packet(session, socket, addr, &packet::build_ack(sequence)).await?;
 
             let is_first = session.fragment_assembler.pending_count() == 0;
             if let Some(complete) = session.fragment_assembler.add_fragment(sequence, &data, is_first) {
@@ -286,7 +285,7 @@ async fn handle_udp_packet(
                     match packet::parse_protocol_packet(&full) {
                         Ok(ProtocolPacket::AppPacket { sequence, data }) => {
                             session.process_incoming_sequence(sequence);
-                            socket.send_to(&packet::build_ack(sequence), addr).await?;
+                            send_proto_packet(session, socket, addr, &packet::build_ack(sequence)).await?;
                             if data.len() >= 2 {
                                 let app_opcode = u16::from_le_bytes([data[0], data[1]]);
                                 let app_data = &data[2..];
@@ -295,7 +294,7 @@ async fn handle_udp_packet(
                         }
                         Ok(ProtocolPacket::Fragment { sequence, data }) => {
                             session.process_incoming_sequence(sequence);
-                            socket.send_to(&packet::build_ack(sequence), addr).await?;
+                            send_proto_packet(session, socket, addr, &packet::build_ack(sequence)).await?;
                             let is_first = session.fragment_assembler.pending_count() == 0;
                             if let Some(complete) = session.fragment_assembler.add_fragment(sequence, &data, is_first) {
                                 if complete.len() >= 2 {
@@ -348,6 +347,18 @@ async fn dispatch_app_packet(
             handle_zone_packet(session, cs, socket, addr, opcode, data, world_state).await
         }
     }
+}
+
+async fn send_proto_packet(
+    session: &EqSession,
+    socket: &UdpSocket,
+    addr: SocketAddr,
+    data: &[u8],
+) -> anyhow::Result<()> {
+    let mut buf = data.to_vec();
+    eq_protocol::codec::append_crc(&mut buf, session.encode_key, session.crc_bytes);
+    socket.send_to(&buf, addr).await?;
+    Ok(())
 }
 
 pub async fn send_app_packet(

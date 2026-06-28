@@ -1,3 +1,4 @@
+
 # Bridge Journal — ADIF
 
 ### 2026-06-21 22:15
@@ -428,4 +429,148 @@ Session 2026-06-27: MASSIVE session. Completed ALL 12 phases of Milestone 3 (Rus
 > docs/zone-server-status.html     | 128 ++
 > docs/rust-server.html            | 600+ (new)
 > scripts/StartBridge.bat          | 24 (new)
+> ```
+
+### 2026-06-28 02:27
+
+SESSION 2026-06-28: World Server crate built, multi-port bridge, login→world transition SOLVED.
+
+## What Happened
+- Created adif-world library crate (5 modules: account, character, zone_registry, zone_routing, lib)
+- DB-backed world handler: queries real accounts (by ID) and characters from character_data table
+- BREAKTHROUGH: Found EQ client uses THREE separate UDP ports (5998 login, 9000 world, 7000-7999 zone)
+- Rewrote bridge main.rs with tokio::select! across 3 sockets — phase determined by port, not connection count
+- Fixed play response sequence echo (was hardcoded 4, must echo client's sequence 5)
+- Fixed account lookup: OP_SendLoginInfo sends lsid (integer), not account name
+- Built proper Titanium CharacterSelect_Struct (1704 bytes, parallel arrays of 10 slots)
+- Added packet fragmentation support for oversized UDP datagrams
+- Updated 6 HTML docs to reflect M3 complete + bridge + world server progress
+
+## Current State
+- Login → server list → play approval → world connection: ALL WORKING
+- Account lookup from DB: WORKING (account_id=1, status=250)
+- Character list from DB: WORKING (characters=1, Ghouldan found)
+- Client receives character list AND sends back CRC/checksum data
+- Character select screen renders BLACK — client IS processing our data but model isn't rendering
+- Likely cause: CharacterSelect_Struct appearance/equipment data fields need correct values
+
+## What's Next
+1. Fix character select rendering (try alt+enter for fullscreen toggle, check if UI is there but black)
+2. Compare CharacterSelect_Struct byte-for-byte with EQEmu output (may need equipment/color data)
+3. Handle OP_EnterWorld (character selection) → ZoneServerInfo → zone entry
+4. Then: zone phase with real character data from DB
+
+## Key Technical Discoveries
+- EQ Titanium connects to 3 ports: 5998 (login), 9000 (world), 7000+ (zone) — NOT all on one port
+- Play response MUST echo client's sequence number from PlayRequest (field 0-3 of LoginBaseMessage)
+- OP_SendLoginInfo sends the login server account ID (lsid) as the identifier, not the account name
+- Titanium CharacterSelect_Struct is 1704 bytes with parallel arrays, not per-character entries
+- Unknown820 and Unknown902 fields must be 0xFF, unused names must be "<none>"
+- Client sends 32KB CRC data (OP_CrashDump 0x7825) after receiving character list — can be ignored
+
+> **Session context** *(auto-gathered)*
+>
+> **What happened:**
+> - Built adif-world crate with account lookup, character queries, zone registry
+> - Solved multi-port mystery: EQ client uses 5998/9000/7778 for login/world/zone
+> - Fixed play response sequence echo and account ID lookup from lsid
+> - Client reaches character select (sends CRC data back) but renders black
+>
+> **Commits since last entry:**
+> ```
+> 5be2d64 docs(server): update HTML docs with M3 complete, bridge progress, world server
+> 4d9de10 feat(server): multi-port bridge with DB-backed world phase
+> 1739927 feat(server): add adif-world crate with DB-backed world server logic
+> ```
+>
+> **Files touched:**
+> ```
+> server/adif-world/src/**                 | 271 +++ (new crate, 5 modules)
+> server/adif-bridge/src/main.rs           | 385 ++++++++++++-----------
+> server/adif-bridge/src/world_handler.rs  | 213 ++++++++------
+> docs/*.html                              | 425 ++++++++++++++++++-----
+> ```
+
+### 2026-06-28 17:25
+
+CRC FIX ATTEMPT FAILED - Session blocked, need proper investigation. The crc32fast Hasher approach (key_le_bytes prepended to data) produces wrong values. Need to verify against capture data with known key/data/CRC triplets before next attempt. Reverted to crc_bytes=0 so bridge works while we investigate. This has been hours of circling — next session needs to start with capture verification, not guessing.
+
+> **Session context** *(auto-gathered)*
+>
+> **What happened:**
+> - Built UDP packet proxy, captured full EQEmu login+world flow
+> - Fixed world packet sequence (removed premature ApproveWorld, correct ordering)
+> - Fixed Combined handler to process Fragment sub-packets (stopped retransmit loop)
+> - Added SessionDisconnect after ZoneServerInfo, DB-backed PlayerProfile
+> - CRC algorithm ported from EQEmu C++ but still produces wrong values
+> - Zone transition blocked: client never connects to zone port after ZoneServerInfo
+>
+> **Commits since last entry:**
+> ```
+> 691b800 docs(server): add EQ protocol reference and UDP packet capture proxy
+> 7f69319 feat(server): fix world phase packet sequence and DB-backed zone entry
+> a9d2d34 chore: add log and stackdump files to .gitignore
+> ```
+>
+> **Files touched:**
+> ```
+> docs/eq-world-protocol.html                | 1496 +++ (new, 5-tab protocol reference)
+> scripts/udp-proxy.py                       |  315 +++ (new, multi-port capture proxy)
+> server/adif-bridge/src/main.rs             |  115 +- (Combined handler, CRC, zone entry)
+> server/adif-bridge/src/world_handler.rs    |   94 +- (packet sequence, MOTD, disconnect)
+> server/adif-bridge/src/titanium/structs.rs |  124 +- (full PlayerProfile, CharSelect)
+> server/adif-world/src/character.rs         |   29 +- (appearance fields, load_by_name)
+> ```
+
+### 2026-06-28 20:40
+
+SESSION 2026-06-28 evening: Major protocol debugging session. Three critical fixes landed + zone capture achieved.
+
+## What Was Fixed
+1. OP_WorldComplete handler — client now sends WorldComplete before disconnect, zone connection established
+2. Outgoing packet fragmentation — SendCharInfo (1704 bytes) properly split into 4 fragments within max_packet_size=512
+3. PlayerProfile CRC32 checksum — EQ checksum computed over bytes 4..end, raw accumulator (no NOT)
+4. Bridge encode_key changed from random to 0 (matching EQEmu)
+5. UDP proxy zone port rewriting — rewrites ZoneServerInfo port 7001→7000 with CRC recalculation
+6. /runbridge skill created for launching bridge in visible CMD window
+
+## Current Blocker
+Client connects to zone, receives PlayerProfile (39 fragments) + player spawn, acks everything, then immediately disconnects. Client never sends OP_ReqNewZone. Loading bar shows "loading character profiles" then hangs.
+
+## Key Discovery from Zone Capture
+EQEmu zone uses encode_pass1=1 (zlib compression). Every zone packet has 0x5A (compressed) or 0xA5 (uncompressed) prefix byte. Our bridge uses encode_pass1=0 which should be fine since client respects the SessionResponse setting.
+
+## Zone Capture File
+scripts/capture-20260628_173650.log — FULL login+world+zone capture through proxy with port rewriting. This is the ground truth for comparing our bridge's zone packets.
+
+## What's Next
+1. Compare our bridge's PlayerProfile bytes against EQEmu's zone capture (need to decompress EQEmu data first since zone uses zlib)
+2. The issue is likely in PlayerProfile struct field content, not the protocol layer — all protocol fixes are working correctly now
+3. Also compare the Spawn struct (OP_ZoneEntry response) byte-for-byte
+
+> **Session context** *(auto-gathered)*
+>
+> **What happened:**
+> - Added OP_WorldComplete handler — zone connection now works end-to-end
+> - Built outgoing packet fragmentation for packets exceeding max_packet_size=512
+> - Added PlayerProfile CRC32 checksum and set encode_key=0 matching EQEmu
+> - Created /runbridge skill and added zone port rewriting to UDP proxy
+> - Achieved first full zone capture (login+world+zone) through proxy
+>
+> **Commits since last entry:**
+> ```
+> c5c6b26 chore(infra): add /runbridge skill for launching bridge in CMD window
+> 8416f14 chore(server): add OP_WorldComplete to UDP proxy opcode dictionary
+> 0ff8be6 feat(server): add WorldComplete handler, outgoing fragmentation, and PlayerProfile checksum
+> ```
+>
+> **Files touched:**
+> ```
+> .claude/skills/runbridge/skill.md           |  27 +++
+> scripts/udp-proxy.py                        |   1 +
+> server/adif-bridge/src/main.rs              |  80 +++++++--
+> server/adif-bridge/src/world_handler.rs     |  16 +-
+> server/adif-bridge/src/titanium/opcodes.rs  |   2 +
+> server/adif-bridge/src/titanium/structs.rs  |   8 +
+> server/adif-bridge/src/eq_protocol/codec.rs |   2 +-
 > ```

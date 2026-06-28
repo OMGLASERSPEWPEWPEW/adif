@@ -33,7 +33,7 @@ pub struct EqSession {
 
 impl EqSession {
     pub fn new(addr: SocketAddr, connect_code: u32, max_packet_size: u32, crc_bytes: u8) -> Self {
-        let encode_key = rand::random::<u32>();
+        let encode_key = 0u32;
         Self {
             addr,
             state: SessionState::Connected,

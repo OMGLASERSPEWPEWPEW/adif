@@ -479,6 +479,20 @@ async fn handle_zone_packet(
             let last_name = ppd.last_name.clone();
 
             let pp = structs::build_player_profile_full(&ppd);
+            info!(
+                "PP dump: checksum={:08X} gender={} race={} class={} level={} zone_id_at_13276={} name_at_12940={}",
+                u32::from_le_bytes([pp[0], pp[1], pp[2], pp[3]]),
+                u32::from_le_bytes([pp[4], pp[5], pp[6], pp[7]]),
+                u32::from_le_bytes([pp[8], pp[9], pp[10], pp[11]]),
+                u32::from_le_bytes([pp[12], pp[13], pp[14], pp[15]]),
+                pp[20],
+                u16::from_le_bytes([pp[13276], pp[13277]]),
+                String::from_utf8_lossy(&pp[12940..12940+20]).trim_end_matches('\0'),
+            );
+            info!(
+                "PP bytes[0..40]: {}",
+                pp[..40].iter().map(|b| format!("{:02X}", b)).collect::<Vec<_>>().join(" ")
+            );
             send_app_packet(session, socket, addr, opcodes::OP_PLAYER_PROFILE, &pp).await?;
             info!(race, class_id, level, "Zone: sent PlayerProfile from DB");
 
@@ -499,19 +513,9 @@ async fn handle_zone_packet(
                 guild_id: 0xFFFFFFFF,
             });
             send_app_packet(session, socket, addr, opcodes::OP_ZONE_ENTRY, &player_spawn).await?;
-        }
 
-        opcodes::OP_REQ_NEW_ZONE => {
-            info!("Zone: sending zone config");
-            let nz = structs::build_new_zone_struct(
-                &cs.char_name, "grobb", "Grobb", -99.0, -585.0, 27.0, 50.0, 800.0, 52,
-            );
-            send_app_packet(session, socket, addr, opcodes::OP_NEW_ZONE, &nz).await?;
-        }
-
-        opcodes::OP_REQ_CLIENT_SPAWN => {
-            info!("Zone: sending spawns and ready signals");
-
+            // EQEmu sends spawns + time immediately after PlayerProfile + player spawn
+            // (see zone/client_packet.cpp Handle_Connect_OP_ZoneEntry lines 1764-1773)
             let npcs = [
                 ("Basher_Nanrum", -2.0, -567.0, 26.0),
                 ("Zugor", -117.0, -603.0, 27.0),
@@ -533,9 +537,21 @@ async fn handle_zone_packet(
             }
             info!(count = npcs.len(), "Zone: sent NPC spawns");
 
-            send_app_packet(session, socket, addr, opcodes::OP_SEND_ZONE_POINTS, &[]).await?;
             send_app_packet(session, socket, addr, opcodes::OP_TIME_OF_DAY, &structs::build_time_of_day(14, 0, 1, 3100)).await?;
             send_app_packet(session, socket, addr, opcodes::OP_WEATHER, &structs::build_weather(0, 0)).await?;
+        }
+
+        opcodes::OP_REQ_NEW_ZONE => {
+            info!("Zone: sending zone config");
+            let nz = structs::build_new_zone_struct(
+                &cs.char_name, "innothule", "Innothule Swamp", -532.7, -2637.1, -19.8, 50.0, 800.0, 46,
+            );
+            send_app_packet(session, socket, addr, opcodes::OP_NEW_ZONE, &nz).await?;
+        }
+
+        opcodes::OP_REQ_CLIENT_SPAWN => {
+            info!("Zone: sending zone points and ready signals");
+            send_app_packet(session, socket, addr, opcodes::OP_SEND_ZONE_POINTS, &[]).await?;
             send_app_packet(session, socket, addr, opcodes::OP_SEND_EXP_ZONEIN, &[]).await?;
         }
 

@@ -182,8 +182,30 @@ pub fn build_new_zone_struct(
     buf
 }
 
+pub struct PlayerProfileData {
+    pub name: String,
+    pub last_name: String,
+    pub race: u32,
+    pub class_id: u32,
+    pub level: u8,
+    pub gender: u32,
+    pub deity: u32,
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+    pub heading: f32,
+    pub zone_id: u16,
+    pub face: u8,
+    pub hair_color: u8,
+    pub beard_color: u8,
+    pub eye_color_1: u8,
+    pub eye_color_2: u8,
+    pub hair_style: u8,
+    pub beard: u8,
+}
+
 pub fn build_player_profile(
-    name: &str,
+    _name: &str,
     race: u32,
     class_id: u32,
     level: u8,
@@ -193,28 +215,102 @@ pub fn build_player_profile(
     z: f32,
     zone_id: u32,
 ) -> Vec<u8> {
+    build_player_profile_full(&PlayerProfileData {
+        name: _name.to_string(),
+        last_name: String::new(),
+        race, class_id, level, gender,
+        deity: 0, x, y, z, heading: 0.0,
+        zone_id: zone_id as u16,
+        face: 0, hair_color: 0, beard_color: 0,
+        eye_color_1: 0, eye_color_2: 0,
+        hair_style: 0, beard: 0,
+    })
+}
+
+pub fn build_player_profile_full(pp: &PlayerProfileData) -> Vec<u8> {
     let mut buf = vec![0u8; PLAYER_PROFILE_SIZE];
 
-    // Skip checksum at 0 (will be computed by client or ignored for now)
-    write_u32_le(&mut buf, 4, gender);
-    write_u32_le(&mut buf, 8, race);
-    write_u32_le(&mut buf, 12, class_id);
-    write_u8(&mut buf, 20, level);
-    write_u8(&mut buf, 21, level);
+    // Titanium PlayerProfile_Struct offsets (from titanium_structs.h)
+    write_u32_le(&mut buf, 4, pp.gender);
+    write_u32_le(&mut buf, 8, pp.race);
+    write_u32_le(&mut buf, 12, pp.class_id);
+    write_u8(&mut buf, 20, pp.level);
+    write_u8(&mut buf, 21, pp.level);
 
-    // Primary bind point at offset 24: zone_id(u32), x(f32), y(f32), z(f32), heading(f32) = 20 bytes
-    write_u32_le(&mut buf, 24, zone_id);
-    write_f32_le(&mut buf, 28, x);
-    write_f32_le(&mut buf, 32, y);
-    write_f32_le(&mut buf, 36, z);
+    // binds[0] (primary bind) at offset 24: zone_id(u32) + x(f32) + y(f32) + z(f32) + heading(f32) = 20 bytes
+    write_u32_le(&mut buf, 24, pp.zone_id as u32);
+    write_f32_le(&mut buf, 28, pp.x);
+    write_f32_le(&mut buf, 32, pp.y);
+    write_f32_le(&mut buf, 36, pp.z);
+    write_f32_le(&mut buf, 40, pp.heading);
+    // binds[4] (home) — same as primary for new characters
+    write_u32_le(&mut buf, 104, pp.zone_id as u32);
+    write_f32_le(&mut buf, 108, pp.x);
+    write_f32_le(&mut buf, 112, pp.y);
+    write_f32_le(&mut buf, 116, pp.z);
+    write_f32_le(&mut buf, 120, pp.heading);
+
+    // deity at 124
+    write_u32_le(&mut buf, 124, pp.deity);
+
+    // Appearance at 172-177
+    write_u8(&mut buf, 172, pp.hair_color);
+    write_u8(&mut buf, 173, pp.beard_color);
+    write_u8(&mut buf, 174, pp.eye_color_1);
+    write_u8(&mut buf, 175, pp.eye_color_2);
+    write_u8(&mut buf, 176, pp.hair_style);
+    write_u8(&mut buf, 177, pp.beard);
 
     // cur_hp at 2232
     write_u32_le(&mut buf, 2232, 1000);
-    // STR-CHA base stats at 2236+ (set to reasonable defaults)
+    // STR through WIS at 2236 (7 stats x u32)
     for i in 0..7 {
         write_u32_le(&mut buf, 2236 + i * 4, 75);
     }
+    // face at 2264
+    write_u8(&mut buf, 2264, pp.face);
 
+    // spellbook — fill unused slots with 0xFFFFFFFF (offset 2312, 400 u32s)
+    for i in 0..400 {
+        write_u32_le(&mut buf, 2312 + i * 4, 0xFFFFFFFF);
+    }
+    // unknown4184 fill with 0xFF (offset 3912, 448 bytes)
+    for i in 0..448 {
+        buf[3912 + i] = 0xFF;
+    }
+    // mem_spells — fill with 0xFFFFFFFF (offset 4360, 9 u32s)
+    for i in 0..9 {
+        write_u32_le(&mut buf, 4360 + i * 4, 0xFFFFFFFF);
+    }
+
+    // hunger/thirst (offset 5000/5004) — set to full
+    write_u32_le(&mut buf, 5000, 6000);
+    write_u32_le(&mut buf, 5004, 6000);
+
+    // name at 12940 (64 chars)
+    write_str(&mut buf, 12940, &pp.name, 64);
+    // last_name at 13004 (32 chars)
+    write_str(&mut buf, 13004, &pp.last_name, 32);
+    // guild_id at 13036 (0xFFFFFFFF = no guild)
+    write_u32_le(&mut buf, 13036, 0xFFFFFFFF);
+
+    // x/y/z/heading at 13116-13128
+    write_f32_le(&mut buf, 13116, pp.x);
+    write_f32_le(&mut buf, 13120, pp.y);
+    write_f32_le(&mut buf, 13124, pp.z);
+    write_f32_le(&mut buf, 13128, pp.heading);
+
+    // expansions at 13240 (all expansions)
+    write_u32_le(&mut buf, 13240, 0x7FFF);
+
+    // zone_id at 13276 (u16)
+    write_u16_le(&mut buf, 13276, pp.zone_id);
+
+    // air_remaining at 14900
+    write_u32_le(&mut buf, 14900, 60);
+
+    // level3 at 19576 (for leadership AA max)
+    write_u32_le(&mut buf, 19576, pp.level as u32);
     // showhelm at 19580
     write_u32_le(&mut buf, 19580, 1);
 

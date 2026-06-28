@@ -24,7 +24,7 @@ mod world_handler;
 use eq_protocol::packet::{self, ProtocolPacket};
 use eq_protocol::session::EqSession;
 use titanium::opcodes;
-use titanium::structs::{self, SpawnData};
+use titanium::structs::{self, PlayerProfileData, SpawnData};
 
 use adif_world::WorldState;
 
@@ -204,13 +204,7 @@ async fn handle_udp_packet(
 
                 socket.send_to(&response, addr).await?;
 
-                if phase == ConnectionPhase::World {
-                    state.sessions.insert(addr, EqSession::new(addr, connect_code, max_packet_size));
-                    let stored = state.sessions.get_mut(&addr).unwrap();
-                    world_handler::send_proactive_world_packets(stored, socket, addr).await?;
-                } else {
-                    state.sessions.insert(addr, session);
-                }
+                state.sessions.insert(addr, session);
 
                 state.client_states.insert(addr, ClientState::new(phase));
             }
@@ -283,18 +277,36 @@ async fn handle_udp_packet(
 
         Ok(ProtocolPacket::Combined { sub_packets }) => {
             for sub in sub_packets {
-                if sub.len() >= 4 {
-                    if let Ok(ProtocolPacket::AppPacket { sequence, data }) =
-                        packet::parse_protocol_packet(&[&[0x00], sub.as_slice()].concat())
-                    {
-                        session.process_incoming_sequence(sequence);
-                        socket.send_to(&packet::build_ack(sequence), addr).await?;
-
-                        if data.len() >= 2 {
-                            let app_opcode = u16::from_le_bytes([data[0], data[1]]);
-                            let app_data = &data[2..];
-                            dispatch_app_packet(session, &mut state.client_states, addr, socket, phase, app_opcode, app_data, world_state).await?;
+                if sub.len() >= 2 {
+                    let full = if sub[0] == 0x00 {
+                        sub.clone()
+                    } else {
+                        [&[0x00], sub.as_slice()].concat()
+                    };
+                    match packet::parse_protocol_packet(&full) {
+                        Ok(ProtocolPacket::AppPacket { sequence, data }) => {
+                            session.process_incoming_sequence(sequence);
+                            socket.send_to(&packet::build_ack(sequence), addr).await?;
+                            if data.len() >= 2 {
+                                let app_opcode = u16::from_le_bytes([data[0], data[1]]);
+                                let app_data = &data[2..];
+                                dispatch_app_packet(session, &mut state.client_states, addr, socket, phase, app_opcode, app_data, world_state).await?;
+                            }
                         }
+                        Ok(ProtocolPacket::Fragment { sequence, data }) => {
+                            session.process_incoming_sequence(sequence);
+                            socket.send_to(&packet::build_ack(sequence), addr).await?;
+                            let is_first = session.fragment_assembler.pending_count() == 0;
+                            if let Some(complete) = session.fragment_assembler.add_fragment(sequence, &data, is_first) {
+                                if complete.len() >= 2 {
+                                    let app_opcode = u16::from_le_bytes([complete[0], complete[1]]);
+                                    let app_data = &complete[2..];
+                                    dispatch_app_packet(session, &mut state.client_states, addr, socket, phase, app_opcode, app_data, world_state).await?;
+                                }
+                            }
+                        }
+                        Ok(ProtocolPacket::Ack { .. }) | Ok(ProtocolPacket::OutOfOrderAck { .. }) => {}
+                        _ => {}
                     }
                 }
             }
@@ -333,7 +345,7 @@ async fn dispatch_app_packet(
         }
         ConnectionPhase::Zone => {
             let cs = client_states.get_mut(&addr).unwrap();
-            handle_zone_packet(session, cs, socket, addr, opcode, data).await
+            handle_zone_packet(session, cs, socket, addr, opcode, data, world_state).await
         }
     }
 }
@@ -358,6 +370,7 @@ async fn handle_zone_packet(
     addr: SocketAddr,
     opcode: u16,
     data: &[u8],
+    world_state: &Arc<WorldState>,
 ) -> anyhow::Result<()> {
     match opcode {
         opcodes::OP_ZONE_ENTRY => {
@@ -366,17 +379,61 @@ async fn handle_zone_packet(
 
             info!(character = %cs.char_name, spawn_id = cs.player_spawn_id, "Zone: entry request");
 
-            let pp = structs::build_player_profile(
-                &cs.char_name, 1, 1, 10, 0, -99.0, -585.0, 27.0, 52,
-            );
+            let record = adif_world::character::load_character_by_name(
+                &world_state.pool,
+                &cs.char_name,
+            ).await?;
+
+            let ppd = if let Some(ref r) = record {
+                PlayerProfileData {
+                    name: r.name.clone(), last_name: r.last_name.clone(),
+                    race: r.race as u32, class_id: r.class_id as u32,
+                    level: r.level as u8, gender: r.gender as u32,
+                    deity: r.deity as u32,
+                    x: r.x, y: r.y, z: r.z, heading: r.heading,
+                    zone_id: r.zone_id as u16,
+                    face: r.face as u8, hair_color: r.hair_color as u8,
+                    beard_color: r.beard_color as u8,
+                    eye_color_1: r.eye_color_1 as u8, eye_color_2: r.eye_color_2 as u8,
+                    hair_style: r.hair_style as u8, beard: r.beard as u8,
+                }
+            } else {
+                warn!(character = %cs.char_name, "Zone: character not found in DB, using defaults");
+                PlayerProfileData {
+                    name: cs.char_name.clone(), last_name: String::new(),
+                    race: 9, class_id: 1, level: 1, gender: 0, deity: 0,
+                    x: -99.0, y: -585.0, z: 27.0, heading: 0.0,
+                    zone_id: 52, face: 0, hair_color: 0, beard_color: 0,
+                    eye_color_1: 0, eye_color_2: 0, hair_style: 0, beard: 0,
+                }
+            };
+
+            let race = ppd.race;
+            let class_id = ppd.class_id;
+            let level = ppd.level;
+            let gender = ppd.gender;
+            let deity = ppd.deity as u16;
+            let x = ppd.x;
+            let y = ppd.y;
+            let z = ppd.z;
+            let heading = ppd.heading;
+            let last_name = ppd.last_name.clone();
+
+            let pp = structs::build_player_profile_full(&ppd);
             send_app_packet(session, socket, addr, opcodes::OP_PLAYER_PROFILE, &pp).await?;
-            info!("Zone: sent PlayerProfile");
+            info!(race, class_id, level, "Zone: sent PlayerProfile from DB");
+
+            let size = match race {
+                1 => 6.0, 2 => 6.0, 3 => 8.0, 4 => 5.0, 5 => 4.0,
+                6 => 5.0, 7 => 5.0, 8 => 7.0, 9 => 8.0, 10 => 7.0,
+                11 => 6.0, 12 => 6.0, 128 => 5.0, 130 => 5.0, _ => 6.0,
+            };
 
             let player_spawn = structs::build_spawn_struct(&SpawnData {
                 spawn_id: cs.player_spawn_id,
-                name: cs.char_name.clone(), last_name: String::new(),
-                level: 10, race: 1, class_id: 1, gender: 0, deity: 0,
-                x: -99.0, y: -585.0, z: 27.0, heading: 0.0, size: 6.0,
+                name: cs.char_name.clone(), last_name,
+                level, race, class_id: class_id as u8, gender: gender as u8, deity,
+                x, y, z, heading, size,
                 npc_type: 0, cur_hp: 100, max_hp: 100, body_type: 0,
                 run_speed: 0.7, walk_speed: 0.46,
                 findable: 1, light: 0, texture: 0, helm_texture: 0,
@@ -390,12 +447,12 @@ async fn handle_zone_packet(
                 ("a_Troll_guard", -60.0, -600.0, 26.0),
                 ("Grobb_Merchant", -130.0, -550.0, 27.0),
             ];
-            for (npc_name, x, y, z) in &npcs {
+            for (npc_name, nx, ny, nz) in &npcs {
                 let npc_id = cs.alloc_spawn_id();
                 let spawn = structs::build_spawn_struct(&SpawnData {
                     spawn_id: npc_id, name: npc_name.to_string(), last_name: String::new(),
                     level: 30, race: 9, class_id: 1, gender: 0, deity: 0,
-                    x: *x, y: *y, z: *z, heading: 0.0, size: 6.0,
+                    x: *nx, y: *ny, z: *nz, heading: 0.0, size: 8.0,
                     npc_type: 1, cur_hp: 100, max_hp: 100, body_type: 1,
                     run_speed: 0.7, walk_speed: 0.46,
                     findable: 1, light: 0, texture: 0, helm_texture: 0,

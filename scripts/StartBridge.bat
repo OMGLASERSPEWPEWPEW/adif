@@ -6,6 +6,7 @@ echo EQ Client (UDP :5998) -- Bridge -- Rust Zone Server (TCP :7000)
 echo.
 
 set PROTOC=%USERPROFILE%\protoc\bin\protoc.exe
+set RUST_LOG=trace
 
 echo Building bridge...
 cd /d E:\development\adif\server

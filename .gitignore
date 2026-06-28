@@ -11,3 +11,7 @@ tests/**/obj/
 # Rust build output
 server/target/
 tests/proto-rust/target/
+
+# Log files
+*.log
+*.stackdump

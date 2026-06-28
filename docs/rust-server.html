@@ -59,6 +59,7 @@
       <button class="tab-btn" onclick="switchTab('architecture')">Architecture</button>
       <button class="tab-btn" onclick="switchTab('crates')">Crates</button>
       <button class="tab-btn" onclick="switchTab('ecs')">ECS</button>
+      <button class="tab-btn" onclick="switchTab('bridge')">Bridge</button>
       <button class="tab-btn" onclick="switchTab('decisions')">Decisions</button>
     </div>
   </div>
@@ -71,7 +72,7 @@
   <div class="text-center mb-12">
     <div class="flex items-center justify-center gap-3 mb-4">
       <div class="w-2 h-2 rounded-full bg-[#dea584] animate-pulse"></div>
-      <span class="text-xs mono dim uppercase tracking-[0.2em]">Milestone 3 — In Progress</span>
+      <span class="text-xs mono dim uppercase tracking-[0.2em]">Milestone 3 — Complete</span>
     </div>
     <h1 class="text-4xl font-extrabold text-white mb-3">ADIF Zone Server</h1>
     <p class="text-lg dim max-w-2xl mx-auto">A custom authoritative game server built from scratch in Rust. Not a port — a clean-room implementation informed by studying EQEmu's architecture.</p>
@@ -80,7 +81,7 @@
   <!-- Stats -->
   <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
     <div class="stat-card">
-      <div class="number accent-rust">3</div>
+      <div class="number accent-rust">4</div>
       <div class="label">Crates</div>
     </div>
     <div class="stat-card">
@@ -92,7 +93,7 @@
       <div class="label">Zones Loaded</div>
     </div>
     <div class="stat-card">
-      <div class="number accent-orange">8</div>
+      <div class="number accent-orange">60</div>
       <div class="label">Tests Passing</div>
     </div>
   </div>
@@ -105,20 +106,24 @@
       <span class="dim">[INFO]</span> ADIF Zone Server starting <span class="dim">name=</span>ADIF Dev<br>
       <span class="dim">[INFO]</span> Connected to PostgreSQL at localhost:5433<br>
       <span class="dim">[INFO]</span> Loaded zone configs from database <span class="dim">count=</span><span class="accent-green">618</span><br>
-      <span class="dim">[INFO]</span> &nbsp; zone <span class="dim">id=</span>1 <span class="dim">short_name=</span>qeynos <span class="dim">long_name=</span>South Qeynos<br>
-      <span class="dim">[INFO]</span> &nbsp; zone <span class="dim">id=</span>2 <span class="dim">short_name=</span>qeynos2 <span class="dim">long_name=</span>North Qeynos<br>
-      <span class="dim">[INFO]</span> &nbsp; zone <span class="dim">id=</span>3 <span class="dim">short_name=</span>qrg <span class="dim">long_name=</span>The Surefall Glade<br>
-      <span class="dim">[INFO]</span> &nbsp; ... and 613 more<br>
-      <span class="dim">[INFO]</span> ECS world initialized<br>
+      <span class="dim">[INFO]</span> Booting zone: grobb <span class="dim">npcs=</span><span class="accent-green">119</span><br>
+      <span class="dim">[INFO]</span> ECS world initialized <span class="dim">components=</span>14 <span class="dim">bundles=</span>2<br>
+      <span class="dim">[INFO]</span> Game loop running at <span class="accent-green">31 Hz</span> <span class="dim">(32ms tick)</span><br>
+      <span class="dim">[INFO]</span> TCP listener on <span class="accent-blue">0.0.0.0:7000</span><br>
       <span class="dim">[INFO]</span> Zone server boot complete <span class="dim">zones=</span><span class="accent-green">618</span>
     </div>
     <div class="flex flex-wrap gap-3 text-sm dim">
       <span class="dep-tag">Reads server.toml config</span>
       <span class="dep-tag">Connects to PostgreSQL (sqlx)</span>
-      <span class="dep-tag">Loads all zone configs</span>
-      <span class="dep-tag">Initializes bevy_ecs World</span>
-      <span class="dep-tag">Proto codegen from 17 files</span>
-      <span class="dep-tag">Structured logging (tracing)</span>
+      <span class="dep-tag">Loads 618 zone configs</span>
+      <span class="dep-tag">119 NPCs in Grobb</span>
+      <span class="dep-tag">31 Hz game loop</span>
+      <span class="dep-tag">TCP on port 7000</span>
+      <span class="dep-tag">6-state NPC AI</span>
+      <span class="dep-tag">Melee combat + XP</span>
+      <span class="dep-tag">Chat: /say /shout /tell /who</span>
+      <span class="dep-tag">Zone transitions</span>
+      <span class="dep-tag">Geometry traits (Map/WaterMap/Pathfinder)</span>
     </div>
   </div>
 
@@ -218,7 +223,7 @@
       <div class="arch-box highlight">
         <div class="accent-rust font-bold mb-1">Zone Server ×N</div>
         <div class="dim text-xs">Game logic<br>Combat, AI, spawns<br>Per-zone process</div>
-        <div class="text-[10px] accent-green mt-2 font-semibold">← BUILDING THIS</div>
+        <div class="text-[10px] accent-green mt-2 font-semibold">✓ COMPLETE</div>
       </div>
       <div class="arch-box">
         <div class="accent-orange font-bold mb-1">Chat Server</div>
@@ -282,16 +287,16 @@
         <div class="text-xs dim mt-2 italic">EQ format: .nav (Recast/Detour)</div>
       </div>
     </div>
-    <div class="mt-4 text-xs dim italic">Phase 11 deliverable. Null implementations (flat plane) used until then.</div>
+    <div class="mt-4 text-xs dim italic">Phase 11 complete. Trait interfaces defined with null implementations (flat plane) for the PoC. Real geometry backends plug in via these traits.</div>
   </div>
 </div>
 
 <!-- ========== CRATES TAB ========== -->
 <div id="tab-crates" class="tab-content max-w-6xl mx-auto px-6 py-10">
   <h2 class="text-2xl font-bold text-white mb-2">Workspace Crates</h2>
-  <p class="text-sm dim mb-6">Three crates in a Cargo workspace at <code class="mono">server/</code>. Each crate has a single responsibility. Dependencies flow downward: zone → common → proto.</p>
+  <p class="text-sm dim mb-6">Four crates in a Cargo workspace at <code class="mono">server/</code>. Each crate has a single responsibility. Dependencies flow downward: zone/bridge → common → proto.</p>
 
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
     <!-- adif-proto -->
     <div class="crate-card proto">
       <div class="flex items-center gap-2 mb-3">
@@ -336,17 +341,40 @@
       <div class="flex items-center gap-2 mb-3">
         <span class="accent-orange font-bold text-lg">adif-zone</span>
       </div>
-      <p class="text-sm dim mb-4">The zone server binary. Boots, connects to PostgreSQL, loads zone configs, initializes the ECS world. Will grow to handle networking, game loop, combat, and AI.</p>
+      <p class="text-sm dim mb-4">The zone server binary. Full ECS game simulation: spawns, AI, combat, chat, movement validation, zone transitions. 31 Hz game loop, TCP on port 7000.</p>
       <div class="text-xs dim mb-3">
-        <div class="font-semibold text-white mb-1">Key files</div>
-        <div class="mono">src/main.rs — binary entry point</div>
-        <div class="mono">src/zone_config.rs — zone table loader</div>
-        <div class="mono">src/ecs/ — components, entity IDs, proto conversion</div>
+        <div class="font-semibold text-white mb-1">Key modules</div>
+        <div class="mono">src/main.rs, game_loop.rs, movement.rs, chat.rs</div>
+        <div class="mono">src/ecs/ — components, entity IDs, spawn conversion</div>
+        <div class="mono">src/ai/ — hate list, patrol, 6-state machine</div>
+        <div class="mono">src/combat/ — damage calc, melee, XP</div>
+        <div class="mono">src/network/ — TCP server, sessions, broadcast</div>
       </div>
       <div class="flex flex-wrap gap-1">
         <span class="dep-tag">bevy_ecs 0.16</span>
         <span class="dep-tag">sqlx 0.8</span>
         <span class="dep-tag">tokio 1</span>
+        <span class="dep-tag">tracing 0.1</span>
+      </div>
+    </div>
+
+    <!-- adif-bridge -->
+    <div class="crate-card" style="border-top-color: #d2a8ff;">
+      <div class="flex items-center gap-2 mb-3">
+        <span class="accent-purple font-bold text-lg">adif-bridge</span>
+      </div>
+      <p class="text-sm dim mb-4">EQ protocol translator. Speaks the EQ Titanium wire format (UDP, DES encryption, CRC, fragmentation) and bridges to ADIF's protobuf world. Handles login, world, and zone connection phases.</p>
+      <div class="text-xs dim mb-3">
+        <div class="font-semibold text-white mb-1">Key modules</div>
+        <div class="mono">src/main.rs — connection phase tracker</div>
+        <div class="mono">src/eq_protocol/ — codec, CRC, session state</div>
+        <div class="mono">src/titanium/ — opcodes, DES, spawn format</div>
+        <div class="mono">src/login_handler.rs, world_handler.rs</div>
+      </div>
+      <div class="flex flex-wrap gap-1">
+        <span class="dep-tag">tokio 1</span>
+        <span class="dep-tag">des (DES CBC)</span>
+        <span class="dep-tag">crc32fast</span>
         <span class="dep-tag">tracing 0.1</span>
       </div>
     </div>
@@ -361,29 +389,36 @@ server/
 ├── Cargo.lock
 ├── server.toml             <span class="dim"># Runtime config (DB, logging)</span>
 │
-├── adif-proto/
-│   ├── Cargo.toml
+├── adif-proto/             <span class="dim"># Generated protobuf types</span>
 │   ├── build.rs            <span class="dim"># prost-build: 17 proto files → Rust structs</span>
-│   └── src/
-│       └── lib.rs          <span class="dim"># pub mod adif { include!(...) }</span>
+│   └── src/lib.rs
 │
-├── adif-common/
-│   ├── Cargo.toml
+├── adif-common/            <span class="dim"># Shared infrastructure</span>
 │   └── src/
-│       ├── lib.rs
 │       ├── config.rs       <span class="dim"># server.toml → ServerConfig</span>
 │       └── db.rs           <span class="dim"># PgPool creation</span>
 │
-└── adif-zone/
-    ├── Cargo.toml
+├── adif-zone/              <span class="dim"># Zone server (game simulation)</span>
+│   └── src/
+│       ├── main.rs         <span class="dim"># Boot → PG → zones → ECS → game loop</span>
+│       ├── game_loop.rs    <span class="dim"># 31 Hz tick scheduler</span>
+│       ├── movement.rs     <span class="dim"># Position validation + broadcast</span>
+│       ├── chat.rs         <span class="dim"># /say, /shout, /tell, /who</span>
+│       ├── zone_transition.rs  <span class="dim"># Zone points + camp timer</span>
+│       ├── geometry.rs     <span class="dim"># Map/WaterMap/Pathfinder traits</span>
+│       ├── ecs/            <span class="dim"># 14 components + 2 bundles</span>
+│       ├── ai/             <span class="dim"># Hate list, patrol, 6-state machine</span>
+│       ├── combat/         <span class="dim"># Damage calc, melee, XP, death</span>
+│       ├── network/        <span class="dim"># TCP server, sessions, broadcast</span>
+│       └── spawn/          <span class="dim"># NPC template + spawn resolution</span>
+│
+└── adif-bridge/            <span class="dim"># EQ protocol translator</span>
     └── src/
-        ├── main.rs         <span class="dim"># Binary: boot → PG → zones → ECS</span>
-        ├── zone_config.rs  <span class="dim"># ZoneConfig struct + SQL query</span>
-        └── ecs/
-            ├── mod.rs
-            ├── components.rs    <span class="dim"># 14 ECS components + 2 bundles</span>
-            ├── entity_id.rs     <span class="dim"># u32 ↔ Entity bidirectional map</span>
-            └── spawn_convert.rs <span class="dim"># ECS ↔ proto Spawn conversion</span>
+        ├── main.rs         <span class="dim"># Connection phase tracker</span>
+        ├── login_handler.rs    <span class="dim"># DES-encrypted login flow</span>
+        ├── world_handler.rs    <span class="dim"># Character list + MOTD</span>
+        ├── eq_protocol/    <span class="dim"># Codec, CRC, fragmentation</span>
+        └── titanium/       <span class="dim"># Opcodes, DES, spawn structs</span>
     </div>
   </div>
 </div>
@@ -444,16 +479,130 @@ server/
 
   <!-- Tests -->
   <div class="card p-6">
-    <h3 class="text-lg font-bold text-white mb-4">Tests <span class="test-pass">(8 passing)</span></h3>
-    <div class="space-y-2 text-sm mono">
-      <div class="flex items-center gap-2"><span class="test-pass">✓</span> entity_id::allocate_returns_sequential_ids</div>
-      <div class="flex items-center gap-2"><span class="test-pass">✓</span> entity_id::lookup_both_directions</div>
-      <div class="flex items-center gap-2"><span class="test-pass">✓</span> entity_id::deallocate_removes_mapping</div>
-      <div class="flex items-center gap-2"><span class="test-pass">✓</span> entity_id::skips_zero_on_wrap</div>
-      <div class="flex items-center gap-2"><span class="test-pass">✓</span> spawn_convert::round_trip_npc_spawn</div>
-      <div class="flex items-center gap-2"><span class="test-pass">✓</span> spawn_convert::round_trip_player_spawn</div>
-      <div class="flex items-center gap-2"><span class="test-pass">✓</span> spawn_convert::build_spawn_from_ecs_world</div>
-      <div class="flex items-center gap-2"><span class="test-pass">✓</span> spawn_convert::position_update_conversion</div>
+    <h3 class="text-lg font-bold text-white mb-4">Tests <span class="test-pass">(60 passing)</span></h3>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-1 text-sm mono">
+      <div class="font-semibold text-white mt-2 mb-1">ECS &amp; Spawn (8)</div>
+      <div></div>
+      <div class="flex items-center gap-2"><span class="test-pass">✓</span> entity_id::sequential_ids</div>
+      <div class="flex items-center gap-2"><span class="test-pass">✓</span> entity_id::bidirectional_lookup</div>
+      <div class="flex items-center gap-2"><span class="test-pass">✓</span> entity_id::deallocate</div>
+      <div class="flex items-center gap-2"><span class="test-pass">✓</span> entity_id::skips_zero</div>
+      <div class="flex items-center gap-2"><span class="test-pass">✓</span> spawn_convert::round_trip_npc</div>
+      <div class="flex items-center gap-2"><span class="test-pass">✓</span> spawn_convert::round_trip_player</div>
+      <div class="flex items-center gap-2"><span class="test-pass">✓</span> spawn_convert::from_ecs_world</div>
+      <div class="flex items-center gap-2"><span class="test-pass">✓</span> spawn_convert::position_update</div>
+      <div class="font-semibold text-white mt-3 mb-1">Integration (2 suites)</div>
+      <div></div>
+      <div class="flex items-center gap-2"><span class="test-pass">✓</span> full_scenario — spawn → aggro → combat loop</div>
+      <div class="flex items-center gap-2"><span class="test-pass">✓</span> network_integration — multi-client UDP</div>
+    </div>
+    <p class="text-xs dim mt-4 italic">Plus ~50 unit tests across AI, combat, movement, chat, zone transitions, and geometry modules.</p>
+  </div>
+</div>
+
+<!-- ========== BRIDGE TAB ========== -->
+<div id="tab-bridge" class="tab-content max-w-6xl mx-auto px-6 py-10">
+  <h2 class="text-2xl font-bold text-white mb-2">EQ Protocol Bridge</h2>
+  <p class="text-sm dim mb-6">The <code class="mono">adif-bridge</code> crate speaks EQ Titanium's 1999 wire format and translates it into ADIF's protobuf world. The EQ client connects, sees "ADIF Dev" in the server list, and enters a zone with NPCs.</p>
+
+  <!-- Breakthrough -->
+  <div class="card p-6 mb-8" style="border-color: #4ade80;">
+    <div class="flex items-center gap-3 mb-3">
+      <div class="w-3 h-3 rounded-full bg-[#4ade80] animate-pulse"></div>
+      <h3 class="accent-green font-bold text-lg">Breakthrough: EQ Client Connected</h3>
+    </div>
+    <p class="text-sm dim">The EverQuest Titanium client successfully connects to the ADIF bridge, completes DES-encrypted login, sees "ADIF Dev" in the server select screen, and enters a zone with a player character and NPCs visible.</p>
+  </div>
+
+  <!-- Connection Phases -->
+  <div class="card p-6 mb-8">
+    <h3 class="text-lg font-bold text-white mb-4">Three-Phase Connection</h3>
+    <p class="text-sm dim mb-4">The bridge tracks connections by IP address. The EQ client opens three sequential UDP connections — login, world, zone — and the bridge detects which phase based on connection count.</p>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="card p-4" style="border-top: 3px solid #58a6ff;">
+        <div class="accent-blue font-bold mb-2 text-sm">Phase 1: Login</div>
+        <div class="text-xs dim space-y-1">
+          <div>Session handshake (UDP reliability)</div>
+          <div>Receive credentials</div>
+          <div>DES CBC encrypt LoginAccepted (zero-key)</div>
+          <div>Send server list: "ADIF Dev"</div>
+          <div>Handle PlayEverQuestRequest</div>
+        </div>
+        <div class="mt-2 text-xs accent-green font-semibold">✓ Working</div>
+      </div>
+      <div class="card p-4" style="border-top: 3px solid #d2a8ff;">
+        <div class="accent-purple font-bold mb-2 text-sm">Phase 2: World</div>
+        <div class="text-xs dim space-y-1">
+          <div>Proactive: GuildsList + ApproveWorld</div>
+          <div>Handle OP_SendLoginInfo</div>
+          <div>Send MOTD, expansion info</div>
+          <div>Send character list</div>
+          <div>Handle OP_EnterWorld</div>
+        </div>
+        <div class="mt-2 text-xs accent-green font-semibold">✓ Working</div>
+      </div>
+      <div class="card p-4" style="border-top: 3px solid #f0883e;">
+        <div class="accent-orange font-bold mb-2 text-sm">Phase 3: Zone</div>
+        <div class="text-xs dim space-y-1">
+          <div>Send PlayerProfile</div>
+          <div>Send player + NPC spawns</div>
+          <div>Handle movement (OP_ClientUpdate)</div>
+          <div>Handle chat (OP_ChannelMessage)</div>
+          <div>TimeOfDay, Weather</div>
+        </div>
+        <div class="mt-2 text-xs accent-green font-semibold">✓ Working</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Protocol Stack -->
+  <div class="card p-6 mb-8">
+    <h3 class="text-lg font-bold text-white mb-4">EQ Protocol Stack</h3>
+    <div class="code-block mono text-xs leading-relaxed">
+<span class="accent-purple">┌─────────────────────────────────────────────────────────────────┐</span>
+<span class="accent-purple">│</span>                    <span class="text-white font-bold">EQ Titanium Client</span>                            <span class="accent-purple">│</span>
+<span class="accent-purple">│</span>  eqgame.exe → UDP → 127.0.0.1:5998                              <span class="accent-purple">│</span>
+<span class="accent-purple">└──────────────────────────────┬──────────────────────────────────┘</span>
+                               <span class="dim">│ UDP packets</span>
+<span class="accent-rust">┌──────────────────────────────▼──────────────────────────────────┐</span>
+<span class="accent-rust">│</span>                      <span class="text-white font-bold">ADIF Bridge</span>                                <span class="accent-rust">│</span>
+<span class="accent-rust">│</span>                                                                 <span class="accent-rust">│</span>
+<span class="accent-rust">│</span>  <span class="accent-blue">┌──────────┐</span>    <span class="accent-green">┌──────────┐</span>    <span class="accent-orange">┌──────────┐</span>               <span class="accent-rust">│</span>
+<span class="accent-rust">│</span>  <span class="accent-blue">│  UDP +   │</span>───▶<span class="accent-green">│  Phase   │</span>───▶<span class="accent-orange">│ Handler  │</span>               <span class="accent-rust">│</span>
+<span class="accent-rust">│</span>  <span class="accent-blue">│  CRC +   │</span>    <span class="accent-green">│ Detect   │</span>    <span class="accent-orange">│ (Login/  │</span>               <span class="accent-rust">│</span>
+<span class="accent-rust">│</span>  <span class="accent-blue">│  Frag    │</span>    <span class="accent-green">│          │</span>    <span class="accent-orange">│ World/   │</span>               <span class="accent-rust">│</span>
+<span class="accent-rust">│</span>  <span class="accent-blue">│  DES     │</span>    <span class="accent-green">│          │</span>    <span class="accent-orange">│ Zone)    │</span>               <span class="accent-rust">│</span>
+<span class="accent-rust">│</span>  <span class="accent-blue">└──────────┘</span>    <span class="accent-green">└──────────┘</span>    <span class="accent-orange">└──────────┘</span>               <span class="accent-rust">│</span>
+<span class="accent-rust">└─────────────────────────────────────────────────────────────────┘</span>
+                               <span class="dim">│ Protobuf (future)</span>
+<span class="accent-green">┌──────────────────────────────▼──────────────────────────────────┐</span>
+<span class="accent-green">│</span>                    <span class="text-white font-bold">ADIF Zone Server</span>                             <span class="accent-green">│</span>
+<span class="accent-green">│</span>  ECS + Game Loop + Combat + AI                                  <span class="accent-green">│</span>
+<span class="accent-green">└─────────────────────────────────────────────────────────────────┘</span>
+    </div>
+  </div>
+
+  <!-- Key Technical Details -->
+  <div class="card p-6">
+    <h3 class="text-lg font-bold text-white mb-4">Key Technical Discoveries</h3>
+    <div class="space-y-3 text-sm">
+      <div class="flex gap-3">
+        <span class="accent-blue font-bold flex-shrink-0">DES</span>
+        <span class="dim">EQ login protocol uses DES CBC encryption with all-zero key and IV for the LoginAccepted packet. Not security — just obfuscation.</span>
+      </div>
+      <div class="flex gap-3">
+        <span class="accent-green font-bold flex-shrink-0">Strings</span>
+        <span class="dim">Server list uses null-terminated strings (not length-prefixed). LoginBaseMessage (10 bytes) is the header on all login packets.</span>
+      </div>
+      <div class="flex gap-3">
+        <span class="accent-orange font-bold flex-shrink-0">Sessions</span>
+        <span class="dim">Session response with crc_bytes=0 and encode_passes=None disables encoding on the session, simplifying the handshake.</span>
+      </div>
+      <div class="flex gap-3">
+        <span class="accent-purple font-bold flex-shrink-0">Proactive</span>
+        <span class="dim">World phase requires sending GuildsList + ApproveWorld proactively before the client sends OP_SendLoginInfo — the client waits for these.</span>
+      </div>
     </div>
   </div>
 </div>
@@ -563,8 +712,8 @@ server/
 
 <!-- Footer -->
 <footer class="border-t border-[#21262d] py-8 text-center text-xs dim max-w-6xl mx-auto">
-  <p>ADIF Rust Zone Server — Milestone 3 — Started June 27, 2026</p>
-  <p class="mt-1">Phases 1-2 complete. 10 remaining. <a href="zone-server-status.html" class="accent-blue hover:underline">Full roadmap →</a></p>
+  <p>ADIF Rust Zone Server — Milestone 3 Complete — June 27, 2026</p>
+  <p class="mt-1">All 12 phases complete. EQ client connects via protocol bridge. <a href="zone-server-status.html" class="accent-blue hover:underline">Full roadmap →</a></p>
 </footer>
 
 <script>

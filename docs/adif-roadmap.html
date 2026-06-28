@@ -40,7 +40,7 @@ tailwind.config = {
   .timeline-dot { width: 16px; height: 16px; border-radius: 50%; }
   .timeline-dot-complete { background: #4ade80; box-shadow: 0 0 12px rgba(74, 222, 128, 0.4); }
   .timeline-dot-pending { background: #30363d; border: 2px solid #58a6ff; }
-  .timeline-line { height: 3px; background: linear-gradient(90deg, #4ade80 25%, #30363d 25%); }
+  .timeline-line { height: 3px; background: linear-gradient(90deg, #4ade80 75%, #30363d 75%); }
   .glow { transition: box-shadow 0.3s ease; }
   .glow:hover { box-shadow: 0 0 24px rgba(88, 166, 255, 0.08); }
   .area-number {
@@ -442,14 +442,14 @@ tailwind.config = {
 <!-- ============================================================ -->
 <section id="roadmap" class="section-anchor max-w-5xl mx-auto px-6 pb-24">
   <h2 class="text-2xl font-bold text-white mb-2">Roadmap</h2>
-  <p class="text-adif-dim mb-10">Four milestones from architecture study to playable prototype.</p>
+  <p class="text-adif-dim mb-10">Four milestones from architecture study to playable prototype. Three complete, one remaining.</p>
 
   <!-- Desktop timeline -->
   <div class="hidden md:block">
     <!-- Timeline bar -->
     <div class="relative">
       <div class="absolute top-[7px] left-0 right-0 h-[3px] bg-adif-border rounded"></div>
-      <div class="absolute top-[7px] left-0 w-[25%] h-[3px] rounded" style="background: linear-gradient(90deg, #4ade80, #4ade80)"></div>
+      <div class="absolute top-[7px] left-0 w-[75%] h-[3px] rounded" style="background: linear-gradient(90deg, #4ade80, #4ade80)"></div>
       <div class="grid grid-cols-4 relative">
         <!-- Milestone 1 -->
         <div class="flex flex-col items-center">
@@ -465,26 +465,26 @@ tailwind.config = {
         </div>
         <!-- Milestone 2 -->
         <div class="flex flex-col items-center">
-          <div class="timeline-dot timeline-dot-pending z-10"></div>
+          <div class="timeline-dot timeline-dot-complete z-10"></div>
           <div class="card rounded-lg p-5 mt-6 w-full mx-1 glow">
             <div class="flex items-center gap-2 mb-2">
-              <span class="text-xs mono font-medium text-adif-blue bg-adif-blue/10 px-2 py-0.5 rounded">NEXT</span>
+              <span class="text-xs mono font-medium text-green-400 bg-green-400/10 px-2 py-0.5 rounded">COMPLETE</span>
             </div>
             <h3 class="text-white font-bold mb-1">Milestone 2</h3>
             <p class="text-sm font-semibold text-adif-text mb-2">Protobuf Protocol Layer</p>
-            <p class="text-xs text-adif-dim">Define all client-server and IPC messages in Protobuf 3. Set up buf linting, breaking-change detection, and code generation.</p>
+            <p class="text-xs text-adif-dim">173 client-server + 77 IPC messages in Protobuf 3. buf linting, breaking-change detection, Rust + C# codegen. 117 round-trip tests (97 C# + 20 Rust).</p>
           </div>
         </div>
         <!-- Milestone 3 -->
         <div class="flex flex-col items-center">
-          <div class="timeline-dot timeline-dot-pending z-10"></div>
+          <div class="timeline-dot timeline-dot-complete z-10"></div>
           <div class="card rounded-lg p-5 mt-6 w-full mx-1 glow">
             <div class="flex items-center gap-2 mb-2">
-              <span class="text-xs mono font-medium text-adif-dim bg-adif-dim/10 px-2 py-0.5 rounded">PLANNED</span>
+              <span class="text-xs mono font-medium text-green-400 bg-green-400/10 px-2 py-0.5 rounded">COMPLETE</span>
             </div>
             <h3 class="text-white font-bold mb-1">Milestone 3</h3>
             <p class="text-sm font-semibold text-adif-text mb-2">Rust Zone Server</p>
-            <p class="text-xs text-adif-dim">Proof-of-concept zone server in Rust. Single zone, basic entity spawning, client connection, and movement handling.</p>
+            <p class="text-xs text-adif-dim">12/12 phases complete. ECS, spawns, game loop (31 Hz), TCP networking, movement, AI, combat, chat, zone transitions, geometry traits. 60 tests, 119 NPCs in Grobb. EQ client connects via protocol bridge.</p>
           </div>
         </div>
         <!-- Milestone 4 -->
@@ -512,19 +512,19 @@ tailwind.config = {
       <h3 class="text-white font-bold mb-1">Milestone 1 &mdash; PostgreSQL Migration</h3>
       <p class="text-xs text-adif-dim">Full database migration from MySQL to PostgreSQL with JSONB columns, numbered migrations, and 1.8M rows imported.</p>
     </div>
-    <div class="card rounded-lg p-5 glow border-l-4" style="border-left-color: #58a6ff;">
+    <div class="card rounded-lg p-5 glow border-l-4" style="border-left-color: #4ade80;">
       <div class="flex items-center gap-2 mb-2">
-        <span class="text-xs mono font-medium text-adif-blue bg-adif-blue/10 px-2 py-0.5 rounded">NEXT</span>
+        <span class="text-xs mono font-medium text-green-400 bg-green-400/10 px-2 py-0.5 rounded">COMPLETE</span>
       </div>
       <h3 class="text-white font-bold mb-1">Milestone 2 &mdash; Protobuf Protocol Layer</h3>
-      <p class="text-xs text-adif-dim">Define all client-server and IPC messages in Protobuf 3. Set up buf linting, breaking-change detection, and code generation.</p>
+      <p class="text-xs text-adif-dim">173 client-server + 77 IPC messages in Protobuf 3. buf linting, breaking-change detection, Rust + C# codegen. 117 round-trip tests.</p>
     </div>
-    <div class="card rounded-lg p-5 glow border-l-4" style="border-left-color: #30363d;">
+    <div class="card rounded-lg p-5 glow border-l-4" style="border-left-color: #4ade80;">
       <div class="flex items-center gap-2 mb-2">
-        <span class="text-xs mono font-medium text-adif-dim bg-adif-dim/10 px-2 py-0.5 rounded">PLANNED</span>
+        <span class="text-xs mono font-medium text-green-400 bg-green-400/10 px-2 py-0.5 rounded">COMPLETE</span>
       </div>
       <h3 class="text-white font-bold mb-1">Milestone 3 &mdash; Rust Zone Server</h3>
-      <p class="text-xs text-adif-dim">Proof-of-concept zone server in Rust. Single zone, basic entity spawning, client connection, and movement handling.</p>
+      <p class="text-xs text-adif-dim">12/12 phases complete. ECS, spawns, 31 Hz game loop, TCP networking, movement, AI, combat, chat, zone transitions, geometry traits. 60 tests. EQ client connects via protocol bridge.</p>
     </div>
     <div class="card rounded-lg p-5 glow border-l-4" style="border-left-color: #30363d;">
       <div class="flex items-center gap-2 mb-2">

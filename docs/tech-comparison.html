@@ -458,8 +458,8 @@ tailwind.config = {
 <!-- RETHOUGHT SERVER PROOF -->
 <!-- ============================================================ -->
 <section id="proof" class="section-anchor max-w-6xl mx-auto px-6 pb-16">
-  <h2 class="text-2xl font-bold text-white mb-2">Rethought Server-Side Proof</h2>
-  <p class="text-eq-dim mb-8">Since ADIF is its own game, the proof-of-concept is building the <strong class="text-eq-text">first piece of ADIF's own server</strong> — not swapping files in EQMacEmu.</p>
+  <h2 class="text-2xl font-bold text-white mb-2">Server-Side Proof — Status</h2>
+  <p class="text-eq-dim mb-8">ADIF's proof-of-concept server is built. Three milestones complete, one remaining. The EQ Titanium client connects via the protocol bridge and sees "ADIF Dev" in the server list.</p>
 
   <!-- The Proof -->
   <div class="bg-eq-card border border-eq-border rounded-lg p-6 mb-6 glow">
@@ -546,31 +546,31 @@ tailwind.config = {
     <h3 class="text-eq-gold font-semibold text-lg mb-4">Milestones</h3>
     <div class="space-y-4">
       <div class="flex gap-4">
-        <div class="flex-shrink-0 w-8 h-8 rounded-full bg-eq-gold/20 text-eq-gold flex items-center justify-center font-bold text-sm">1</div>
+        <div class="flex-shrink-0 w-8 h-8 rounded-full bg-green-500/30 text-green-400 flex items-center justify-center font-bold text-sm">✓</div>
         <div>
-          <div class="text-white font-semibold">Voxel terrain + collision</div>
-          <p class="text-sm text-eq-dim">Load a voxel chunk, walk on it. Server validates position (no falling through ground). First-person camera.</p>
+          <div class="text-green-400 font-semibold">M1: PostgreSQL Migration <span class="text-xs font-normal text-eq-dim ml-2">COMPLETE</span></div>
+          <p class="text-sm text-eq-dim">231/231 table parity with EQEmu. 44 migrations, 290+ C++ files converted. Full EQ server running on PostgreSQL.</p>
         </div>
       </div>
       <div class="flex gap-4">
-        <div class="flex-shrink-0 w-8 h-8 rounded-full bg-eq-gold/20 text-eq-gold flex items-center justify-center font-bold text-sm">2</div>
+        <div class="flex-shrink-0 w-8 h-8 rounded-full bg-green-500/30 text-green-400 flex items-center justify-center font-bold text-sm">✓</div>
         <div>
-          <div class="text-white font-semibold">Multiplayer + NPCs</div>
-          <p class="text-sm text-eq-dim">Second client connects, sees the first player. NPCs spawn and patrol waypoints. Basic aggro radius.</p>
+          <div class="text-green-400 font-semibold">M2: Protobuf Protocol Layer <span class="text-xs font-normal text-eq-dim ml-2">COMPLETE</span></div>
+          <p class="text-sm text-eq-dim">173 client-server + 77 IPC messages. buf lint/breaking, Rust + C# codegen, 117 round-trip tests.</p>
         </div>
       </div>
       <div class="flex gap-4">
-        <div class="flex-shrink-0 w-8 h-8 rounded-full bg-eq-gold/20 text-eq-gold flex items-center justify-center font-bold text-sm">3</div>
+        <div class="flex-shrink-0 w-8 h-8 rounded-full bg-green-500/30 text-green-400 flex items-center justify-center font-bold text-sm">✓</div>
         <div>
-          <div class="text-white font-semibold">Zone transitions</div>
-          <p class="text-sm text-eq-dim">Two zone processes running. Walk to a zone line, get transferred to the other zone. World server coordinates the handoff.</p>
+          <div class="text-green-400 font-semibold">M3: Rust Zone Server <span class="text-xs font-normal text-eq-dim ml-2">COMPLETE</span></div>
+          <p class="text-sm text-eq-dim">12/12 phases. ECS, spawns, 31 Hz game loop, TCP networking, movement, AI (6-state), combat, chat, zone transitions, geometry traits. 60 tests. EQ client connects via protocol bridge.</p>
         </div>
       </div>
       <div class="flex gap-4">
         <div class="flex-shrink-0 w-8 h-8 rounded-full bg-eq-gold/20 text-eq-gold flex items-center justify-center font-bold text-sm">4</div>
         <div>
-          <div class="text-white font-semibold">The Innothule test</div>
-          <p class="text-sm text-eq-dim">Voxelize the Innothule Swamp layout. Spawn frogloks. Walk through swamp, zone out to a second zone, zone back in. The EQ experience, rebuilt from scratch in voxels.</p>
+          <div class="text-white font-semibold">M4: Voxel Zone Experiment</div>
+          <p class="text-sm text-eq-dim">Innothule Swamp as a voxel zone. Demonstrate that voxel geometry plugs into the same Map/WaterMap/IPathfinder interfaces. The EQ experience, rebuilt from scratch in voxels.</p>
         </div>
       </div>
     </div>
@@ -581,28 +581,16 @@ tailwind.config = {
 <!-- DECISIONS NEEDED -->
 <!-- ============================================================ -->
 <section id="decisions" class="section-anchor max-w-6xl mx-auto px-6 pb-16">
-  <h2 class="text-2xl font-bold text-white mb-6">Decisions Needed Before Building</h2>
+  <h2 class="text-2xl font-bold text-white mb-6">Decisions Made &amp; Remaining</h2>
 
   <div class="grid md:grid-cols-2 gap-6">
 
-    <div class="bg-eq-card border border-eq-border rounded-lg p-6 glow">
-      <h3 class="text-eq-gold font-semibold mb-3">Server Language</h3>
+    <div class="bg-eq-card border border-green-500/30 rounded-lg p-6 glow">
+      <h3 class="text-green-400 font-semibold mb-3">Server Language — DECIDED: Rust</h3>
       <div class="space-y-3 text-sm">
-        <div class="border border-eq-border rounded p-3">
-          <div class="text-white font-medium">Rust</div>
-          <p class="text-eq-dim">Performance + safety. bevy_ecs for ECS. Tokio for async. Steep learning curve but prevents entire categories of bugs. Growing gamedev ecosystem.</p>
-        </div>
-        <div class="border border-eq-border rounded p-3">
-          <div class="text-white font-medium">C# / .NET</div>
-          <p class="text-eq-dim">Natural fit if using Unity for the client. ASP.NET for the world server. Good async support. Large ecosystem.</p>
-        </div>
-        <div class="border border-eq-border rounded p-3">
-          <div class="text-white font-medium">C++</div>
-          <p class="text-eq-dim">Maximum control, same language as EQMacEmu reference. flecs for ECS. But memory safety is on you.</p>
-        </div>
-        <div class="border border-eq-border rounded p-3">
-          <div class="text-white font-medium">TypeScript / Node</div>
-          <p class="text-eq-dim">If going browser-based (Three.js/Babylon.js). Same language for client + server. bitECS available. Performance ceiling is lower.</p>
+        <div class="border border-green-500/30 rounded p-3 bg-green-500/5">
+          <div class="text-green-400 font-medium">Rust ✓</div>
+          <p class="text-eq-dim">Chosen June 27, 2026. bevy_ecs for ECS, tokio for async, sqlx for DB, prost for protobuf. Zone server fully built with 60 tests. No GC pauses, fearless concurrency, ownership prevents data races at compile time.</p>
         </div>
       </div>
     </div>
@@ -670,7 +658,7 @@ tailwind.config = {
 
 <!-- Footer -->
 <footer class="max-w-6xl mx-auto px-6 py-8 border-t border-eq-border text-center text-eq-dim text-sm">
-  ADIF — Another Day In Forever · Tech Analysis · Generated 2026-06-20
+  ADIF — Another Day In Forever · Tech Analysis · Generated 2026-06-20 · Updated 2026-06-27
 </footer>
 
 </body>

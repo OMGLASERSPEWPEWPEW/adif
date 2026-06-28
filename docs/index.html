@@ -125,17 +125,39 @@
       <div class="flex items-start justify-between">
         <div class="flex-1">
           <div class="flex items-center gap-3 mb-3">
-            <span class="tag tag-done">In Progress</span>
+            <span class="tag tag-done">Complete</span>
             <span class="text-xs text-gray-600 mono">Milestone 3</span>
           </div>
           <h2 class="card-title text-xl font-semibold text-white mb-2 transition-colors">Rust Zone Server</h2>
-          <p class="text-sm text-gray-400 leading-relaxed">Architecture, crate structure, ECS components, and design decisions for the ADIF zone server. Built from scratch in Rust with tokio, bevy_ecs, sqlx, and prost. Boots and loads 618 zones from PostgreSQL.</p>
+          <p class="text-sm text-gray-400 leading-relaxed">Architecture, crate structure, ECS components, and design decisions for the ADIF zone server. Built from scratch in Rust with tokio, bevy_ecs, sqlx, and prost. 60 tests, 119 NPCs in Grobb, 31 Hz game loop.</p>
           <div class="flex gap-4 mt-4 text-xs text-gray-600">
-            <span>3 crates</span>
+            <span>4 crates</span>
             <span class="text-gray-700">|</span>
             <span>14 ECS components</span>
             <span class="text-gray-700">|</span>
-            <span class="text-green-600 font-medium">2/12 phases done</span>
+            <span class="text-green-600 font-medium">12/12 phases COMPLETE</span>
+          </div>
+        </div>
+        <div class="card-arrow text-gray-500 text-2xl ml-4 mt-2">→</div>
+      </div>
+    </a>
+
+    <!-- Protocol Bridge -->
+    <a href="rust-server.html#tab-bridge" class="card-link p-6">
+      <div class="flex items-start justify-between">
+        <div class="flex-1">
+          <div class="flex items-center gap-3 mb-3">
+            <span class="tag tag-done">Complete</span>
+            <span class="text-xs text-gray-600 mono">Breakthrough</span>
+          </div>
+          <h2 class="card-title text-xl font-semibold text-white mb-2 transition-colors">EQ Protocol Bridge</h2>
+          <p class="text-sm text-gray-400 leading-relaxed">EQ Titanium client connects and sees "ADIF Dev" in the server list. DES-encrypted login, UDP reliability protocol, session management. The bridge translates EQ's 1999 wire format into ADIF's protobuf world.</p>
+          <div class="flex gap-4 mt-4 text-xs text-gray-600">
+            <span>Login phase working</span>
+            <span class="text-gray-700">|</span>
+            <span>DES CBC encryption</span>
+            <span class="text-gray-700">|</span>
+            <span class="text-green-600 font-medium">Client connected</span>
           </div>
         </div>
         <div class="card-arrow text-gray-500 text-2xl ml-4 mt-2">→</div>
@@ -147,17 +169,17 @@
       <div class="flex items-start justify-between">
         <div class="flex-1">
           <div class="flex items-center gap-3 mb-3">
-            <span class="tag tag-vision">Milestone 3</span>
-            <span class="text-xs text-gray-600 mono">Source of Truth</span>
+            <span class="tag tag-done">Complete</span>
+            <span class="text-xs text-gray-600 mono">Milestone 3</span>
           </div>
           <h2 class="card-title text-xl font-semibold text-white mb-2 transition-colors">Phase Roadmap &amp; Status</h2>
-          <p class="text-sm text-gray-400 leading-relaxed">12-phase roadmap from empty workspace to proof-of-concept. Tracks component status, EQEmu file mapping, proto message coverage. The operational tracker.</p>
+          <p class="text-sm text-gray-400 leading-relaxed">12-phase roadmap from empty workspace to proof-of-concept. All phases complete: ECS, spawns, game loop, TCP networking, movement, AI, combat, chat, zone transitions, geometry traits.</p>
           <div class="flex gap-4 mt-4 text-xs text-gray-600">
             <span>12 phases</span>
             <span class="text-gray-700">|</span>
-            <span>27-35 sessions</span>
+            <span>60 tests</span>
             <span class="text-gray-700">|</span>
-            <span class="text-green-600 font-medium">2/12 complete</span>
+            <span class="text-green-600 font-medium">12/12 COMPLETE</span>
           </div>
         </div>
         <div class="card-arrow text-gray-500 text-2xl ml-4 mt-2">→</div>
@@ -169,8 +191,8 @@
       <div class="flex items-start justify-between">
         <div class="flex-1">
           <div class="flex items-center gap-3 mb-3">
-            <span class="tag tag-vision">Milestone 2</span>
-            <span class="text-xs text-gray-600 mono">Source of Truth</span>
+            <span class="tag tag-done">Complete</span>
+            <span class="text-xs text-gray-600 mono">Milestone 2</span>
           </div>
           <h2 class="card-title text-xl font-semibold text-white mb-2 transition-colors">Struct &harr; Proto Map</h2>
           <p class="text-sm text-gray-400 leading-relaxed">Field-level mapping between EQEmu's 561 C structs and ADIF's 173 Protobuf messages. Cross-referenced against the PostgreSQL schema. The definitive source of truth for what's mapped, what's missing, and what's intentionally dropped.</p>

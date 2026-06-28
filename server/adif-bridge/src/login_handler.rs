@@ -122,10 +122,22 @@ pub async fn handle_login_opcode(
         }
 
         opcodes::OP_LOGIN_PLAY_REQUEST => {
-            info!("Login: play request — approving");
-            let mut reply = build_base_message(4);
+            let client_sequence = if data.len() >= 4 {
+                i32::from_le_bytes([data[0], data[1], data[2], data[3]])
+            } else {
+                0
+            };
+            let server_number = if data.len() >= 14 {
+                u32::from_le_bytes([data[10], data[11], data[12], data[13]])
+            } else {
+                1
+            };
+
+            info!(sequence = client_sequence, server = server_number, "Login: play request — approving");
+
+            let mut reply = build_base_message(client_sequence);
             reply.extend_from_slice(&build_base_reply(true, 101));
-            reply.extend_from_slice(&1u32.to_le_bytes()); // server_number = 1
+            reply.extend_from_slice(&server_number.to_le_bytes());
             crate::send_app_packet(session, socket, addr, opcodes::OP_LOGIN_PLAY_RESPONSE, &reply).await?;
             info!("Login: approved — client will reconnect for world");
         }

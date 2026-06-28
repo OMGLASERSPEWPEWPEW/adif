@@ -12,6 +12,11 @@ pub enum SessionState {
     Disconnecting,
 }
 
+struct PendingFragments {
+    data: Vec<u8>,
+    offset: usize,
+}
+
 pub struct EqSession {
     pub addr: SocketAddr,
     pub state: SessionState,
@@ -23,6 +28,7 @@ pub struct EqSession {
     pub sequence_out: u16,
     pub last_ack_sent: u16,
     pub fragment_assembler: FragmentAssembler,
+    pending_out_fragments: Option<PendingFragments>,
 }
 
 impl EqSession {
@@ -39,6 +45,7 @@ impl EqSession {
             sequence_out: 0,
             last_ack_sent: 0,
             fragment_assembler: FragmentAssembler::new(),
+            pending_out_fragments: None,
         }
     }
 
@@ -98,18 +105,8 @@ impl EqSession {
         buf
     }
 
-    fn build_fragmented_packet(&mut self, _first_seq: u16, app_payload: &[u8]) -> Vec<u8> {
-        // For MVP, send as single oversized packet — proper fragmentation in Phase 2
-        let compressed = codec::compress(app_payload);
-        let seq = self.sequence_out.wrapping_sub(1);
-
-        let mut buf = Vec::new();
-        buf.push(0x00);
-        buf.push(super::OP_PACKET);
-        buf.extend_from_slice(&seq.to_be_bytes());
-        buf.extend_from_slice(&compressed);
-        codec::append_crc(&mut buf, self.encode_key, self.crc_bytes);
-        buf
+    pub fn drain_pending_fragments(&mut self) -> Vec<Vec<u8>> {
+        Vec::new()
     }
 }
 

@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use anyhow::Context;
 use tokio::net::UdpSocket;
@@ -25,9 +26,14 @@ use eq_protocol::session::EqSession;
 use titanium::opcodes;
 use titanium::structs::{self, SpawnData};
 
+use adif_world::WorldState;
+
+const LOGIN_PORT: u16 = 5998;
+const WORLD_PORT: u16 = 9000;
+const ZONE_PORT: u16 = 7778;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ConnectionPhase {
-    Unknown,
     Login,
     World,
     Zone,
@@ -35,16 +41,22 @@ enum ConnectionPhase {
 
 struct ClientState {
     phase: ConnectionPhase,
+    account_id: Option<i32>,
+    account_name: String,
     char_name: String,
+    char_zone_id: Option<i32>,
     player_spawn_id: u32,
     next_spawn_id: u32,
 }
 
 impl ClientState {
-    fn new() -> Self {
+    fn new(phase: ConnectionPhase) -> Self {
         Self {
-            phase: ConnectionPhase::Unknown,
+            phase,
+            account_id: None,
+            account_name: String::new(),
             char_name: String::new(),
+            char_zone_id: None,
             player_spawn_id: 0,
             next_spawn_id: 1,
         }
@@ -57,23 +69,16 @@ impl ClientState {
     }
 }
 
-// Track connection count per IP to detect phase
-struct ConnectionTracker {
-    counts: HashMap<std::net::IpAddr, u32>,
+struct PhaseState {
+    sessions: HashMap<SocketAddr, EqSession>,
+    client_states: HashMap<SocketAddr, ClientState>,
 }
 
-impl ConnectionTracker {
+impl PhaseState {
     fn new() -> Self {
-        Self { counts: HashMap::new() }
-    }
-
-    fn next_phase(&mut self, ip: std::net::IpAddr) -> ConnectionPhase {
-        let count = self.counts.entry(ip).or_insert(0);
-        *count += 1;
-        match *count {
-            1 => ConnectionPhase::Login,
-            2 => ConnectionPhase::World,
-            _ => ConnectionPhase::Zone,
+        Self {
+            sessions: HashMap::new(),
+            client_states: HashMap::new(),
         }
     }
 }
@@ -96,171 +101,216 @@ async fn main() -> anyhow::Result<()> {
         .init();
 
     info!(name = %config.server.name, "ADIF Protocol Bridge starting");
-    info!("Handles Login + World + Zone on single port");
 
-    let bind_addr = "0.0.0.0:5998";
-    let socket = UdpSocket::bind(bind_addr).await?;
-    info!(addr = bind_addr, "UDP listener bound — waiting for EQ client");
+    let pool = adif_common::create_pool(&config.database)
+        .await
+        .context("Failed to connect to PostgreSQL")?;
+    info!("Connected to PostgreSQL");
 
-    let mut sessions: HashMap<SocketAddr, EqSession> = HashMap::new();
-    let mut client_states: HashMap<SocketAddr, ClientState> = HashMap::new();
-    let mut tracker = ConnectionTracker::new();
-    let mut buf = vec![0u8; 8192];
+    let world_state = Arc::new(WorldState::new(
+        pool,
+        config.server.name.clone(),
+        "Welcome to ADIF - Another Day In Forever".to_string(),
+    ));
+
+    {
+        let mut registry = world_state.zone_registry.write().await;
+        let zone_addr = SocketAddr::new(
+            std::net::IpAddr::V4(std::net::Ipv4Addr::LOCALHOST),
+            ZONE_PORT,
+        );
+        registry.register(52, "grobb".to_string(), zone_addr);
+        registry.register(46, "innothule".to_string(), zone_addr);
+    }
+
+    let login_socket = UdpSocket::bind(format!("0.0.0.0:{LOGIN_PORT}")).await?;
+    let world_socket = UdpSocket::bind(format!("0.0.0.0:{WORLD_PORT}")).await?;
+    let zone_socket = UdpSocket::bind(format!("0.0.0.0:{ZONE_PORT}")).await?;
+
+    info!(login = LOGIN_PORT, world = WORLD_PORT, zone = ZONE_PORT, "UDP listeners bound");
+
+    let mut login_state = PhaseState::new();
+    let mut world_state_phase = PhaseState::new();
+    let mut zone_state = PhaseState::new();
+
+    let mut login_buf = vec![0u8; 8192];
+    let mut world_buf = vec![0u8; 8192];
+    let mut zone_buf = vec![0u8; 8192];
 
     loop {
-        let (len, addr) = socket.recv_from(&mut buf).await?;
-        let raw = &buf[..len];
-
-        info!(addr = %addr, len, hex = %hex_preview(raw), "UDP recv");
-
-        if len < 2 {
-            continue;
+        tokio::select! {
+            result = login_socket.recv_from(&mut login_buf) => {
+                let (len, addr) = result?;
+                handle_udp_packet(
+                    &login_buf[..len], addr, ConnectionPhase::Login,
+                    &mut login_state, &login_socket, &world_state,
+                ).await?;
+            }
+            result = world_socket.recv_from(&mut world_buf) => {
+                let (len, addr) = result?;
+                handle_udp_packet(
+                    &world_buf[..len], addr, ConnectionPhase::World,
+                    &mut world_state_phase, &world_socket, &world_state,
+                ).await?;
+            }
+            result = zone_socket.recv_from(&mut zone_buf) => {
+                let (len, addr) = result?;
+                handle_udp_packet(
+                    &zone_buf[..len], addr, ConnectionPhase::Zone,
+                    &mut zone_state, &zone_socket, &world_state,
+                ).await?;
+            }
         }
+    }
+}
 
-        // Session request — new connection
-        if raw[0] == 0x00 && raw[1] == eq_protocol::OP_SESSION_REQUEST {
-            match packet::parse_protocol_packet(raw) {
-                Ok(ProtocolPacket::SessionRequest {
-                    protocol_version,
+async fn handle_udp_packet(
+    raw: &[u8],
+    addr: SocketAddr,
+    phase: ConnectionPhase,
+    state: &mut PhaseState,
+    socket: &UdpSocket,
+    world_state: &Arc<WorldState>,
+) -> anyhow::Result<()> {
+    let len = raw.len();
+
+    debug!(addr = %addr, len, phase = ?phase, hex = %hex_preview(raw), "UDP recv");
+
+    if len < 2 {
+        return Ok(());
+    }
+
+    if raw[0] == 0x00 && raw[1] == eq_protocol::OP_SESSION_REQUEST {
+        match packet::parse_protocol_packet(raw) {
+            Ok(ProtocolPacket::SessionRequest {
+                protocol_version,
+                connect_code,
+                max_packet_size,
+            }) => {
+                info!(
+                    addr = %addr,
+                    phase = ?phase,
+                    version = protocol_version,
+                    "New {:?} connection", phase
+                );
+
+                let session = EqSession::new(addr, connect_code, max_packet_size);
+                let response = packet::build_session_response(
                     connect_code,
-                    max_packet_size,
-                }) => {
-                    let phase = tracker.next_phase(addr.ip());
-                    info!(
-                        addr = %addr,
-                        phase = ?phase,
-                        version = protocol_version,
-                        "New connection"
-                    );
+                    session.encode_key,
+                    session.crc_bytes,
+                    session.max_packet_size,
+                );
 
-                    let session = EqSession::new(addr, connect_code, max_packet_size);
-                    let response = packet::build_session_response(
-                        connect_code,
-                        session.encode_key,
-                        session.crc_bytes,
-                        session.max_packet_size,
-                    );
+                socket.send_to(&response, addr).await?;
 
-                    socket.send_to(&response, addr).await?;
-
-                    // For world phase, send proactive packets after session established
-                    if phase == ConnectionPhase::World {
-                        // Clone needed values before inserting session
-                        let mut sess = session;
-                        sessions.insert(addr, EqSession::new(addr, connect_code, max_packet_size));
-                        let stored = sessions.get_mut(&addr).unwrap();
-                        // Need to re-sync sequence since we created a new one
-                        world_handler::send_proactive_world_packets(stored, &socket, addr).await?;
-                    } else {
-                        sessions.insert(addr, session);
-                    }
-
-                    let mut cs = ClientState::new();
-                    cs.phase = phase;
-                    client_states.insert(addr, cs);
+                if phase == ConnectionPhase::World {
+                    state.sessions.insert(addr, EqSession::new(addr, connect_code, max_packet_size));
+                    let stored = state.sessions.get_mut(&addr).unwrap();
+                    world_handler::send_proactive_world_packets(stored, socket, addr).await?;
+                } else {
+                    state.sessions.insert(addr, session);
                 }
-                _ => {}
+
+                state.client_states.insert(addr, ClientState::new(phase));
             }
-            continue;
+            _ => {}
         }
+        return Ok(());
+    }
 
-        let session = match sessions.get_mut(&addr) {
-            Some(s) => s,
-            None => continue,
-        };
+    let session = match state.sessions.get_mut(&addr) {
+        Some(s) => s,
+        None => return Ok(()),
+    };
 
-        let mut raw_owned = raw.to_vec();
+    let mut raw_owned = raw.to_vec();
 
-        // Decode protocol layer (CRC, compression) for non-trivial packets
-        if raw[0] == 0x00 {
-            let proto_op = raw[1];
-            match proto_op {
-                eq_protocol::OP_SESSION_DISCONNECT
-                | eq_protocol::OP_KEEP_ALIVE
-                | eq_protocol::OP_SESSION_STAT_REQUEST
-                | eq_protocol::OP_OUTBOUND_PING => {}
-                _ => {
-                    if !session.decode_packet(&mut raw_owned) {
-                        continue;
-                    }
+    if raw[0] == 0x00 {
+        let proto_op = raw[1];
+        match proto_op {
+            eq_protocol::OP_SESSION_DISCONNECT
+            | eq_protocol::OP_KEEP_ALIVE
+            | eq_protocol::OP_SESSION_STAT_REQUEST
+            | eq_protocol::OP_OUTBOUND_PING => {}
+            _ => {
+                if !session.decode_packet(&mut raw_owned) {
+                    return Ok(());
                 }
             }
         }
+    }
 
-        match packet::parse_protocol_packet(&raw_owned) {
-            Ok(ProtocolPacket::KeepAlive) => {
-                socket.send_to(&packet::build_keep_alive(), addr).await?;
+    match packet::parse_protocol_packet(&raw_owned) {
+        Ok(ProtocolPacket::KeepAlive) => {
+            socket.send_to(&packet::build_keep_alive(), addr).await?;
+        }
+
+        Ok(ProtocolPacket::SessionStatRequest { .. }) => {}
+
+        Ok(ProtocolPacket::SessionDisconnect { .. }) => {
+            info!(addr = %addr, phase = ?phase, "Client disconnected");
+            state.sessions.remove(&addr);
+            state.client_states.remove(&addr);
+        }
+
+        Ok(ProtocolPacket::Ack { .. }) | Ok(ProtocolPacket::OutOfOrderAck { .. }) => {}
+
+        Ok(ProtocolPacket::AppPacket { sequence, data }) => {
+            session.process_incoming_sequence(sequence);
+            socket.send_to(&packet::build_ack(sequence), addr).await?;
+
+            if data.len() >= 2 {
+                let app_opcode = u16::from_le_bytes([data[0], data[1]]);
+                let app_data = &data[2..];
+                dispatch_app_packet(session, &mut state.client_states, addr, socket, phase, app_opcode, app_data, world_state).await?;
             }
+        }
 
-            Ok(ProtocolPacket::SessionStatRequest { .. }) => {}
+        Ok(ProtocolPacket::Fragment { sequence, data }) => {
+            session.process_incoming_sequence(sequence);
+            socket.send_to(&packet::build_ack(sequence), addr).await?;
 
-            Ok(ProtocolPacket::SessionDisconnect { .. }) => {
-                let phase = client_states.get(&addr).map(|c| c.phase);
-                info!(addr = %addr, phase = ?phase, "Client disconnected");
-                sessions.remove(&addr);
-                client_states.remove(&addr);
-            }
-
-            Ok(ProtocolPacket::Ack { .. }) | Ok(ProtocolPacket::OutOfOrderAck { .. }) => {}
-
-            Ok(ProtocolPacket::AppPacket { sequence, data }) => {
-                session.process_incoming_sequence(sequence);
-                socket.send_to(&packet::build_ack(sequence), addr).await?;
-
-                if data.len() >= 2 {
-                    let app_opcode = u16::from_le_bytes([data[0], data[1]]);
-                    let app_data = &data[2..];
-                    let phase = client_states.get(&addr).map(|c| c.phase).unwrap_or(ConnectionPhase::Unknown);
-                    dispatch_app_packet(session, &mut client_states, addr, &socket, phase, app_opcode, app_data).await?;
+            let is_first = session.fragment_assembler.pending_count() == 0;
+            if let Some(complete) = session.fragment_assembler.add_fragment(sequence, &data, is_first) {
+                if complete.len() >= 2 {
+                    let app_opcode = u16::from_le_bytes([complete[0], complete[1]]);
+                    let app_data = &complete[2..];
+                    dispatch_app_packet(session, &mut state.client_states, addr, socket, phase, app_opcode, app_data, world_state).await?;
                 }
             }
+        }
 
-            Ok(ProtocolPacket::Fragment { sequence, data }) => {
-                session.process_incoming_sequence(sequence);
-                socket.send_to(&packet::build_ack(sequence), addr).await?;
+        Ok(ProtocolPacket::Combined { sub_packets }) => {
+            for sub in sub_packets {
+                if sub.len() >= 4 {
+                    if let Ok(ProtocolPacket::AppPacket { sequence, data }) =
+                        packet::parse_protocol_packet(&[&[0x00], sub.as_slice()].concat())
+                    {
+                        session.process_incoming_sequence(sequence);
+                        socket.send_to(&packet::build_ack(sequence), addr).await?;
 
-                let is_first = session.fragment_assembler.pending_count() == 0;
-                if let Some(complete) = session.fragment_assembler.add_fragment(sequence, &data, is_first) {
-                    if complete.len() >= 2 {
-                        let app_opcode = u16::from_le_bytes([complete[0], complete[1]]);
-                        let app_data = &complete[2..];
-                        let phase = client_states.get(&addr).map(|c| c.phase).unwrap_or(ConnectionPhase::Unknown);
-                        dispatch_app_packet(session, &mut client_states, addr, &socket, phase, app_opcode, app_data).await?;
-                    }
-                }
-            }
-
-            Ok(ProtocolPacket::Combined { sub_packets }) => {
-                for sub in sub_packets {
-                    if sub.len() >= 4 {
-                        // Combined sub-packets: first byte is the protocol opcode
-                        if let Ok(ProtocolPacket::AppPacket { sequence, data }) =
-                            packet::parse_protocol_packet(&[&[0x00], sub.as_slice()].concat())
-                        {
-                            session.process_incoming_sequence(sequence);
-                            socket.send_to(&packet::build_ack(sequence), addr).await?;
-
-                            if data.len() >= 2 {
-                                let app_opcode = u16::from_le_bytes([data[0], data[1]]);
-                                let app_data = &data[2..];
-                                let phase = client_states.get(&addr).map(|c| c.phase).unwrap_or(ConnectionPhase::Unknown);
-                                dispatch_app_packet(session, &mut client_states, addr, &socket, phase, app_opcode, app_data).await?;
-                            }
+                        if data.len() >= 2 {
+                            let app_opcode = u16::from_le_bytes([data[0], data[1]]);
+                            let app_data = &data[2..];
+                            dispatch_app_packet(session, &mut state.client_states, addr, socket, phase, app_opcode, app_data, world_state).await?;
                         }
                     }
                 }
             }
-
-            Ok(ProtocolPacket::OutboundPing) => {}
-            Ok(ProtocolPacket::Unknown { opcode, .. }) => {
-                debug!(opcode = format!("0x{opcode:02X}"), "Unknown protocol opcode");
-            }
-            Err(e) => {
-                debug!(error = %e, "Parse error");
-            }
-            _ => {}
         }
+
+        Ok(ProtocolPacket::OutboundPing) => {}
+        Ok(ProtocolPacket::Unknown { opcode, .. }) => {
+            debug!(opcode = format!("0x{opcode:02X}"), "Unknown protocol opcode");
+        }
+        Err(e) => {
+            debug!(error = %e, "Parse error");
+        }
+        _ => {}
     }
+
+    Ok(())
 }
 
 async fn dispatch_app_packet(
@@ -271,43 +321,19 @@ async fn dispatch_app_packet(
     phase: ConnectionPhase,
     opcode: u16,
     data: &[u8],
+    world_state: &Arc<WorldState>,
 ) -> anyhow::Result<()> {
     match phase {
         ConnectionPhase::Login => {
             login_handler::handle_login_opcode(session, socket, addr, opcode, data).await
         }
         ConnectionPhase::World => {
-            world_handler::handle_world_opcode(session, socket, addr, opcode, data).await
+            let cs = client_states.get_mut(&addr).unwrap();
+            world_handler::handle_world_opcode(session, cs, socket, addr, opcode, data, world_state).await
         }
         ConnectionPhase::Zone => {
             let cs = client_states.get_mut(&addr).unwrap();
             handle_zone_packet(session, cs, socket, addr, opcode, data).await
-        }
-        ConnectionPhase::Unknown => {
-            // Auto-detect based on opcode
-            if opcode <= 0x0021 {
-                info!("Auto-detected login phase from opcode 0x{opcode:04X}");
-                if let Some(cs) = client_states.get_mut(&addr) {
-                    cs.phase = ConnectionPhase::Login;
-                }
-                login_handler::handle_login_opcode(session, socket, addr, opcode, data).await
-            } else if opcode == opcodes::OP_SEND_LOGIN_INFO {
-                info!("Auto-detected world phase");
-                if let Some(cs) = client_states.get_mut(&addr) {
-                    cs.phase = ConnectionPhase::World;
-                }
-                world_handler::handle_world_opcode(session, socket, addr, opcode, data).await
-            } else if opcode == opcodes::OP_ZONE_ENTRY {
-                info!("Auto-detected zone phase");
-                if let Some(cs) = client_states.get_mut(&addr) {
-                    cs.phase = ConnectionPhase::Zone;
-                }
-                let cs = client_states.get_mut(&addr).unwrap();
-                handle_zone_packet(session, cs, socket, addr, opcode, data).await
-            } else {
-                debug!(opcode = format!("0x{opcode:04X}"), "Unknown phase, unhandled opcode");
-                Ok(())
-            }
         }
     }
 }
@@ -320,6 +346,7 @@ pub async fn send_app_packet(
     app_data: &[u8],
 ) -> anyhow::Result<()> {
     let pkt = session.build_app_packet(app_opcode, app_data);
+    debug!(opcode = format!("0x{app_opcode:04X}"), app_bytes = app_data.len(), udp_bytes = pkt.len(), "TX");
     socket.send_to(&pkt, addr).await?;
     Ok(())
 }
@@ -339,14 +366,12 @@ async fn handle_zone_packet(
 
             info!(character = %cs.char_name, spawn_id = cs.player_spawn_id, "Zone: entry request");
 
-            // 1. PlayerProfile
             let pp = structs::build_player_profile(
                 &cs.char_name, 1, 1, 10, 0, -99.0, -585.0, 27.0, 52,
             );
             send_app_packet(session, socket, addr, opcodes::OP_PLAYER_PROFILE, &pp).await?;
             info!("Zone: sent PlayerProfile");
 
-            // 2. Player spawn
             let player_spawn = structs::build_spawn_struct(&SpawnData {
                 spawn_id: cs.player_spawn_id,
                 name: cs.char_name.clone(), last_name: String::new(),
@@ -359,7 +384,6 @@ async fn handle_zone_packet(
             });
             send_app_packet(session, socket, addr, opcodes::OP_ZONE_ENTRY, &player_spawn).await?;
 
-            // 3. NPC spawns
             let npcs = [
                 ("Basher_Nanrum", -2.0, -567.0, 26.0),
                 ("Zugor", -117.0, -603.0, 27.0),
@@ -381,7 +405,6 @@ async fn handle_zone_packet(
             }
             info!(count = npcs.len(), "Zone: sent NPC spawns");
 
-            // 4. TimeOfDay + Weather
             send_app_packet(session, socket, addr, opcodes::OP_TIME_OF_DAY, &structs::build_time_of_day(14, 0, 1, 3100)).await?;
             send_app_packet(session, socket, addr, opcodes::OP_WEATHER, &structs::build_weather(0, 0)).await?;
         }
@@ -408,7 +431,7 @@ async fn handle_zone_packet(
 
         opcodes::OP_CLIENT_UPDATE => {}
         opcodes::OP_CHANNEL_MESSAGE => {
-            if data.len() > 0 {
+            if !data.is_empty() {
                 info!("Zone: chat ({} bytes)", data.len());
             }
         }

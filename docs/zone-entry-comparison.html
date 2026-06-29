@@ -194,7 +194,7 @@
   <div class="cell adif"><span class="s g"></span><span class="op">OP_ZoneSpawns</span> (0x2E78) <span class="data">259 NPCs from DB, 99KB bulk, 198 fragments</span><br><span class="ok">DB-backed (spawn2+spawnentry+npc_types). Sent in Phase 1 as bulk packet. Match &#10003;</span></div>
 
   <div class="cell eqemu"><span class="s r"></span><span class="op">SendZoneCorpsesBulk()</span> <span class="data">corpses</span><br><span class="cmt">Line 1765</span></div>
-  <div class="cell adif missing"><span class="s r"></span><span class="bad">NOT SENT</span></div>
+  <div class="cell adif"><span class="s g"></span><span class="op">OP_ZoneSpawns</span> <span class="data">PC corpses from character_corpses</span><br><span class="ok">npc_type=2, curHp=0. Match &#10003;</span></div>
 
   <div class="cell eqemu"><span class="s g"></span><span class="op">OP_TimeOfDay</span> (0x1580) <span class="data">8 bytes</span><br><span class="cmt">Line 1769</span></div>
   <div class="cell adif"><span class="s g"></span><span class="op">OP_TimeOfDay</span> <span class="data">8 bytes</span><br><span class="ok">&#10003;</span></div>
@@ -315,8 +315,8 @@
   <li><span class="ok">DONE:</span> Doors from DB — Door_Struct (80 bytes) built from doors table with magic bytes.</li>
   <li><span class="ok">DONE:</span> Ground objects — Object_Struct (96 bytes) sent per object via OP_GroundSpawn from DB.</li>
   <li><span class="ok">PARTIAL:</span> Phase 4 CompleteConnect — sends SpawnAppearance + ExpUpdate + RaidUpdate. Still missing: guild MOTD, rules, AA timers, HP update.</li>
-  <li><span class="warn">Corpses</span> — SendZoneCorpsesBulk() not sent.</li>
-  <li><span class="cmt">Polish:</span> OP_ApproveWorld in world phase, CharInventory with real items, tribute data.</li>
+  <li><span class="ok">DONE:</span> Corpses — PC corpses from character_corpses table, sent as bulk OP_ZoneSpawns.</li>
+  <li><span class="cmt">Polish:</span> CharInventory with real items, tribute data, action button investigation.</li>
 </ol>
 <h3>Client Requests During Zone Entry</h3>
 <p>Client requests data we don't proactively send. We respond with empty packets:</p>

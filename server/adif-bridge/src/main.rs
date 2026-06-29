@@ -776,6 +776,36 @@ async fn handle_zone_packet(
             }
             info!(count = spawns.len(), zone = %zone_short, "Zone: sent bulk NPC spawns via OP_ZoneSpawns");
 
+            // Corpses (PC corpses = npc_type 2)
+            let zone_id = cs.char_zone_id.unwrap_or(46);
+            let corpses: Vec<(String, f32, f32, f32, f32, i32, i32, i32, i32)> = sqlx::query_as(
+                "SELECT charname, x, y, z, heading, race, class, gender, level \
+                 FROM character_corpses WHERE zone_id = $1 AND is_buried = 0"
+            )
+            .bind(zone_id)
+            .fetch_all(&world_state.pool)
+            .await?;
+            if !corpses.is_empty() {
+                let mut corpse_buf = Vec::new();
+                for (name, cx, cy, cz, cheading, crace, cclass, cgender, clevel) in &corpses {
+                    let corpse_id = cs.alloc_spawn_id();
+                    let corpse_name = format!("{}'s corpse", name);
+                    let spawn = structs::build_spawn_struct(&SpawnData {
+                        spawn_id: corpse_id,
+                        name: corpse_name, last_name: String::new(),
+                        level: *clevel as u8, race: *crace as u32,
+                        class_id: *cclass as u8, gender: *cgender as u8, deity: 0,
+                        x: *cx, y: *cy, z: *cz, heading: *cheading,
+                        size: 6.0, npc_type: 2, cur_hp: 0, max_hp: 0, body_type: 0,
+                        run_speed: 0.0, walk_speed: 0.0,
+                        findable: 0, light: 0, texture: 0, helm_texture: 0, guild_id: 0xFFFFFFFF,
+                    });
+                    corpse_buf.extend_from_slice(&spawn);
+                }
+                send_app_packet(session, socket, addr, opcodes::OP_ZONE_SPAWNS, &corpse_buf).await?;
+                info!(count = corpses.len(), "Zone: sent corpses via OP_ZoneSpawns");
+            }
+
             send_app_packet(session, socket, addr, opcodes::OP_CHAR_INVENTORY, &0u32.to_le_bytes()).await?;
             send_app_packet(session, socket, addr, opcodes::OP_TIME_OF_DAY, &structs::build_time_of_day(14, 0, 1, 3100)).await?;
             send_app_packet(session, socket, addr, opcodes::OP_WEATHER, &structs::build_weather(0, 0)).await?;

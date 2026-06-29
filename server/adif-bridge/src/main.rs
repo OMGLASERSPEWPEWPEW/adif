@@ -25,9 +25,56 @@ mod world_handler;
 use eq_protocol::packet::{self, ProtocolPacket};
 use eq_protocol::session::EqSession;
 use titanium::opcodes;
-use titanium::structs::{self, PlayerProfileData, SpawnData, ZoneData};
+use titanium::structs::{self, InventoryItemRow, PlayerProfileData, SpawnData, ZoneData};
 
 use adif_world::WorldState;
+
+const INVENTORY_QUERY: &str = r#"SELECT
+    i.slot_id, i.item_id, i.charges,
+    it.itemclass, it.name, it.lore, it.idfile, it.id AS item_db_id,
+    it.weight, it.norent, it.nodrop, it.size, it.slots, it.price, it.icon,
+    it.benefitflag, it.tradeskills,
+    it.cr, it.dr, it.pr, it.mr, it.fr,
+    it.astr, it.asta, it.aagi, it.adex, it.acha, it.aint, it.awis,
+    it.hp, it.mana, it.ac, it.deity,
+    it.skillmodvalue, it.skillmodmax, it.skillmodtype,
+    it.banedmgrace, it.banedmgamt, it.banedmgbody,
+    it.magic, it.casttime_, it.reqlevel, it.bardtype, it.bardvalue,
+    it.light, it.delay, it.reclevel, it.recskill,
+    it.elemdmgtype, it.elemdmgamt, it.range, it.damage,
+    it.color, it.classes, it.races,
+    it.maxcharges, it.itemtype, it.material, it.sellrate,
+    it.procrate, it.combateffects, it.shielding, it.stunresist,
+    it.strikethrough, it.extradmgskill, it.extradmgamt,
+    it.spellshield, it.avoidance, it.accuracy,
+    it.charmfileid,
+    it.factionmod1, it.factionmod2, it.factionmod3, it.factionmod4,
+    it.factionamt1, it.factionamt2, it.factionamt3, it.factionamt4,
+    it.charmfile,
+    it.augtype,
+    it.augslot1type, it.augslot1visible, it.augslot2type, it.augslot2visible,
+    it.augslot3type, it.augslot3visible, it.augslot4type, it.augslot4visible,
+    it.augslot5type, it.augslot5visible,
+    it.ldontheme, it.ldonprice, it.ldonsold,
+    it.bagtype, it.bagslots, it.bagsize, it.bagwr,
+    it.book, it.booktype, it.filename,
+    it.banedmgraceamt, it.augrestrict, it.loregroup, it.pendingloreflag,
+    it.artifactflag, it.summonedflag,
+    it.favor, it.fvnodrop, it.endur, it.dotshielding,
+    it.attack, it.regen, it.manaregen, it.enduranceregen,
+    it.haste, it.damageshield, it.recastdelay, it.recasttype, it.guildfavor,
+    it.augdistiller, it.attuneable, it.nopet, it.pointtype,
+    it.potionbelt, it.potionbeltslots, it.stacksize, it.notransfer, it.stackable,
+    it.clickeffect, it.clicktype, it.clicklevel2, it.clicklevel,
+    it.proceffect, it.proctype, it.proclevel2, it.proclevel,
+    it.worneffect, it.worntype, it.wornlevel2, it.wornlevel,
+    it.focuseffect, it.focustype, it.focuslevel2, it.focuslevel,
+    it.scrolleffect, it.scrolltype, it.scrolllevel2, it.scrolllevel
+FROM inventory i
+JOIN items it ON i.item_id = it.id
+WHERE i.character_id = $1
+  AND i.slot_id >= 0 AND i.slot_id <= 33
+ORDER BY i.slot_id"#;
 
 #[derive(Debug, sqlx::FromRow)]
 struct ZoneDbRow {
@@ -170,6 +217,10 @@ struct ClientState {
     char_zone_short: String,
     player_spawn_id: u32,
     next_spawn_id: u32,
+    last_x: f32,
+    last_y: f32,
+    last_z: f32,
+    last_heading: f32,
 }
 
 impl ClientState {
@@ -183,6 +234,10 @@ impl ClientState {
             char_zone_short: String::new(),
             player_spawn_id: 0,
             next_spawn_id: 1,
+            last_x: 0.0,
+            last_y: 0.0,
+            last_z: 0.0,
+            last_heading: 0.0,
         }
     }
 
@@ -398,6 +453,15 @@ async fn handle_udp_packet(
         Ok(ProtocolPacket::SessionStatRequest { .. }) => {}
 
         Ok(ProtocolPacket::SessionDisconnect { .. }) => {
+            if let Some(cs) = state.client_states.get(&addr) {
+                if !cs.char_name.is_empty() && phase == ConnectionPhase::Zone {
+                    info!(character = %cs.char_name, x = cs.last_x, y = cs.last_y, z = cs.last_z, "Saving position on disconnect");
+                    let _ = save_character_position(
+                        &world_state.pool, &cs.char_name,
+                        cs.last_x, cs.last_y, cs.last_z, cs.last_heading
+                    ).await;
+                }
+            }
             info!(addr = %addr, phase = ?phase, "Client disconnected");
             state.sessions.remove(&addr);
             state.client_states.remove(&addr);
@@ -818,7 +882,24 @@ async fn handle_zone_packet(
                 info!(count = corpses.len(), "Zone: sent corpses via OP_ZoneSpawns");
             }
 
-            send_app_packet(session, socket, addr, opcodes::OP_CHAR_INVENTORY, &0u32.to_le_bytes()).await?;
+            if let Some(ref r) = record {
+                let inv_items = sqlx::query_as::<_, InventoryItemRow>(INVENTORY_QUERY)
+                    .bind(r.id)
+                    .fetch_all(&world_state.pool)
+                    .await?;
+                if inv_items.is_empty() {
+                    send_app_packet(session, socket, addr, opcodes::OP_CHAR_INVENTORY, &0u32.to_le_bytes()).await?;
+                } else {
+                    let mut inv_buf = Vec::new();
+                    for (i, item) in inv_items.iter().enumerate() {
+                        inv_buf.extend_from_slice(&structs::serialize_titanium_item(item, (i + 1) as i32));
+                    }
+                    send_app_packet(session, socket, addr, opcodes::OP_CHAR_INVENTORY, &inv_buf).await?;
+                    info!(count = inv_items.len(), bytes = inv_buf.len(), "Zone: sent inventory items");
+                }
+            } else {
+                send_app_packet(session, socket, addr, opcodes::OP_CHAR_INVENTORY, &0u32.to_le_bytes()).await?;
+            }
             send_app_packet(session, socket, addr, opcodes::OP_TIME_OF_DAY, &structs::build_time_of_day(14, 0, 1, 3100)).await?;
             send_app_packet(session, socket, addr, opcodes::OP_WEATHER, &structs::build_weather(0, 0)).await?;
         }
@@ -995,10 +1076,51 @@ async fn handle_zone_packet(
             raid_buf[68..68 + name_len].copy_from_slice(&name_bytes[..name_len]);
             send_app_packet(session, socket, addr, opcodes::OP_RAID_UPDATE, &raid_buf).await?;
 
+            // OP_HPUpdate: SpawnHPUpdate_Struct (10 bytes)
+            let mut hp_buf = [0u8; 10];
+            hp_buf[0..4].copy_from_slice(&1000u32.to_le_bytes());
+            hp_buf[4..8].copy_from_slice(&1000i32.to_le_bytes());
+            hp_buf[8..10].copy_from_slice(&(cs.player_spawn_id as i16).to_le_bytes());
+            send_app_packet(session, socket, addr, opcodes::OP_HP_UPDATE, &hp_buf).await?;
+
+            // OP_GuildMOTD: GuildMOTD_Struct (648 bytes)
+            let mut guild_motd = vec![0u8; 648];
+            let gm_name = cs.char_name.as_bytes();
+            let gm_len = gm_name.len().min(63);
+            guild_motd[4..4 + gm_len].copy_from_slice(&gm_name[..gm_len]);
+            send_app_packet(session, socket, addr, opcodes::OP_GUILD_MOTD, &guild_motd).await?;
+
+            // Weather re-send (matches EQEmu CompleteConnect)
+            send_app_packet(session, socket, addr, opcodes::OP_WEATHER, &structs::build_weather(0, 0)).await?;
+
             info!(character = %cs.char_name, "=== CLIENT IN ZONE ===");
         }
 
-        opcodes::OP_CLIENT_UPDATE => {}
+        opcodes::OP_CLIENT_UPDATE => {
+            if data.len() >= 36 {
+                cs.last_y = f32::from_le_bytes([data[4], data[5], data[6], data[7]]);
+                cs.last_x = f32::from_le_bytes([data[24], data[25], data[26], data[27]]);
+                cs.last_z = f32::from_le_bytes([data[28], data[29], data[30], data[31]]);
+                let heading_raw = u16::from_le_bytes([data[32], data[33]]) & 0x0FFF;
+                cs.last_heading = heading_raw as f32 / 4.0;
+            }
+        }
+        opcodes::OP_CAMP => {
+            info!(character = %cs.char_name, x = cs.last_x, y = cs.last_y, z = cs.last_z, "Zone: camp request — saving position");
+            save_character_position(&world_state.pool, &cs.char_name,
+                cs.last_x, cs.last_y, cs.last_z, cs.last_heading).await?;
+        }
+        opcodes::OP_LOGOUT => {
+            info!(character = %cs.char_name, "Zone: logout — saving and disconnecting");
+            save_character_position(&world_state.pool, &cs.char_name,
+                cs.last_x, cs.last_y, cs.last_z, cs.last_heading).await?;
+            send_app_packet(session, socket, addr, opcodes::OP_PRE_LOGOUT_REPLY, &[]).await?;
+            send_app_packet(session, socket, addr, opcodes::OP_LOGOUT_REPLY, &[]).await?;
+            let mut disconnect = vec![0x00u8, 0x05];
+            disconnect.extend_from_slice(&session.connect_code.to_be_bytes());
+            crate::eq_protocol::codec::append_crc(&mut disconnect, session.encode_key, session.crc_bytes);
+            socket.send_to(&disconnect, addr).await?;
+        }
         opcodes::OP_ACK_PACKET => {}
         opcodes::OP_SEND_AA_TABLE => {
             send_app_packet(session, socket, addr, opcodes::OP_SEND_AA_TABLE, &[]).await?;
@@ -1111,5 +1233,14 @@ async fn handle_zone_packet(
             debug!(opcode = format!("0x{opcode:04X}"), len = data.len(), "Zone: unhandled");
         }
     }
+    Ok(())
+}
+
+async fn save_character_position(
+    pool: &sqlx::PgPool, char_name: &str, x: f32, y: f32, z: f32, heading: f32,
+) -> anyhow::Result<()> {
+    sqlx::query("UPDATE character_data SET x = $1, y = $2, z = $3, heading = $4 WHERE name = $5")
+        .bind(x).bind(y).bind(z).bind(heading).bind(char_name)
+        .execute(pool).await?;
     Ok(())
 }

@@ -59,6 +59,11 @@ pub const OP_GROUND_SPAWN: u16 = 0x0f47;
 pub const OP_ZONE_CHANGE: u16 = 0x5dd8;
 pub const OP_EXP_UPDATE: u16 = 0x5ecd;
 pub const OP_RAID_UPDATE: u16 = 0x1f21;
+pub const OP_CAMP: u16 = 0x78c1;
+pub const OP_LOGOUT: u16 = 0x61ff;
+pub const OP_LOGOUT_REPLY: u16 = 0x3cdc;
+pub const OP_PRE_LOGOUT_REPLY: u16 = 0x711e;
+pub const OP_GUILD_MOTD: u16 = 0x475a;
 
 pub fn opcode_name(opcode: u16) -> &'static str {
     match opcode {

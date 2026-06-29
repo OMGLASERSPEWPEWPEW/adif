@@ -430,6 +430,282 @@ pub fn build_spawn_appearance(entity_id: u32, appearance_type: u32, value: u32) 
     buf
 }
 
+fn server_to_titanium_slot(server_slot: i32) -> i32 {
+    match server_slot {
+        0..=20 => server_slot,
+        22 => server_slot - 1,
+        23..=30 => server_slot - 1,
+        33 => server_slot - 3,
+        _ => server_slot,
+    }
+}
+
+fn swap_bits_21_and_22(mask: u32) -> u32 {
+    let bit21 = 1u32 << 21;
+    let bit22 = 1u32 << 22;
+    let mut m = mask;
+    if ((m & bit21) != 0) != ((m & bit22) != 0) {
+        m ^= bit21 | bit22;
+    }
+    m
+}
+
+fn catch22(mask: u32) -> u32 {
+    mask & !(1u32 << 22)
+}
+
+#[derive(Debug, sqlx::FromRow)]
+pub struct InventoryItemRow {
+    pub slot_id: i32,
+    pub item_id: i32,
+    pub charges: i16,
+    pub itemclass: i32,
+    pub name: String,
+    pub lore: String,
+    pub idfile: String,
+    pub item_db_id: i32,
+    pub weight: i32,
+    pub norent: i32,
+    pub nodrop: i32,
+    pub size: i32,
+    pub slots: i32,
+    pub price: i32,
+    pub icon: i32,
+    pub benefitflag: i32,
+    pub tradeskills: i32,
+    pub cr: i32,
+    pub dr: i32,
+    pub pr: i32,
+    pub mr: i32,
+    pub fr: i32,
+    pub astr: i32,
+    pub asta: i32,
+    pub aagi: i32,
+    pub adex: i32,
+    pub acha: i32,
+    pub aint: i32,
+    pub awis: i32,
+    pub hp: i32,
+    pub mana: i32,
+    pub ac: i32,
+    pub deity: i32,
+    pub skillmodvalue: i32,
+    pub skillmodmax: i32,
+    pub skillmodtype: i32,
+    pub banedmgrace: i32,
+    pub banedmgamt: i32,
+    pub banedmgbody: i32,
+    pub magic: i32,
+    pub casttime_: i32,
+    pub reqlevel: i32,
+    pub bardtype: i32,
+    pub bardvalue: i32,
+    pub light: i32,
+    pub delay: i32,
+    pub reclevel: i32,
+    pub recskill: i32,
+    pub elemdmgtype: i32,
+    pub elemdmgamt: i32,
+    pub range: i32,
+    pub damage: i32,
+    pub color: i64,
+    pub classes: i32,
+    pub races: i32,
+    pub maxcharges: i32,
+    pub itemtype: i32,
+    pub material: i32,
+    pub sellrate: f32,
+    pub procrate: i32,
+    pub combateffects: String,
+    pub shielding: i32,
+    pub stunresist: i32,
+    pub strikethrough: i32,
+    pub extradmgskill: i32,
+    pub extradmgamt: i32,
+    pub spellshield: i32,
+    pub avoidance: i32,
+    pub accuracy: i32,
+    pub charmfileid: String,
+    pub factionmod1: i32,
+    pub factionmod2: i32,
+    pub factionmod3: i32,
+    pub factionmod4: i32,
+    pub factionamt1: i32,
+    pub factionamt2: i32,
+    pub factionamt3: i32,
+    pub factionamt4: i32,
+    pub charmfile: String,
+    pub augtype: i32,
+    pub augslot1type: i16,
+    pub augslot1visible: i16,
+    pub augslot2type: i16,
+    pub augslot2visible: i16,
+    pub augslot3type: i16,
+    pub augslot3visible: i16,
+    pub augslot4type: i16,
+    pub augslot4visible: i16,
+    pub augslot5type: i16,
+    pub augslot5visible: i16,
+    pub ldontheme: i32,
+    pub ldonprice: i32,
+    pub ldonsold: i32,
+    pub bagtype: i32,
+    pub bagslots: i32,
+    pub bagsize: i32,
+    pub bagwr: i32,
+    pub book: i32,
+    pub booktype: i32,
+    pub filename: String,
+    pub banedmgraceamt: i32,
+    pub augrestrict: i32,
+    pub loregroup: i32,
+    pub pendingloreflag: i16,
+    pub artifactflag: i16,
+    pub summonedflag: i16,
+    pub favor: i32,
+    pub fvnodrop: i32,
+    pub endur: i32,
+    pub dotshielding: i32,
+    pub attack: i32,
+    pub regen: i32,
+    pub manaregen: i32,
+    pub enduranceregen: i32,
+    pub haste: i32,
+    pub damageshield: i32,
+    pub recastdelay: i32,
+    pub recasttype: i32,
+    pub guildfavor: i32,
+    pub augdistiller: i32,
+    pub attuneable: i32,
+    pub nopet: i32,
+    pub pointtype: i32,
+    pub potionbelt: i32,
+    pub potionbeltslots: i32,
+    pub stacksize: i32,
+    pub notransfer: i32,
+    pub stackable: i32,
+    pub clickeffect: i32,
+    pub clicktype: i32,
+    pub clicklevel2: i32,
+    pub clicklevel: i32,
+    pub proceffect: i32,
+    pub proctype: i32,
+    pub proclevel2: i32,
+    pub proclevel: i32,
+    pub worneffect: i32,
+    pub worntype: i32,
+    pub wornlevel2: i32,
+    pub wornlevel: i32,
+    pub focuseffect: i32,
+    pub focustype: i32,
+    pub focuslevel2: i32,
+    pub focuslevel: i32,
+    pub scrolleffect: i32,
+    pub scrolltype: i32,
+    pub scrolllevel2: i32,
+    pub scrolllevel: i32,
+}
+
+pub fn serialize_titanium_item(row: &InventoryItemRow, serial: i32) -> Vec<u8> {
+    use std::fmt::Write;
+
+    let titanium_slot = server_to_titanium_slot(row.slot_id);
+    let is_stackable = row.stackable != 0;
+
+    let stack_count = if is_stackable { row.charges as i32 } else { 0 };
+
+    let wire_charges = if is_stackable {
+        if row.itemtype == 21 { 1 } else { 0 }
+    } else {
+        row.charges as i32
+    };
+
+    let weight = row.weight.min(255);
+    let bane_dmg_amt = row.banedmgamt.min(255);
+    let slots_xformed = catch22(swap_bits_21_and_22(row.slots as u32));
+    let combat_effects = row.combateffects.parse::<i32>().unwrap_or(0);
+    let charm_file_id = row.charmfileid.parse::<i32>().unwrap_or(0);
+    let color = row.color as u32;
+
+    let mut s = String::with_capacity(512);
+
+    // Instance data (11 fields)
+    write!(s, "{}|0|{}|{}|1|0|{}|0|{}|0|0|",
+        stack_count, titanium_slot, row.price, serial, wire_charges).unwrap();
+
+    // Opening quote + item data (~120 fields)
+    write!(s, "\"{}|{}|{}|{}|{}|{}",
+        row.itemclass, row.name, row.lore, row.idfile, row.item_db_id, weight).unwrap();
+
+    write!(s, "|{}|{}|{}|{}|{}|{}",
+        row.norent, row.nodrop, row.size, slots_xformed, row.price, row.icon).unwrap();
+    write!(s, "|0|0|{}|{}", row.benefitflag, row.tradeskills).unwrap();
+
+    write!(s, "|{}|{}|{}|{}|{}", row.cr, row.dr, row.pr, row.mr, row.fr).unwrap();
+    write!(s, "|{}|{}|{}|{}|{}|{}|{}",
+        row.astr, row.asta, row.aagi, row.adex, row.acha, row.aint, row.awis).unwrap();
+    write!(s, "|{}|{}|{}|{}", row.hp, row.mana, row.ac, row.deity).unwrap();
+    write!(s, "|{}|{}|{}", row.skillmodvalue, row.skillmodmax, row.skillmodtype).unwrap();
+    write!(s, "|{}|{}|{}", row.banedmgrace, bane_dmg_amt, row.banedmgbody).unwrap();
+    write!(s, "|{}|{}|{}|{}|{}", row.magic, row.casttime_, row.reqlevel, row.bardtype, row.bardvalue).unwrap();
+    write!(s, "|{}|{}", row.light, row.delay).unwrap();
+    write!(s, "|{}|{}", row.reclevel, row.recskill).unwrap();
+    write!(s, "|{}|{}", row.elemdmgtype, row.elemdmgamt).unwrap();
+    write!(s, "|{}|{}", row.range, row.damage).unwrap();
+    write!(s, "|{}|{}|{}|0", color, row.classes, row.races).unwrap();
+    write!(s, "|{}|{}|{}|{:.6}", row.maxcharges, row.itemtype, row.material, row.sellrate).unwrap();
+    write!(s, "|0|{}|0", row.casttime_).unwrap();
+    write!(s, "|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}",
+        row.procrate, combat_effects, row.shielding, row.stunresist,
+        row.strikethrough, row.extradmgskill, row.extradmgamt,
+        row.spellshield, row.avoidance, row.accuracy).unwrap();
+    write!(s, "|{}", charm_file_id).unwrap();
+    write!(s, "|{}|{}|{}|{}", row.factionmod1, row.factionmod2, row.factionmod3, row.factionmod4).unwrap();
+    write!(s, "|{}|{}|{}|{}", row.factionamt1, row.factionamt2, row.factionamt3, row.factionamt4).unwrap();
+    write!(s, "|{}", row.charmfile).unwrap();
+    write!(s, "|{}", row.augtype).unwrap();
+    write!(s, "|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}",
+        row.augslot1type, row.augslot1visible,
+        row.augslot2type, row.augslot2visible,
+        row.augslot3type, row.augslot3visible,
+        row.augslot4type, row.augslot4visible,
+        row.augslot5type, row.augslot5visible).unwrap();
+    write!(s, "|{}|{}|{}", row.ldontheme, row.ldonprice, row.ldonsold).unwrap();
+    write!(s, "|{}|{}|{}|{}", row.bagtype, row.bagslots, row.bagsize, row.bagwr).unwrap();
+    write!(s, "|{}|{}", row.book, row.booktype).unwrap();
+    write!(s, "|{}", row.filename).unwrap();
+    write!(s, "|{}|{}|{}|{}|{}|{}",
+        row.banedmgraceamt, row.augrestrict, row.loregroup,
+        row.pendingloreflag, row.artifactflag, row.summonedflag).unwrap();
+    write!(s, "|{}|{}|{}|{}", row.favor, row.fvnodrop, row.endur, row.dotshielding).unwrap();
+    write!(s, "|{}|{}|{}|{}", row.attack, row.regen, row.manaregen, row.enduranceregen).unwrap();
+    write!(s, "|{}|{}|{}|{}|{}", row.haste, row.damageshield, row.recastdelay, row.recasttype, row.guildfavor).unwrap();
+    write!(s, "|{}", row.augdistiller).unwrap();
+    write!(s, "|0|0|{}|{}|0|{}", row.attuneable, row.nopet, row.pointtype).unwrap();
+    write!(s, "|{}|{}|{}|{}|{}",
+        row.potionbelt, row.potionbeltslots, row.stacksize, row.notransfer, row.stackable).unwrap();
+    // click effect
+    write!(s, "|{}|{}|{}|{}|0", row.clickeffect, row.clicktype, row.clicklevel2, row.clicklevel).unwrap();
+    // proc effect
+    write!(s, "|{}|{}|{}|{}|0", row.proceffect, row.proctype, row.proclevel2, row.proclevel).unwrap();
+    // worn effect
+    write!(s, "|{}|{}|{}|{}|0", row.worneffect, row.worntype, row.wornlevel2, row.wornlevel).unwrap();
+    // focus effect
+    write!(s, "|{}|{}|{}|{}|0", row.focuseffect, row.focustype, row.focuslevel2, row.focuslevel).unwrap();
+    // scroll effect
+    write!(s, "|{}|{}|{}|{}|0", row.scrolleffect, row.scrolltype, row.scrolllevel2, row.scrolllevel).unwrap();
+
+    // Closing quote
+    s.push('"');
+
+    // 10 trailing pipes for empty bag sub-item slots
+    s.push_str("||||||||||");
+
+    let mut out = s.into_bytes();
+    out.push(0); // NUL terminator
+    out
+}
+
 pub fn extract_zone_entry_name(data: &[u8]) -> String {
     if data.len() < 5 {
         return String::from("Unknown");

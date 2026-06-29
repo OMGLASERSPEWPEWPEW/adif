@@ -574,3 +574,53 @@ scripts/capture-20260628_173650.log — FULL login+world+zone capture through pr
 > server/adif-bridge/src/titanium/structs.rs  |   8 +
 > server/adif-bridge/src/eq_protocol/codec.rs |   2 +-
 > ```
+
+### 2026-06-29 09:20
+
+SESSION 2026-06-29: MILESTONE — First character in-zone on ADIF Rust server.
+
+## What Happened
+- Enabled zlib compression matching EQEmu (encode_key=0xFFFFFFFF, pass1=1, pass2=0)
+- Fixed compression boundary: sequence bytes go INSIDE compressed block, not outside
+- Added OP_SpawnDoor (count=0), OP_CharInventory (count=0), fog_minclip/maxclip[4], max_z to NewZone
+- Added response handlers for client AA/tribute/exp requests (0x367D, 0x5966, 0x067A, 0x5E3A, 0x0587)
+- Loading bar progressed: instant disconnect → black screen → 40% → 100% → IN ZONE
+- Ghouldan stands in Innothule Swamp on the ADIF bridge — first character in-zone
+
+## Current State
+- Login → character select → zone entry: ALL WORKING through protocol bridge
+- Character is in zone with level, movement works, zone music plays
+- Missing: NPCs not visible (spawn struct issue), no inventory/skills, 0xCB retransmit parse errors
+
+## What's Next
+1. Fix NPC visibility (spawn struct fields)
+2. Handle 0xCB protocol retransmit packets
+3. Populate inventory and skills in PlayerProfile
+4. Update zone-entry-comparison.html with victory status
+
+> **Session context** *(auto-gathered)*
+>
+> **What happened:**
+> - Fixed compression to match EQEmu (pass1=1, sequence inside compressed block)
+> - Iteratively fixed zone loading: SpawnDoor, CharInventory, fog clips, AA/tribute responses
+> - Loading progressed through 5 stages: disconnect → black → 40% → 100% → IN ZONE
+> - Character Ghouldan entered Innothule Swamp — first zone-in on ADIF server
+>
+> **Commits since last entry:**
+> ```
+> 7a1e1ed chore(infra): update session journals and memory heaps
+> 902c747 docs(server): add zone entry comparison page and update docs index
+> b37a1de feat(server): enable zone compression and complete zone entry handshake
+> ```
+>
+> **Files touched:**
+> ```
+> server/adif-bridge/src/main.rs              | 127 +++++++--
+> server/adif-bridge/src/eq_protocol/session.rs |  45 ++-
+> server/adif-bridge/src/titanium/opcodes.rs  |  10 +-
+> server/adif-bridge/src/titanium/structs.rs  |  10 +
+> server/adif-bridge/src/eq_protocol/codec.rs |   5 +-
+> server/adif-bridge/src/eq_protocol/packet.rs|   5 +-
+> docs/zone-entry-comparison.html             | 317 +++
+> docs/index.html                             |  22 +
+> ```

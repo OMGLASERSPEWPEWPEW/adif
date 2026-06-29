@@ -220,7 +220,7 @@
   <div class="col-header adif">ADIF Bridge</div>
 
   <div class="cell eqemu"><span class="s g"></span><span class="op">OP_NewZone</span> (0x0920) <span class="data">700 bytes (NewZone_Struct)</span><br><span class="cmt">Line 1129. memcpy from zone->newzone_data. ALL fields from DB zone table.</span></div>
-  <div class="cell adif"><span class="s g"></span><span class="op">OP_NewZone</span> <span class="data">700 bytes, 2 fragments — ALL fields from DB</span><br><span class="ok">DB-backed (zone table). Fog colors, clip distances, rain/snow, gravity, sky, underworld — all from DB. Match &#10003;</span></div>
+  <div class="cell adif"><span class="s g"></span><span class="op">OP_NewZone</span> <span class="data">700 bytes, 2 fragments — ALL fields from DB</span><br><span class="ok">DB-backed (zone table). Fog colors, clip distances, rain/snow, gravity, sky, underworld — all from DB. Verified: night sky renders correctly. Match &#10003;</span></div>
 </div>
 <div class="notes"><h3>NewZone_Struct Fields (700 bytes)</h3><ul>
   <li>All fields loaded from PostgreSQL zone table: fog_red/green/blue (4 layers), fog_minclip/maxclip (4 layers), fog_density, rain_chance/duration (4), snow_chance/duration (4), sky, ztype, gravity, time_type, zone_exp_multiplier, safe_xyz, max_z, underworld, minclip, maxclip, zone_id</li>
@@ -296,15 +296,19 @@
   <li><span class="ok">FIXED:</span> Added fog_minclip/maxclip[4] and max_z to NewZone_Struct.</li>
   <li><span class="ok">FIXED:</span> Added response handlers for client AA/tribute/exp requests.</li>
 </ol>
-<h3>Remaining Work — Next Priorities</h3>
+<h3>Remaining Work — Road to 100% Packet Parity</h3>
 <ol>
-  <li><span class="ok">FIXED:</span> NPC spawning — 259 NPCs from DB (spawn2+spawnentry+npc_types). Fixed is_npc=1 at offset 144, guild_id=0 for NPCs.</li>
-  <li><span class="ok">FIXED:</span> Spawn timing — NPCs now sent in Phase 1 as bulk OP_ZoneSpawns (259 concatenated Spawn_Structs). Loading bar restored.</li>
-  <li><span class="ok">FIXED:</span> Player spawn — curHp=1 (matches EQEmu), z lifted +6. PlayerProfile entityid set to spawn_id.</li>
-  <li><span class="warn">Protocol retransmits</span> — 0xCB-prefixed packets cause parse errors. Need to handle oversized/retransmit protocol opcodes.</li>
-  <li><span class="warn">PlayerProfile gaps</span> — no skills, no spells, no disciplines populated.</li>
-  <li><span class="cmt">Phase 4 gaps:</span> CompleteConnect only sends OP_SpawnAppearance. Missing HP update, exp update, guild MOTD, rules.</li>
-  <li><span class="cmt">Low priority:</span> Missing OP_ApproveWorld, fog colors, rain/snow in NewZone, door/object data.</li>
+  <li><span class="ok">FIXED:</span> NPC spawning — 259 NPCs from DB via bulk OP_ZoneSpawns in Phase 1.</li>
+  <li><span class="ok">FIXED:</span> Player spawn — curHp=1, z+=6, PlayerProfile entityid set.</li>
+  <li><span class="ok">FIXED:</span> NewZone from DB — all fog/weather/terrain fields loaded from zone table.</li>
+  <li><span class="warn">Protocol retransmits</span> — 0xCB-prefixed packets cause parse errors. Need to handle retransmit protocol opcodes.</li>
+  <li><span class="warn">PlayerProfile</span> — no skills, spells, or disciplines populated. Character has no abilities.</li>
+  <li><span class="warn">Zone points from DB</span> — currently count=0. Need zone_points table query for zone transitions.</li>
+  <li><span class="warn">Doors from DB</span> — currently count=0. Need doors table query for OP_SpawnDoor.</li>
+  <li><span class="warn">Ground objects</span> — SendZoneObjects() not sent. Need object table query.</li>
+  <li><span class="warn">Phase 4 CompleteConnect</span> — only sends OP_SpawnAppearance. Missing: HP update, exp update, guild MOTD, rules, AA timers.</li>
+  <li><span class="warn">Corpses</span> — SendZoneCorpsesBulk() not sent.</li>
+  <li><span class="cmt">Polish:</span> OP_ApproveWorld in world phase, CharInventory with real items, tribute data.</li>
 </ol>
 <h3>Client Requests During Zone Entry</h3>
 <p>Client requests data we don't proactively send. We respond with empty packets:</p>

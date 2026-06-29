@@ -334,15 +334,42 @@ async fn handle_udp_packet(
 
     let mut raw_owned = raw.to_vec();
 
-    // CRC decode: only SessionRequest/SessionResponse/OutOfSession are exempt (per EQEmu PacketCanBeEncoded)
-    if raw[0] == 0x00 {
-        let proto_op = raw[1];
-        match proto_op {
-            eq_protocol::OP_SESSION_REQUEST | eq_protocol::OP_SESSION_RESPONSE | eq_protocol::OP_OUT_OF_SESSION => {}
-            _ => {
-                if !session.decode_packet(&mut raw_owned) {
-                    return Ok(());
+    // Non-zero first byte = raw app packet (no protocol framing)
+    if raw[0] != 0x00 {
+        // CRC strip
+        if session.crc_bytes > 0 {
+            if !eq_protocol::codec::verify_and_strip_crc(&mut raw_owned, session.encode_key, session.crc_bytes) {
+                return Ok(());
+            }
+        }
+        // Decompress starting at byte 1 (byte 0 is part of app data)
+        if session.compress && raw_owned.len() > 1 {
+            match eq_protocol::codec::decompress(&raw_owned[1..]) {
+                Ok(decompressed) => {
+                    let first = raw_owned[0];
+                    raw_owned.clear();
+                    raw_owned.push(first);
+                    raw_owned.extend_from_slice(&decompressed);
                 }
+                Err(_) => return Ok(()),
+            }
+        }
+        // Treat as raw app packet: first 2 bytes = opcode (LE)
+        if raw_owned.len() >= 2 {
+            let app_opcode = u16::from_le_bytes([raw_owned[0], raw_owned[1]]);
+            let app_data = &raw_owned[2..];
+            dispatch_app_packet(session, &mut state.client_states, addr, socket, phase, app_opcode, app_data, world_state).await?;
+        }
+        return Ok(());
+    }
+
+    // CRC decode: only SessionRequest/SessionResponse/OutOfSession are exempt (per EQEmu PacketCanBeEncoded)
+    let proto_op = raw[1];
+    match proto_op {
+        eq_protocol::OP_SESSION_REQUEST | eq_protocol::OP_SESSION_RESPONSE | eq_protocol::OP_OUT_OF_SESSION => {}
+        _ => {
+            if !session.decode_packet(&mut raw_owned) {
+                return Ok(());
             }
         }
     }

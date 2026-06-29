@@ -310,7 +310,7 @@
 </ol>
 <h3>Remaining — Road to 100%</h3>
 <ol>
-  <li><span class="warn">Protocol retransmits</span> — 0xCB-prefixed packets cause parse errors. Likely causes 10% loading hang. Need to handle retransmit protocol opcodes.</li>
+  <li><span class="ok">DONE:</span> Raw app packets (0xCB etc.) — non-zero first byte packets are now CRC-stripped, decompressed, and dispatched as app packets. No more parse errors.</li>
   <li><span class="warn">PlayerProfile skills/spells</span> — no skills, spells, or disciplines populated. Character has no abilities in-game.</li>
   <li><span class="ok">DONE:</span> Doors from DB — Door_Struct (80 bytes) built from doors table with magic bytes.</li>
   <li><span class="warn">Ground objects</span> — SendZoneObjects() not sent. Need object table query.</li>

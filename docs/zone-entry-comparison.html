@@ -238,7 +238,7 @@
   <div class="col-header adif">ADIF Bridge</div>
 
   <div class="cell eqemu"><span class="s r"></span><span class="op">MakeDoorSpawnPacket()</span> <span class="data">zone doors</span><br><span class="cmt">Line 1084</span></div>
-  <div class="cell adif"><span class="s y"></span><span class="op">OP_SpawnDoor</span> (0x4C24) <span class="data">count=0</span><br><span class="warn">Sent empty. No door data yet.</span></div>
+  <div class="cell adif"><span class="s g"></span><span class="op">OP_SpawnDoor</span> (0x4C24) <span class="data">DB-backed (doors table)</span><br><span class="ok">Door_Struct (80 bytes each) from DB. Match &#10003;</span></div>
 
   <div class="cell eqemu"><span class="s r"></span><span class="op">SendZoneObjects()</span> <span class="data">ground objects</span><br><span class="cmt">Line 1091</span></div>
   <div class="cell adif missing"><span class="s r"></span><span class="bad">NOT SENT</span></div>
@@ -312,7 +312,7 @@
 <ol>
   <li><span class="warn">Protocol retransmits</span> — 0xCB-prefixed packets cause parse errors. Likely causes 10% loading hang. Need to handle retransmit protocol opcodes.</li>
   <li><span class="warn">PlayerProfile skills/spells</span> — no skills, spells, or disciplines populated. Character has no abilities in-game.</li>
-  <li><span class="warn">Doors from DB</span> — currently count=0. Need doors table query for OP_SpawnDoor with real data.</li>
+  <li><span class="ok">DONE:</span> Doors from DB — Door_Struct (80 bytes) built from doors table with magic bytes.</li>
   <li><span class="warn">Ground objects</span> — SendZoneObjects() not sent. Need object table query.</li>
   <li><span class="warn">Phase 4 CompleteConnect</span> — only sends OP_SpawnAppearance. Missing: HP update, exp update, guild MOTD, rules, AA timers.</li>
   <li><span class="warn">Corpses</span> — SendZoneCorpsesBulk() not sent.</li>

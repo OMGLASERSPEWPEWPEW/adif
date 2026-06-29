@@ -85,6 +85,21 @@ struct ZoneDbRow {
 }
 
 #[derive(Debug, sqlx::FromRow)]
+struct DoorRow {
+    name: String,
+    pos_y: f32,
+    pos_x: f32,
+    pos_z: f32,
+    heading: f32,
+    incline: i32,
+    size: i16,
+    doorid: i16,
+    opentype: i16,
+    invert_state: i32,
+    door_param: i32,
+}
+
+#[derive(Debug, sqlx::FromRow)]
 struct ZonePointRow {
     number: i32,
     target_y: f32,
@@ -754,7 +769,43 @@ async fn handle_zone_packet(
 
         opcodes::OP_REQ_CLIENT_SPAWN => {
             info!("Zone: sending zone contents and ready signals");
-            send_app_packet(session, socket, addr, opcodes::OP_SPAWN_DOOR, &0u32.to_le_bytes()).await?;
+            let zone_short = if cs.char_zone_short.is_empty() { "innothule".to_string() } else { cs.char_zone_short.clone() };
+
+            let door_rows = sqlx::query_as::<_, DoorRow>(
+                "SELECT name, pos_y, pos_x, pos_z, heading, incline, size, \
+                 doorid, opentype, invert_state, door_param \
+                 FROM doors WHERE zone = $1"
+            )
+            .bind(&zone_short)
+            .fetch_all(&world_state.pool)
+            .await?;
+
+            if door_rows.is_empty() {
+                send_app_packet(session, socket, addr, opcodes::OP_SPAWN_DOOR, &0u32.to_le_bytes()).await?;
+            } else {
+                let door_struct_size = 80usize;
+                let mut door_buf = vec![0u8; door_rows.len() * door_struct_size];
+                for (i, dr) in door_rows.iter().enumerate() {
+                    let off = i * door_struct_size;
+                    let name_bytes = dr.name.as_bytes();
+                    let name_len = name_bytes.len().min(31);
+                    door_buf[off..off + name_len].copy_from_slice(&name_bytes[..name_len]);
+                    door_buf[off + 32..off + 36].copy_from_slice(&dr.pos_y.to_le_bytes());
+                    door_buf[off + 36..off + 40].copy_from_slice(&dr.pos_x.to_le_bytes());
+                    door_buf[off + 40..off + 44].copy_from_slice(&dr.pos_z.to_le_bytes());
+                    door_buf[off + 44..off + 48].copy_from_slice(&dr.heading.to_le_bytes());
+                    door_buf[off + 48..off + 52].copy_from_slice(&(dr.incline as u32).to_le_bytes());
+                    door_buf[off + 52..off + 54].copy_from_slice(&(dr.size as u16).to_le_bytes());
+                    door_buf[off + 60] = dr.doorid as u8;
+                    door_buf[off + 61] = dr.opentype as u8;
+                    door_buf[off + 63] = dr.invert_state as u8;
+                    door_buf[off + 64..off + 68].copy_from_slice(&(dr.door_param as u32).to_le_bytes());
+                    door_buf[off + 77] = 0x01;
+                    door_buf[off + 79] = 0x01;
+                }
+                send_app_packet(session, socket, addr, opcodes::OP_SPAWN_DOOR, &door_buf).await?;
+                info!(count = door_rows.len(), zone = %zone_short, "Zone: sent doors from DB");
+            }
 
             let zone_short = if cs.char_zone_short.is_empty() { "innothule".to_string() } else { cs.char_zone_short.clone() };
             let zp_rows = sqlx::query_as::<_, ZonePointRow>(

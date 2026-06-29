@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::Context;
+use sqlx;
 use tokio::net::UdpSocket;
 use tracing::{debug, info, warn};
 
@@ -28,6 +29,30 @@ use titanium::structs::{self, PlayerProfileData, SpawnData};
 
 use adif_world::WorldState;
 
+#[derive(Debug, sqlx::FromRow)]
+struct ZoneSpawnRow {
+    npc_name: String,
+    lastname: Option<String>,
+    level: i16,
+    race: i16,
+    class: i16,
+    gender: i16,
+    bodytype: i32,
+    hp: i64,
+    size: f32,
+    runspeed: f32,
+    walkspeed: f32,
+    texture: i16,
+    helmtexture: i16,
+    light: i16,
+    findable: i16,
+    flymode: i16,
+    x: f32,
+    y: f32,
+    z: f32,
+    heading: f32,
+}
+
 const LOGIN_PORT: u16 = 5998;
 const WORLD_PORT: u16 = 9000;
 const ZONE_PORT: u16 = 7778;
@@ -45,6 +70,7 @@ struct ClientState {
     account_name: String,
     char_name: String,
     char_zone_id: Option<i32>,
+    char_zone_short: String,
     player_spawn_id: u32,
     next_spawn_id: u32,
 }
@@ -57,6 +83,7 @@ impl ClientState {
             account_name: String::new(),
             char_name: String::new(),
             char_zone_id: None,
+            char_zone_short: String::new(),
             player_spawn_id: 0,
             next_spawn_id: 1,
         }
@@ -556,29 +583,6 @@ async fn handle_zone_packet(
             });
             send_app_packet(session, socket, addr, opcodes::OP_ZONE_ENTRY, &player_spawn).await?;
 
-            // EQEmu sends spawns + time immediately after PlayerProfile + player spawn
-            // (see zone/client_packet.cpp Handle_Connect_OP_ZoneEntry lines 1764-1773)
-            let npcs = [
-                ("Basher_Nanrum", -2.0, -567.0, 26.0),
-                ("Zugor", -117.0, -603.0, 27.0),
-                ("a_Troll_guard", -60.0, -600.0, 26.0),
-                ("Grobb_Merchant", -130.0, -550.0, 27.0),
-            ];
-            for (npc_name, nx, ny, nz) in &npcs {
-                let npc_id = cs.alloc_spawn_id();
-                let spawn = structs::build_spawn_struct(&SpawnData {
-                    spawn_id: npc_id, name: npc_name.to_string(), last_name: String::new(),
-                    level: 30, race: 9, class_id: 1, gender: 0, deity: 0,
-                    x: *nx, y: *ny, z: *nz, heading: 0.0, size: 8.0,
-                    npc_type: 1, cur_hp: 100, max_hp: 100, body_type: 1,
-                    run_speed: 0.7, walk_speed: 0.46,
-                    findable: 1, light: 0, texture: 0, helm_texture: 0,
-                    guild_id: 0xFFFFFFFF,
-                });
-                send_app_packet(session, socket, addr, opcodes::OP_NEW_SPAWN, &spawn).await?;
-            }
-            info!(count = npcs.len(), "Zone: sent NPC spawns");
-
             send_app_packet(session, socket, addr, opcodes::OP_CHAR_INVENTORY, &0u32.to_le_bytes()).await?;
             send_app_packet(session, socket, addr, opcodes::OP_TIME_OF_DAY, &structs::build_time_of_day(14, 0, 1, 3100)).await?;
             send_app_packet(session, socket, addr, opcodes::OP_WEATHER, &structs::build_weather(0, 0)).await?;
@@ -606,6 +610,52 @@ async fn handle_zone_packet(
             let sa = structs::build_spawn_appearance(cs.player_spawn_id, 0x10, cs.player_spawn_id);
             send_app_packet(session, socket, addr, opcodes::OP_SPAWN_APPEARANCE, &sa).await?;
             info!(character = %cs.char_name, "=== CLIENT IN ZONE ===");
+
+            let zone_short = if cs.char_zone_short.is_empty() { "innothule".to_string() } else { cs.char_zone_short.clone() };
+            let spawns = sqlx::query_as::<_, ZoneSpawnRow>(
+                "SELECT n.name AS npc_name, n.lastname, n.level, n.race, n.class, \
+                 n.gender, n.bodytype, n.hp, n.size, n.runspeed, n.walkspeed, \
+                 n.texture, n.helmtexture, n.light, n.findable, n.flymode, \
+                 s.x, s.y, s.z, s.heading \
+                 FROM spawn2 s \
+                 JOIN spawnentry se ON s.spawngroupid = se.spawngroupid \
+                 JOIN npc_types n ON se.npcid = n.id \
+                 WHERE s.zone = $1 AND (s.version = 0 OR s.version = -1)"
+            )
+            .bind(&zone_short)
+            .fetch_all(&world_state.pool)
+            .await?;
+
+            let mut count = 0u32;
+            for row in &spawns {
+                let npc_id = cs.alloc_spawn_id();
+                let spawn = structs::build_spawn_struct(&SpawnData {
+                    spawn_id: npc_id,
+                    name: row.npc_name.replace('#', ""),
+                    last_name: row.lastname.clone().unwrap_or_default(),
+                    level: row.level as u8,
+                    race: row.race as u32,
+                    class_id: row.class as u8,
+                    gender: row.gender as u8,
+                    deity: 0,
+                    x: row.x, y: row.y, z: row.z, heading: row.heading,
+                    size: if row.size > 0.0 { row.size } else { 6.0 },
+                    npc_type: 1,
+                    cur_hp: 100,
+                    max_hp: 100,
+                    body_type: row.bodytype as u8,
+                    run_speed: if row.runspeed > 0.0 { row.runspeed } else { 0.7 },
+                    walk_speed: if row.walkspeed > 0.0 { row.walkspeed } else { 0.46 },
+                    findable: row.findable as u8,
+                    light: row.light as u8,
+                    texture: row.texture as u8,
+                    helm_texture: row.helmtexture as u8,
+                    guild_id: 0,
+                });
+                send_app_packet(session, socket, addr, opcodes::OP_NEW_SPAWN, &spawn).await?;
+                count += 1;
+            }
+            info!(count, zone = %zone_short, "Zone: sent DB-backed NPC spawns");
         }
 
         opcodes::OP_CLIENT_UPDATE => {}

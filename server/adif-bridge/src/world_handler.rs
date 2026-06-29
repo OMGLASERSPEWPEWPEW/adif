@@ -105,9 +105,20 @@ pub async fn handle_world_opcode(
                 cs.char_name = record.name.clone();
                 cs.char_zone_id = Some(record.zone_id);
 
+                if let Some(zone_row) = sqlx::query_as::<_, (String, String)>(
+                    "SELECT short_name, long_name FROM zone WHERE zoneidnumber = $1"
+                )
+                .bind(record.zone_id)
+                .fetch_optional(&world_state.pool)
+                .await?
+                {
+                    cs.char_zone_short = zone_row.0;
+                }
+
                 info!(
                     character = %record.name,
                     zone_id = record.zone_id,
+                    zone = %cs.char_zone_short,
                     level = record.level,
                     "World: character loaded from DB"
                 );

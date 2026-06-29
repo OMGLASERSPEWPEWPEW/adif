@@ -125,8 +125,12 @@ pub fn build_spawn_struct(data: &SpawnData) -> Vec<u8> {
     write_u8(&mut buf, 275, data.helm_texture);
     // spawnId at offset 340
     write_u32_le(&mut buf, 340, data.spawn_id);
+    // is_npc at offset 144 (distinct from NPC type at 83)
+    if data.npc_type != 0 {
+        write_u8(&mut buf, 144, 1);
+    }
     // guildID at offset 238
-    write_u32_le(&mut buf, 238, 0xFFFFFFFF);
+    write_u32_le(&mut buf, 238, data.guild_id);
     // set_to_0xFF at offset 276 (8 bytes)
     for i in 0..8 {
         buf[276 + i] = 0xFF;

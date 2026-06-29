@@ -141,57 +141,91 @@ pub fn build_spawn_struct(data: &SpawnData) -> Vec<u8> {
     buf
 }
 
-pub fn build_new_zone_struct(
-    char_name: &str,
-    zone_short: &str,
-    zone_long: &str,
-    safe_x: f32,
-    safe_y: f32,
-    safe_z: f32,
-    min_clip: f32,
-    max_clip: f32,
-    zone_id: u16,
-) -> Vec<u8> {
+pub struct ZoneData {
+    pub short_name: String,
+    pub long_name: String,
+    pub zone_id: u16,
+    pub safe_x: f32,
+    pub safe_y: f32,
+    pub safe_z: f32,
+    pub minclip: f32,
+    pub maxclip: f32,
+    pub fog_minclip: [f32; 4],
+    pub fog_maxclip: [f32; 4],
+    pub fog_red: [u8; 4],
+    pub fog_green: [u8; 4],
+    pub fog_blue: [u8; 4],
+    pub fog_density: f32,
+    pub sky: u8,
+    pub ztype: u8,
+    pub zone_exp_multiplier: f32,
+    pub gravity: f32,
+    pub time_type: u8,
+    pub rain_chance: [u8; 4],
+    pub rain_duration: [u8; 4],
+    pub snow_chance: [u8; 4],
+    pub snow_duration: [u8; 4],
+    pub underworld: f32,
+    pub max_z: f32,
+}
+
+pub fn build_new_zone_struct(char_name: &str, zd: &ZoneData) -> Vec<u8> {
     let mut buf = vec![0u8; NEW_ZONE_STRUCT_SIZE];
 
     write_str(&mut buf, 0, char_name, 64);
-    write_str(&mut buf, 64, zone_short, 32);
-    write_str(&mut buf, 96, zone_long, 278);
+    write_str(&mut buf, 64, &zd.short_name, 32);
+    write_str(&mut buf, 96, &zd.long_name, 278);
 
     // ztype at 374
-    write_u8(&mut buf, 374, 0xFF);
-    // fog_minclip[4] at 388 — renderer needs non-zero fog clip distances
+    write_u8(&mut buf, 374, zd.ztype);
+    // fog_red[4] at 375, fog_green[4] at 379, fog_blue[4] at 383
     for i in 0..4 {
-        write_f32_le(&mut buf, 388 + i * 4, min_clip);
+        buf[375 + i] = zd.fog_red[i];
+        buf[379 + i] = zd.fog_green[i];
+        buf[383 + i] = zd.fog_blue[i];
+    }
+    // fog_minclip[4] at 388
+    for i in 0..4 {
+        write_f32_le(&mut buf, 388 + i * 4, zd.fog_minclip[i]);
     }
     // fog_maxclip[4] at 404
     for i in 0..4 {
-        write_f32_le(&mut buf, 404 + i * 4, max_clip);
+        write_f32_le(&mut buf, 404 + i * 4, zd.fog_maxclip[i]);
     }
     // gravity at 420
-    write_f32_le(&mut buf, 420, 0.4);
+    write_f32_le(&mut buf, 420, zd.gravity);
     // time_type at 424
-    write_u8(&mut buf, 424, 2);
+    write_u8(&mut buf, 424, zd.time_type);
+    // rain_chance[4] at 425, rain_duration[4] at 429
+    for i in 0..4 {
+        buf[425 + i] = zd.rain_chance[i];
+        buf[429 + i] = zd.rain_duration[i];
+    }
+    // snow_chance[4] at 433, snow_duration[4] at 437
+    for i in 0..4 {
+        buf[433 + i] = zd.snow_chance[i];
+        buf[437 + i] = zd.snow_duration[i];
+    }
     // sky at 474
-    write_u8(&mut buf, 474, 1);
+    write_u8(&mut buf, 474, zd.sky);
     // zone_exp_multiplier at 488
-    write_f32_le(&mut buf, 488, 1.0);
+    write_f32_le(&mut buf, 488, zd.zone_exp_multiplier);
     // safe coords at 492/496/500
-    write_f32_le(&mut buf, 492, safe_y);
-    write_f32_le(&mut buf, 496, safe_x);
-    write_f32_le(&mut buf, 500, safe_z);
+    write_f32_le(&mut buf, 492, zd.safe_y);
+    write_f32_le(&mut buf, 496, zd.safe_x);
+    write_f32_le(&mut buf, 500, zd.safe_z);
     // max_z at 504
-    write_f32_le(&mut buf, 504, 10000.0);
+    write_f32_le(&mut buf, 504, zd.max_z);
     // underworld at 508
-    write_f32_le(&mut buf, 508, -1000.0);
+    write_f32_le(&mut buf, 508, zd.underworld);
     // minclip at 512
-    write_f32_le(&mut buf, 512, min_clip);
+    write_f32_le(&mut buf, 512, zd.minclip);
     // maxclip at 516
-    write_f32_le(&mut buf, 516, max_clip);
+    write_f32_le(&mut buf, 516, zd.maxclip);
     // zone_short_name2 at 604
-    write_str(&mut buf, 604, zone_short, 68);
+    write_str(&mut buf, 604, &zd.short_name, 68);
     // zone_id at 684
-    write_u16_le(&mut buf, 684, zone_id);
+    write_u16_le(&mut buf, 684, zd.zone_id);
 
     buf
 }
@@ -421,7 +455,18 @@ mod tests {
 
     #[test]
     fn new_zone_struct_correct_size() {
-        let buf = build_new_zone_struct("Ghouldan", "grobb", "Grobb", -99.0, -585.0, 27.0, 450.0, 450.0, 52);
+        let zd = ZoneData {
+            short_name: "grobb".to_string(), long_name: "Grobb".to_string(),
+            zone_id: 52, safe_x: -99.0, safe_y: -585.0, safe_z: 27.0,
+            minclip: 450.0, maxclip: 450.0,
+            fog_minclip: [10.0; 4], fog_maxclip: [500.0; 4],
+            fog_red: [0; 4], fog_green: [0; 4], fog_blue: [0; 4], fog_density: 0.0,
+            sky: 1, ztype: 255, zone_exp_multiplier: 1.0, gravity: 0.4, time_type: 2,
+            rain_chance: [0; 4], rain_duration: [0; 4],
+            snow_chance: [0; 4], snow_duration: [0; 4],
+            underworld: -1000.0, max_z: 10000.0,
+        };
+        let buf = build_new_zone_struct("Ghouldan", &zd);
         assert_eq!(buf.len(), NEW_ZONE_STRUCT_SIZE);
         assert_eq!(&buf[0..8], b"Ghouldan");
         assert_eq!(&buf[64..69], b"grobb");

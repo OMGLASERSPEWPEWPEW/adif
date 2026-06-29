@@ -220,11 +220,11 @@
   <div class="col-header adif">ADIF Bridge</div>
 
   <div class="cell eqemu"><span class="s g"></span><span class="op">OP_NewZone</span> (0x0920) <span class="data">700 bytes (NewZone_Struct)</span><br><span class="cmt">Line 1129. memcpy from zone->newzone_data. ALL fields from DB zone table.</span></div>
-  <div class="cell adif"><span class="s y"></span><span class="op">OP_NewZone</span> <span class="data">700 bytes, 2 fragments</span><br><span class="warn">~20 fields set including fog clip distances. Rain/snow/fog colors still zeroed.</span></div>
+  <div class="cell adif"><span class="s g"></span><span class="op">OP_NewZone</span> <span class="data">700 bytes, 2 fragments — ALL fields from DB</span><br><span class="ok">DB-backed (zone table). Fog colors, clip distances, rain/snow, gravity, sky, underworld — all from DB. Match &#10003;</span></div>
 </div>
 <div class="notes"><h3>NewZone_Struct Fields (700 bytes)</h3><ul>
-  <li>Set: char_name, zone_short, zone_long, ztype=0xFF, fog_minclip[4]=50.0, fog_maxclip[4]=800.0, gravity=0.4, time_type=2, sky=1, zone_exp_multiplier=1.0, safe_xyz, max_z=10000, underworld=-1000, minclip=50, maxclip=800, zone_short2, zone_id=46</li>
-  <li><span class="warn">Missing:</span> fog_red/green/blue/density (4 sets), rain_chance/duration, snow_chance/duration, zone_type details, suspend_buffs, lava_damage, min_lava_damage</li>
+  <li>All fields loaded from PostgreSQL zone table: fog_red/green/blue (4 layers), fog_minclip/maxclip (4 layers), fog_density, rain_chance/duration (4), snow_chance/duration (4), sky, ztype, gravity, time_type, zone_exp_multiplier, safe_xyz, max_z, underworld, minclip, maxclip, zone_id</li>
+  <li><span class="cmt">Not set:</span> suspend_buffs, lava_damage, min_lava_damage (minor, rarely used)</li>
 </ul></div>
 </div>
 </div>

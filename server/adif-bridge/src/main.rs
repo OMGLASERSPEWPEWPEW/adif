@@ -25,9 +25,64 @@ mod world_handler;
 use eq_protocol::packet::{self, ProtocolPacket};
 use eq_protocol::session::EqSession;
 use titanium::opcodes;
-use titanium::structs::{self, PlayerProfileData, SpawnData};
+use titanium::structs::{self, PlayerProfileData, SpawnData, ZoneData};
 
 use adif_world::WorldState;
+
+#[derive(Debug, sqlx::FromRow)]
+struct ZoneDbRow {
+    short_name: String,
+    long_name: String,
+    safe_x: f32,
+    safe_y: f32,
+    safe_z: f32,
+    minclip: f32,
+    maxclip: f32,
+    fog_minclip: f32,
+    fog_maxclip: f32,
+    fog_minclip2: f32,
+    fog_maxclip2: f32,
+    fog_minclip3: f32,
+    fog_maxclip3: f32,
+    fog_minclip4: f32,
+    fog_maxclip4: f32,
+    fog_red: i16,
+    fog_green: i16,
+    fog_blue: i16,
+    fog_red2: i16,
+    fog_green2: i16,
+    fog_blue2: i16,
+    fog_red3: i16,
+    fog_green3: i16,
+    fog_blue3: i16,
+    fog_red4: i16,
+    fog_green4: i16,
+    fog_blue4: i16,
+    fog_density: f32,
+    sky: i16,
+    ztype: i32,
+    zone_exp_multiplier: f32,
+    gravity: f32,
+    time_type: i16,
+    rain_chance1: i16,
+    rain_chance2: i16,
+    rain_chance3: i16,
+    rain_chance4: i16,
+    rain_duration1: i16,
+    rain_duration2: i16,
+    rain_duration3: i16,
+    rain_duration4: i16,
+    snow_chance1: i16,
+    snow_chance2: i16,
+    snow_chance3: i16,
+    snow_chance4: i16,
+    snow_duration1: i16,
+    snow_duration2: i16,
+    snow_duration3: i16,
+    snow_duration4: i16,
+    underworld: f32,
+    max_z: f32,
+}
 
 #[derive(Debug, sqlx::FromRow)]
 struct ZoneSpawnRow {
@@ -639,10 +694,50 @@ async fn handle_zone_packet(
         }
 
         opcodes::OP_REQ_NEW_ZONE => {
-            info!("Zone: sending zone config");
-            let nz = structs::build_new_zone_struct(
-                &cs.char_name, "innothule", "Innothule Swamp", -532.7, -2637.1, -19.8, 50.0, 800.0, 46,
-            );
+            let zone_id = cs.char_zone_id.unwrap_or(46);
+            let zr = sqlx::query_as::<_, ZoneDbRow>(
+                "SELECT short_name, long_name, safe_x, safe_y, safe_z, \
+                 minclip, maxclip, fog_minclip, fog_maxclip, \
+                 fog_minclip2, fog_maxclip2, fog_minclip3, fog_maxclip3, \
+                 fog_minclip4, fog_maxclip4, \
+                 fog_red, fog_green, fog_blue, \
+                 fog_red2, fog_green2, fog_blue2, \
+                 fog_red3, fog_green3, fog_blue3, \
+                 fog_red4, fog_green4, fog_blue4, \
+                 fog_density, sky, ztype, zone_exp_multiplier, gravity, time_type, \
+                 rain_chance1, rain_chance2, rain_chance3, rain_chance4, \
+                 rain_duration1, rain_duration2, rain_duration3, rain_duration4, \
+                 snow_chance1, snow_chance2, snow_chance3, snow_chance4, \
+                 snow_duration1, snow_duration2, snow_duration3, snow_duration4, \
+                 underworld, max_z \
+                 FROM zone WHERE zoneidnumber = $1"
+            )
+            .bind(zone_id)
+            .fetch_one(&world_state.pool)
+            .await?;
+
+            let zd = ZoneData {
+                short_name: zr.short_name, long_name: zr.long_name,
+                zone_id: zone_id as u16,
+                safe_x: zr.safe_x, safe_y: zr.safe_y, safe_z: zr.safe_z,
+                minclip: zr.minclip, maxclip: zr.maxclip,
+                fog_minclip: [zr.fog_minclip, zr.fog_minclip2, zr.fog_minclip3, zr.fog_minclip4],
+                fog_maxclip: [zr.fog_maxclip, zr.fog_maxclip2, zr.fog_maxclip3, zr.fog_maxclip4],
+                fog_red: [zr.fog_red as u8, zr.fog_red2 as u8, zr.fog_red3 as u8, zr.fog_red4 as u8],
+                fog_green: [zr.fog_green as u8, zr.fog_green2 as u8, zr.fog_green3 as u8, zr.fog_green4 as u8],
+                fog_blue: [zr.fog_blue as u8, zr.fog_blue2 as u8, zr.fog_blue3 as u8, zr.fog_blue4 as u8],
+                fog_density: zr.fog_density,
+                sky: zr.sky as u8, ztype: zr.ztype as u8,
+                zone_exp_multiplier: zr.zone_exp_multiplier,
+                gravity: zr.gravity, time_type: zr.time_type as u8,
+                rain_chance: [zr.rain_chance1 as u8, zr.rain_chance2 as u8, zr.rain_chance3 as u8, zr.rain_chance4 as u8],
+                rain_duration: [zr.rain_duration1 as u8, zr.rain_duration2 as u8, zr.rain_duration3 as u8, zr.rain_duration4 as u8],
+                snow_chance: [zr.snow_chance1 as u8, zr.snow_chance2 as u8, zr.snow_chance3 as u8, zr.snow_chance4 as u8],
+                snow_duration: [zr.snow_duration1 as u8, zr.snow_duration2 as u8, zr.snow_duration3 as u8, zr.snow_duration4 as u8],
+                underworld: zr.underworld, max_z: zr.max_z,
+            };
+            info!(zone = %zd.short_name, "Zone: sending zone config from DB");
+            let nz = structs::build_new_zone_struct(&cs.char_name, &zd);
             send_app_packet(session, socket, addr, opcodes::OP_NEW_ZONE, &nz).await?;
         }
 

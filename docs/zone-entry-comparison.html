@@ -316,8 +316,9 @@
   <li><span class="ok">DONE:</span> Ground objects — Object_Struct (96 bytes) sent per object via OP_GroundSpawn from DB.</li>
   <li><span class="ok">PARTIAL:</span> Phase 4 CompleteConnect — sends SpawnAppearance + ExpUpdate + RaidUpdate. Still missing: guild MOTD, rules, AA timers, HP update.</li>
   <li><span class="ok">DONE:</span> Corpses — PC corpses from character_corpses table, sent as bulk OP_ZoneSpawns.</li>
-  <li><span class="ok">DONE:</span> Zone transitions — OP_ZoneChange handler looks up zone_points by proximity, approves with target coords.</li>
-  <li><span class="cmt">Polish:</span> CharInventory with real items, tribute data, action button investigation.</li>
+  <li><span class="ok">DONE:</span> Zone transitions — OP_ZoneChange handler, DB update, session disconnect, world reconnect, correct zone loading.</li>
+  <li><span class="ok">DONE:</span> Zone context fix — zone entry handler looks up zone short_name from character's zone_id (no more innothule default).</li>
+  <li><span class="cmt">Next:</span> CharInventory with real items (7 items in DB), action button investigation, position save on camp.</li>
 </ol>
 <h3>Client Requests During Zone Entry</h3>
 <p>Client requests data we don't proactively send. We respond with empty packets:</p>

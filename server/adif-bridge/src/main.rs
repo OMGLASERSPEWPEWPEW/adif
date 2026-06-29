@@ -85,6 +85,22 @@ struct ZoneDbRow {
 }
 
 #[derive(Debug, sqlx::FromRow)]
+struct ObjectRow {
+    id: i32,
+    xpos: f32,
+    ypos: f32,
+    zpos: f32,
+    heading: f32,
+    objectname: String,
+    #[sqlx(rename = "type")]
+    object_type: i32,
+    size: f32,
+    incline: i32,
+    tilt_x: f32,
+    tilt_y: f32,
+}
+
+#[derive(Debug, sqlx::FromRow)]
 struct DoorRow {
     name: String,
     pos_y: f32,
@@ -851,6 +867,38 @@ async fn handle_zone_packet(
                 }
                 send_app_packet(session, socket, addr, opcodes::OP_SPAWN_DOOR, &door_buf).await?;
                 info!(count = door_rows.len(), zone = %zone_short, "Zone: sent doors from DB");
+            }
+
+            // Ground objects (OP_GroundSpawn per object)
+            let zone_id = cs.char_zone_id.unwrap_or(46);
+            let obj_rows = sqlx::query_as::<_, ObjectRow>(
+                "SELECT id, xpos, ypos, zpos, heading, objectname, type, size, incline, tilt_x, tilt_y \
+                 FROM object WHERE zoneid = $1"
+            )
+            .bind(zone_id)
+            .fetch_all(&world_state.pool)
+            .await?;
+            for (i, obj) in obj_rows.iter().enumerate() {
+                let mut obuf = vec![0u8; 96];
+                obuf[8..12].copy_from_slice(&obj.size.to_le_bytes());
+                obuf[12..16].copy_from_slice(&((i as u32) + 1).to_le_bytes()); // drop_id
+                obuf[16..18].copy_from_slice(&(zone_id as u16).to_le_bytes());
+                obuf[20..24].copy_from_slice(&(obj.incline as u32).to_le_bytes());
+                obuf[28..32].copy_from_slice(&obj.tilt_x.to_le_bytes());
+                obuf[32..36].copy_from_slice(&obj.tilt_y.to_le_bytes());
+                obuf[36..40].copy_from_slice(&obj.heading.to_le_bytes());
+                obuf[40..44].copy_from_slice(&obj.zpos.to_le_bytes());
+                obuf[44..48].copy_from_slice(&obj.xpos.to_le_bytes());
+                obuf[48..52].copy_from_slice(&obj.ypos.to_le_bytes());
+                let name_bytes = obj.objectname.as_bytes();
+                let name_len = name_bytes.len().min(31);
+                obuf[52..52 + name_len].copy_from_slice(&name_bytes[..name_len]);
+                obuf[88..92].copy_from_slice(&(obj.object_type as u32).to_le_bytes());
+                obuf[92..96].copy_from_slice(&0xFFu32.to_le_bytes());
+                send_app_packet(session, socket, addr, opcodes::OP_GROUND_SPAWN, &obuf).await?;
+            }
+            if !obj_rows.is_empty() {
+                info!(count = obj_rows.len(), "Zone: sent ground objects from DB");
             }
 
             let zone_short = if cs.char_zone_short.is_empty() { "innothule".to_string() } else { cs.char_zone_short.clone() };

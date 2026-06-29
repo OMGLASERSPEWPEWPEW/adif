@@ -241,7 +241,7 @@
   <div class="cell adif"><span class="s g"></span><span class="op">OP_SpawnDoor</span> (0x4C24) <span class="data">DB-backed (doors table)</span><br><span class="ok">Door_Struct (80 bytes each) from DB. Match &#10003;</span></div>
 
   <div class="cell eqemu"><span class="s r"></span><span class="op">SendZoneObjects()</span> <span class="data">ground objects</span><br><span class="cmt">Line 1091</span></div>
-  <div class="cell adif missing"><span class="s r"></span><span class="bad">NOT SENT</span></div>
+  <div class="cell adif"><span class="s g"></span><span class="op">OP_GroundSpawn</span> (0x0F47) <span class="data">DB-backed (object table)</span><br><span class="ok">Object_Struct (96 bytes each) from DB. Match &#10003;</span></div>
 
   <div class="cell eqemu"><span class="s g"></span><span class="op">SendZonePoints()</span> (0x3EBA) <span class="data">zone transition points WITH DATA</span><br><span class="cmt">Line 1092. Contains u32 count + ZonePoint structs. NOT empty.</span></div>
   <div class="cell adif"><span class="s g"></span><span class="op">OP_SendZonepoints</span> <span class="data">DB-backed (zone_points table)</span><br><span class="ok">5 zone points from DB + extra empty entry per EQEmu. Match &#10003;</span></div>
@@ -313,7 +313,7 @@
   <li><span class="ok">DONE:</span> Raw app packets (0xCB etc.) — non-zero first byte packets are now CRC-stripped, decompressed, and dispatched as app packets. No more parse errors.</li>
   <li><span class="ok">DONE:</span> PlayerProfile skills — 100 skills loaded from character_skills table. Spells empty (lvl 2 has none).</li>
   <li><span class="ok">DONE:</span> Doors from DB — Door_Struct (80 bytes) built from doors table with magic bytes.</li>
-  <li><span class="warn">Ground objects</span> — SendZoneObjects() not sent. Need object table query.</li>
+  <li><span class="ok">DONE:</span> Ground objects — Object_Struct (96 bytes) sent per object via OP_GroundSpawn from DB.</li>
   <li><span class="ok">PARTIAL:</span> Phase 4 CompleteConnect — sends SpawnAppearance + ExpUpdate + RaidUpdate. Still missing: guild MOTD, rules, AA timers, HP update.</li>
   <li><span class="warn">Corpses</span> — SendZoneCorpsesBulk() not sent.</li>
   <li><span class="cmt">Polish:</span> OP_ApproveWorld in world phase, CharInventory with real items, tribute data.</li>

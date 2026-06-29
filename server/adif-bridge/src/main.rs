@@ -60,28 +60,28 @@ struct ZoneDbRow {
     fog_blue4: i16,
     fog_density: f32,
     sky: i16,
-    ztype: i32,
+    ztype: i16,
     zone_exp_multiplier: f32,
     gravity: f32,
     time_type: i16,
-    rain_chance1: i16,
-    rain_chance2: i16,
-    rain_chance3: i16,
-    rain_chance4: i16,
-    rain_duration1: i16,
-    rain_duration2: i16,
-    rain_duration3: i16,
-    rain_duration4: i16,
-    snow_chance1: i16,
-    snow_chance2: i16,
-    snow_chance3: i16,
-    snow_chance4: i16,
-    snow_duration1: i16,
-    snow_duration2: i16,
-    snow_duration3: i16,
-    snow_duration4: i16,
+    rain_chance1: i32,
+    rain_chance2: i32,
+    rain_chance3: i32,
+    rain_chance4: i32,
+    rain_duration1: i32,
+    rain_duration2: i32,
+    rain_duration3: i32,
+    rain_duration4: i32,
+    snow_chance1: i32,
+    snow_chance2: i32,
+    snow_chance3: i32,
+    snow_chance4: i32,
+    snow_duration1: i32,
+    snow_duration2: i32,
+    snow_duration3: i32,
+    snow_duration4: i32,
     underworld: f32,
-    max_z: f32,
+    max_z: i32,
 }
 
 #[derive(Debug, sqlx::FromRow)]
@@ -704,7 +704,7 @@ async fn handle_zone_packet(
                  fog_red2, fog_green2, fog_blue2, \
                  fog_red3, fog_green3, fog_blue3, \
                  fog_red4, fog_green4, fog_blue4, \
-                 fog_density, sky, ztype, zone_exp_multiplier, gravity, time_type, \
+                 fog_density, sky, ztype, zone_exp_multiplier::float4 AS zone_exp_multiplier, gravity, time_type, \
                  rain_chance1, rain_chance2, rain_chance3, rain_chance4, \
                  rain_duration1, rain_duration2, rain_duration3, rain_duration4, \
                  snow_chance1, snow_chance2, snow_chance3, snow_chance4, \
@@ -734,7 +734,7 @@ async fn handle_zone_packet(
                 rain_duration: [zr.rain_duration1 as u8, zr.rain_duration2 as u8, zr.rain_duration3 as u8, zr.rain_duration4 as u8],
                 snow_chance: [zr.snow_chance1 as u8, zr.snow_chance2 as u8, zr.snow_chance3 as u8, zr.snow_chance4 as u8],
                 snow_duration: [zr.snow_duration1 as u8, zr.snow_duration2 as u8, zr.snow_duration3 as u8, zr.snow_duration4 as u8],
-                underworld: zr.underworld, max_z: zr.max_z,
+                underworld: zr.underworld, max_z: zr.max_z as f32,
             };
             info!(zone = %zd.short_name, "Zone: sending zone config from DB");
             let nz = structs::build_new_zone_struct(&cs.char_name, &zd);

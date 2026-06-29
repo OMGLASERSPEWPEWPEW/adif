@@ -636,6 +636,18 @@ async fn handle_zone_packet(
                 &cs.char_name,
             ).await?;
 
+            if let Some(ref r) = record {
+                cs.char_zone_id = Some(r.zone_id);
+                if let Some(zone_row) = sqlx::query_as::<_, (String,)>(
+                    "SELECT short_name FROM zone WHERE zoneidnumber = $1"
+                )
+                .bind(r.zone_id)
+                .fetch_optional(&world_state.pool)
+                .await? {
+                    cs.char_zone_short = zone_row.0;
+                }
+            }
+
             let ppd = if let Some(ref r) = record {
                 PlayerProfileData {
                     name: r.name.clone(), last_name: r.last_name.clone(),
@@ -1011,6 +1023,89 @@ async fn handle_zone_packet(
         opcodes::OP_SET_SERVER_FILTER => {}
         opcodes::OP_TARGET_MOUSE => {}
         opcodes::OP_CONSIDER => {}
+
+        opcodes::OP_ZONE_CHANGE => {
+            if data.len() >= 88 {
+                let char_name_bytes = &data[0..64];
+                let zone_id = u16::from_le_bytes([data[64], data[65]]);
+                let _instance_id = u16::from_le_bytes([data[66], data[67]]);
+                let zc_y = f32::from_le_bytes([data[68], data[69], data[70], data[71]]);
+                let zc_x = f32::from_le_bytes([data[72], data[73], data[74], data[75]]);
+                let zc_z = f32::from_le_bytes([data[76], data[77], data[78], data[79]]);
+
+                info!(zone_id, x = zc_x, y = zc_y, z = zc_z, "Zone: zone change request");
+
+                // Look up target from zone_points if zoneID=0 (unsolicited)
+                let zone_short = if cs.char_zone_short.is_empty() { "innothule".to_string() } else { cs.char_zone_short.clone() };
+                let target = if zone_id == 0 {
+                    sqlx::query_as::<_, (i32, f32, f32, f32, f32)>(
+                        "SELECT target_zone_id, target_x, target_y, target_z, target_heading \
+                         FROM zone_points WHERE zone = $1 \
+                         ORDER BY (($2 - x) * ($2 - x) + ($3 - y) * ($3 - y) + ($4 - z) * ($4 - z)) \
+                         LIMIT 1"
+                    )
+                    .bind(&zone_short)
+                    .bind(zc_x)
+                    .bind(zc_y)
+                    .bind(zc_z)
+                    .fetch_optional(&world_state.pool)
+                    .await?
+                } else {
+                    sqlx::query_as::<_, (i32, f32, f32, f32, f32)>(
+                        "SELECT target_zone_id, target_x, target_y, target_z, target_heading \
+                         FROM zone_points WHERE zone = $1 AND target_zone_id = $2 \
+                         ORDER BY (($3 - x) * ($3 - x) + ($4 - y) * ($4 - y) + ($5 - z) * ($5 - z)) \
+                         LIMIT 1"
+                    )
+                    .bind(&zone_short)
+                    .bind(zone_id as i32)
+                    .bind(zc_x)
+                    .bind(zc_y)
+                    .bind(zc_z)
+                    .fetch_optional(&world_state.pool)
+                    .await?
+                };
+
+                let mut resp = vec![0u8; 88];
+                resp[0..64].copy_from_slice(char_name_bytes);
+
+                if let Some((target_zone_id, tx, ty, tz, _th)) = target {
+                    resp[64..66].copy_from_slice(&(target_zone_id as u16).to_le_bytes());
+                    resp[68..72].copy_from_slice(&ty.to_le_bytes());
+                    resp[72..76].copy_from_slice(&tx.to_le_bytes());
+                    resp[76..80].copy_from_slice(&tz.to_le_bytes());
+                    resp[84..88].copy_from_slice(&1i32.to_le_bytes()); // success = 1
+                    info!(target_zone_id, "Zone: approved zone change");
+
+                    // Update character's zone in DB so world handler loads the new zone
+                    sqlx::query("UPDATE character_data SET zone_id = $1, x = $2, y = $3, z = $4 WHERE name = $5")
+                        .bind(target_zone_id)
+                        .bind(tx)
+                        .bind(ty)
+                        .bind(tz)
+                        .bind(&cs.char_name)
+                        .execute(&world_state.pool)
+                        .await?;
+                } else {
+                    // Cancel — zone back to current zone
+                    let current_zone = cs.char_zone_id.unwrap_or(46) as u16;
+                    resp[64..66].copy_from_slice(&current_zone.to_le_bytes());
+                    resp[84..88].copy_from_slice(&1i32.to_le_bytes());
+                    info!("Zone: no valid zone point found, cancelling");
+                }
+                send_app_packet(session, socket, addr, opcodes::OP_ZONE_CHANGE, &resp).await?;
+
+                // Disconnect zone session so client reconnects through world
+                if target.is_some() {
+                    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                    let mut disconnect = vec![0x00u8, 0x05];
+                    disconnect.extend_from_slice(&session.connect_code.to_be_bytes());
+                    crate::eq_protocol::codec::append_crc(&mut disconnect, session.encode_key, session.crc_bytes);
+                    socket.send_to(&disconnect, addr).await?;
+                    info!("Zone: sent session disconnect for zone transition");
+                }
+            }
+        }
 
         _ => {
             debug!(opcode = format!("0x{opcode:04X}"), len = data.len(), "Zone: unhandled");

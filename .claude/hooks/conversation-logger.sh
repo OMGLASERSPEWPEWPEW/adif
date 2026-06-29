@@ -19,7 +19,7 @@ from datetime import datetime
 # === CONFIGURATION ===
 LOG_DIR = ".claude/memory"
 MAX_SNIPPETS = 50
-MAX_SNIPPET_LENGTH = 2000
+MAX_SNIPPET_LENGTH = 8000
 
 CONCEPTS = {
     "Architecture": r"module|import|export|build|typescript|webpack|vite",

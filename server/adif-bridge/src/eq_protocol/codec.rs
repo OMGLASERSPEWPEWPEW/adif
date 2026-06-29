@@ -112,8 +112,9 @@ pub fn compress(data: &[u8]) -> Vec<u8> {
         out.extend_from_slice(&compressed);
         out
     } else {
-        // Not worth compressing — send raw (no flag byte, EQEmu just sends raw if not 0x5a)
-        data.to_vec()
+        let mut out = vec![0xa5];
+        out.extend_from_slice(data);
+        out
     }
 }
 

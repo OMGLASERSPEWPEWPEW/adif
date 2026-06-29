@@ -46,7 +46,15 @@ pub const OP_SEND_LOGIN_INFO: u16 = 0x4dd0;
 pub const OP_ENTER_WORLD: u16 = 0x7cba;
 pub const OP_WORLD_COMPLETE: u16 = 0x509d;
 pub const OP_CRASH_DUMP: u16 = 0x7825;
-pub const OP_WORLD_OBJECT_SENT: u16 = 0x0000; // placeholder
+pub const OP_WORLD_OBJECTS_SENT: u16 = 0x1fa1;
+pub const OP_SPAWN_DOOR: u16 = 0x4c24;
+pub const OP_CHAR_INVENTORY: u16 = 0x5394;
+pub const OP_SEND_AA_STATS: u16 = 0x5918;
+pub const OP_SEND_AA_TABLE: u16 = 0x367D;
+pub const OP_UPDATE_AA: u16 = 0x5966;
+pub const OP_SEND_TRIBUTES: u16 = 0x067A;
+pub const OP_GUILD_TRIBUTES: u16 = 0x5E3A;
+pub const OP_APP_COMBINED: u16 = 0x1900;
 
 pub fn opcode_name(opcode: u16) -> &'static str {
     match opcode {

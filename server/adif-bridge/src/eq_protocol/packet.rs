@@ -154,6 +154,7 @@ pub fn build_session_response(
     encode_key: u32,
     crc_bytes: u8,
     max_packet_size: u32,
+    encode_pass1: u8,
 ) -> Vec<u8> {
     let mut buf = Vec::with_capacity(17);
     buf.push(0x00);
@@ -161,7 +162,7 @@ pub fn build_session_response(
     buf.extend_from_slice(&connect_code.to_be_bytes());
     buf.extend_from_slice(&encode_key.to_be_bytes());
     buf.push(crc_bytes);
-    buf.push(0x00); // encode_pass1 = None (disable compression for now)
+    buf.push(encode_pass1);
     buf.push(0x00); // encode_pass2 = None
     buf.extend_from_slice(&max_packet_size.to_be_bytes());
     buf
@@ -216,7 +217,7 @@ mod tests {
 
     #[test]
     fn build_and_verify_session_response() {
-        let resp = build_session_response(0xDEADBEEF, 0x12345678, 2, 512);
+        let resp = build_session_response(0xDEADBEEF, 0x12345678, 2, 512, 1);
         assert_eq!(resp.len(), 17);
         assert_eq!(resp[0], 0x00);
         assert_eq!(resp[1], 0x02); // OP_SessionResponse

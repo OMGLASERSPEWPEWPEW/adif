@@ -195,12 +195,17 @@ async fn handle_udp_packet(
                 );
 
                 let crc_bytes = if phase == ConnectionPhase::Login { 0 } else { 2 };
-                let session = EqSession::new(addr, connect_code, max_packet_size, crc_bytes);
+                let (encode_key, compress) = match phase {
+                    ConnectionPhase::Zone => (0xFFFFFFFF_u32, true),
+                    _ => (0_u32, false),
+                };
+                let session = EqSession::new(addr, connect_code, max_packet_size, crc_bytes, encode_key, compress);
                 let response = packet::build_session_response(
                     connect_code,
                     session.encode_key,
                     session.crc_bytes,
                     session.max_packet_size,
+                    if compress { 1 } else { 0 },
                 );
 
                 socket.send_to(&response, addr).await?;
@@ -334,6 +339,25 @@ async fn dispatch_app_packet(
     data: &[u8],
     world_state: &Arc<WorldState>,
 ) -> anyhow::Result<()> {
+    if opcode == opcodes::OP_APP_COMBINED {
+        let mut offset = 0;
+        while offset < data.len() {
+            let sub_len = data[offset] as usize;
+            offset += 1;
+            if offset + sub_len > data.len() || sub_len < 2 {
+                break;
+            }
+            let sub_opcode = u16::from_le_bytes([data[offset], data[offset + 1]]);
+            let sub_data = &data[offset + 2..offset + sub_len];
+            Box::pin(dispatch_app_packet(
+                session, client_states, addr, socket, phase, sub_opcode, sub_data, world_state,
+            ))
+            .await?;
+            offset += sub_len;
+        }
+        return Ok(());
+    }
+
     match phase {
         ConnectionPhase::Login => {
             login_handler::handle_login_opcode(session, socket, addr, opcode, data).await
@@ -355,7 +379,13 @@ async fn send_proto_packet(
     addr: SocketAddr,
     data: &[u8],
 ) -> anyhow::Result<()> {
-    let mut buf = data.to_vec();
+    let mut buf = if session.compress && data.len() > 2 {
+        let mut b = Vec::from(&data[..2]);
+        b.extend_from_slice(&eq_protocol::codec::compress(&data[2..]));
+        b
+    } else {
+        data.to_vec()
+    };
     eq_protocol::codec::append_crc(&mut buf, session.encode_key, session.crc_bytes);
     socket.send_to(&buf, addr).await?;
     Ok(())
@@ -372,10 +402,12 @@ pub async fn send_app_packet(
     app_payload.extend_from_slice(&app_opcode.to_le_bytes());
     app_payload.extend_from_slice(app_data);
 
-    let header_size = 4usize; // [0x00][opcode][seq_hi][seq_lo]
+    let proto_header = 2usize; // [0x00][opcode]
+    let seq_size = 2usize;
+    let compress_flag = if session.compress { 1usize } else { 0 };
     let crc_size = session.crc_bytes as usize;
     let max_pkt = session.max_packet_size as usize;
-    let single_size = header_size + app_payload.len() + crc_size;
+    let single_size = proto_header + compress_flag + seq_size + app_payload.len() + crc_size;
 
     if single_size <= max_pkt {
         let pkt = session.build_app_packet(app_opcode, app_data);
@@ -383,8 +415,9 @@ pub async fn send_app_packet(
         socket.send_to(&pkt, addr).await?;
     } else {
         let total_size = app_payload.len() as u32;
-        let first_data_cap = max_pkt - header_size - 4 - crc_size; // 4 for total_size field
-        let subsequent_data_cap = max_pkt - header_size - crc_size;
+        let per_frag_overhead = proto_header + compress_flag + seq_size + crc_size;
+        let first_data_cap = max_pkt - per_frag_overhead - 4; // 4 for total_size
+        let subsequent_data_cap = max_pkt - per_frag_overhead;
 
         let mut offset = 0;
         let mut frag_count = 0u32;
@@ -398,14 +431,23 @@ pub async fn send_app_packet(
             let chunk = &app_payload[offset..end];
 
             let seq = session.next_sequence_out();
+            let mut frag_data = Vec::new();
+            frag_data.extend_from_slice(&seq.to_be_bytes());
+            if is_first {
+                frag_data.extend_from_slice(&total_size.to_be_bytes());
+            }
+            frag_data.extend_from_slice(chunk);
+
+            let encoded = if session.compress {
+                eq_protocol::codec::compress(&frag_data)
+            } else {
+                frag_data
+            };
+
             let mut buf = Vec::with_capacity(max_pkt);
             buf.push(0x00);
             buf.push(eq_protocol::OP_FRAGMENT);
-            buf.extend_from_slice(&seq.to_be_bytes());
-            if is_first {
-                buf.extend_from_slice(&total_size.to_be_bytes());
-            }
-            buf.extend_from_slice(chunk);
+            buf.extend_from_slice(&encoded);
             eq_protocol::codec::append_crc(&mut buf, session.encode_key, session.crc_bytes);
 
             socket.send_to(&buf, addr).await?;
@@ -537,6 +579,7 @@ async fn handle_zone_packet(
             }
             info!(count = npcs.len(), "Zone: sent NPC spawns");
 
+            send_app_packet(session, socket, addr, opcodes::OP_CHAR_INVENTORY, &0u32.to_le_bytes()).await?;
             send_app_packet(session, socket, addr, opcodes::OP_TIME_OF_DAY, &structs::build_time_of_day(14, 0, 1, 3100)).await?;
             send_app_packet(session, socket, addr, opcodes::OP_WEATHER, &structs::build_weather(0, 0)).await?;
         }
@@ -550,9 +593,13 @@ async fn handle_zone_packet(
         }
 
         opcodes::OP_REQ_CLIENT_SPAWN => {
-            info!("Zone: sending zone points and ready signals");
-            send_app_packet(session, socket, addr, opcodes::OP_SEND_ZONE_POINTS, &[]).await?;
+            info!("Zone: sending zone contents and ready signals");
+            send_app_packet(session, socket, addr, opcodes::OP_SPAWN_DOOR, &0u32.to_le_bytes()).await?;
+            send_app_packet(session, socket, addr, opcodes::OP_SEND_ZONE_POINTS, &0u32.to_le_bytes()).await?;
+            send_app_packet(session, socket, addr, opcodes::OP_SEND_AA_STATS, &[]).await?;
             send_app_packet(session, socket, addr, opcodes::OP_SEND_EXP_ZONEIN, &[]).await?;
+            send_app_packet(session, socket, addr, opcodes::OP_WORLD_OBJECTS_SENT, &[]).await?;
+            info!("Zone: sent zone ready signals");
         }
 
         opcodes::OP_CLIENT_READY => {
@@ -562,6 +609,22 @@ async fn handle_zone_packet(
         }
 
         opcodes::OP_CLIENT_UPDATE => {}
+        opcodes::OP_ACK_PACKET => {}
+        opcodes::OP_SEND_AA_TABLE => {
+            send_app_packet(session, socket, addr, opcodes::OP_SEND_AA_TABLE, &[]).await?;
+        }
+        opcodes::OP_UPDATE_AA => {
+            send_app_packet(session, socket, addr, opcodes::OP_UPDATE_AA, &[]).await?;
+        }
+        opcodes::OP_SEND_TRIBUTES => {
+            send_app_packet(session, socket, addr, opcodes::OP_SEND_TRIBUTES, &[]).await?;
+        }
+        opcodes::OP_GUILD_TRIBUTES => {
+            send_app_packet(session, socket, addr, opcodes::OP_GUILD_TRIBUTES, &[]).await?;
+        }
+        opcodes::OP_SEND_EXP_ZONEIN => {
+            send_app_packet(session, socket, addr, opcodes::OP_SEND_EXP_ZONEIN, &[]).await?;
+        }
         opcodes::OP_CHANNEL_MESSAGE => {
             if !data.is_empty() {
                 info!("Zone: chat ({} bytes)", data.len());

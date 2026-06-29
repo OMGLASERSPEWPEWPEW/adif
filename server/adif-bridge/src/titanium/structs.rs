@@ -156,6 +156,14 @@ pub fn build_new_zone_struct(
 
     // ztype at 374
     write_u8(&mut buf, 374, 0xFF);
+    // fog_minclip[4] at 388 — renderer needs non-zero fog clip distances
+    for i in 0..4 {
+        write_f32_le(&mut buf, 388 + i * 4, min_clip);
+    }
+    // fog_maxclip[4] at 404
+    for i in 0..4 {
+        write_f32_le(&mut buf, 404 + i * 4, max_clip);
+    }
     // gravity at 420
     write_f32_le(&mut buf, 420, 0.4);
     // time_type at 424
@@ -168,6 +176,8 @@ pub fn build_new_zone_struct(
     write_f32_le(&mut buf, 492, safe_y);
     write_f32_le(&mut buf, 496, safe_x);
     write_f32_le(&mut buf, 500, safe_z);
+    // max_z at 504
+    write_f32_le(&mut buf, 504, 10000.0);
     // underworld at 508
     write_f32_le(&mut buf, 508, -1000.0);
     // minclip at 512

@@ -23,6 +23,7 @@ pub struct EqSession {
     pub connect_code: u32,
     pub encode_key: u32,
     pub crc_bytes: u8,
+    pub compress: bool,
     pub max_packet_size: u32,
     pub sequence_in: u16,
     pub sequence_out: u16,
@@ -32,14 +33,14 @@ pub struct EqSession {
 }
 
 impl EqSession {
-    pub fn new(addr: SocketAddr, connect_code: u32, max_packet_size: u32, crc_bytes: u8) -> Self {
-        let encode_key = 0u32;
+    pub fn new(addr: SocketAddr, connect_code: u32, max_packet_size: u32, crc_bytes: u8, encode_key: u32, compress: bool) -> Self {
         Self {
             addr,
             state: SessionState::Connected,
             connect_code,
             encode_key,
             crc_bytes,
+            compress,
             max_packet_size: max_packet_size.min(512),
             sequence_in: 0,
             sequence_out: 0,
@@ -62,7 +63,23 @@ impl EqSession {
             }
         }
 
-        // No decompression — encode passes are set to None
+        if self.compress && raw.len() > 2 {
+            let proto_op = raw[1];
+            if proto_op != super::OP_SESSION_REQUEST && proto_op != super::OP_SESSION_RESPONSE {
+                let header: Vec<u8> = raw[..2].to_vec();
+                match codec::decompress(&raw[2..]) {
+                    Ok(decompressed) => {
+                        raw.clear();
+                        raw.extend_from_slice(&header);
+                        raw.extend_from_slice(&decompressed);
+                    }
+                    Err(e) => {
+                        warn!(addr = %self.addr, error = %e, "Decompression failed");
+                        return false;
+                    }
+                }
+            }
+        }
         true
     }
 
@@ -89,15 +106,21 @@ impl EqSession {
     pub fn build_app_packet(&mut self, app_opcode: u16, app_data: &[u8]) -> Vec<u8> {
         let seq = self.next_sequence_out();
 
-        let mut app_payload = Vec::new();
-        app_payload.extend_from_slice(&app_opcode.to_le_bytes());
-        app_payload.extend_from_slice(app_data);
+        let mut sequenced_data = Vec::new();
+        sequenced_data.extend_from_slice(&seq.to_be_bytes());
+        sequenced_data.extend_from_slice(&app_opcode.to_le_bytes());
+        sequenced_data.extend_from_slice(app_data);
+
+        let encoded = if self.compress {
+            codec::compress(&sequenced_data)
+        } else {
+            sequenced_data
+        };
 
         let mut buf = Vec::new();
         buf.push(0x00);
         buf.push(super::OP_PACKET);
-        buf.extend_from_slice(&seq.to_be_bytes());
-        buf.extend_from_slice(&app_payload);
+        buf.extend_from_slice(&encoded);
 
         if self.crc_bytes > 0 {
             codec::append_crc(&mut buf, self.encode_key, self.crc_bytes);
@@ -117,7 +140,7 @@ mod tests {
     #[test]
     fn session_creation() {
         let addr: SocketAddr = "127.0.0.1:5998".parse().unwrap();
-        let session = EqSession::new(addr, 0xDEADBEEF, 512, 2);
+        let session = EqSession::new(addr, 0xDEADBEEF, 512, 2, 0, false);
         assert_eq!(session.state, SessionState::Connected);
         assert_eq!(session.crc_bytes, 2);
         assert_eq!(session.max_packet_size, 512);
@@ -128,7 +151,7 @@ mod tests {
     #[test]
     fn sequence_increments() {
         let addr: SocketAddr = "127.0.0.1:5998".parse().unwrap();
-        let mut session = EqSession::new(addr, 0x1234, 512, 2);
+        let mut session = EqSession::new(addr, 0x1234, 512, 2, 0, false);
         assert_eq!(session.next_sequence_out(), 0);
         assert_eq!(session.next_sequence_out(), 1);
         assert_eq!(session.next_sequence_out(), 2);
@@ -137,7 +160,7 @@ mod tests {
     #[test]
     fn incoming_sequence_tracking() {
         let addr: SocketAddr = "127.0.0.1:5998".parse().unwrap();
-        let mut session = EqSession::new(addr, 0x1234, 512, 2);
+        let mut session = EqSession::new(addr, 0x1234, 512, 2, 0, false);
         assert!(session.process_incoming_sequence(0));
         assert!(session.process_incoming_sequence(1));
         assert!(!session.process_incoming_sequence(5)); // out of order

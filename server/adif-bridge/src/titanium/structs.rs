@@ -216,6 +216,7 @@ pub struct PlayerProfileData {
     pub eye_color_2: u8,
     pub hair_style: u8,
     pub beard: u8,
+    pub entity_id: u32,
 }
 
 pub fn build_player_profile(
@@ -238,6 +239,7 @@ pub fn build_player_profile(
         face: 0, hair_color: 0, beard_color: 0,
         eye_color_1: 0, eye_color_2: 0,
         hair_style: 0, beard: 0,
+        entity_id: 0,
     })
 }
 
@@ -319,6 +321,9 @@ pub fn build_player_profile_full(pp: &PlayerProfileData) -> Vec<u8> {
 
     // zone_id at 13276 (u16)
     write_u16_le(&mut buf, 13276, pp.zone_id);
+
+    // entityid at 14384 — must match player's spawn_id
+    write_u32_le(&mut buf, 14384, pp.entity_id);
 
     // air_remaining at 14900
     write_u32_le(&mut buf, 14900, 60);

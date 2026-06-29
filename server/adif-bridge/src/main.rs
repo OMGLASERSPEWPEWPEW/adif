@@ -524,6 +524,7 @@ async fn handle_zone_packet(
                     beard_color: r.beard_color as u8,
                     eye_color_1: r.eye_color_1 as u8, eye_color_2: r.eye_color_2 as u8,
                     hair_style: r.hair_style as u8, beard: r.beard as u8,
+                    entity_id: cs.player_spawn_id,
                 }
             } else {
                 warn!(character = %cs.char_name, "Zone: character not found in DB, using defaults");
@@ -533,6 +534,7 @@ async fn handle_zone_packet(
                     x: -99.0, y: -585.0, z: 27.0, heading: 0.0,
                     zone_id: 52, face: 0, hair_color: 0, beard_color: 0,
                     eye_color_1: 0, eye_color_2: 0, hair_style: 0, beard: 0,
+                    entity_id: cs.player_spawn_id,
                 }
             };
 
@@ -575,13 +577,61 @@ async fn handle_zone_packet(
                 spawn_id: cs.player_spawn_id,
                 name: cs.char_name.clone(), last_name,
                 level, race, class_id: class_id as u8, gender: gender as u8, deity,
-                x, y, z, heading, size,
-                npc_type: 0, cur_hp: 100, max_hp: 100, body_type: 0,
+                x, y, z: z + 6.0, heading, size,
+                npc_type: 0, cur_hp: 1, max_hp: 100, body_type: 0,
                 run_speed: 0.7, walk_speed: 0.46,
                 findable: 1, light: 0, texture: 0, helm_texture: 0,
                 guild_id: 0xFFFFFFFF,
             });
             send_app_packet(session, socket, addr, opcodes::OP_ZONE_ENTRY, &player_spawn).await?;
+
+            let zone_short = if cs.char_zone_short.is_empty() { "innothule".to_string() } else { cs.char_zone_short.clone() };
+            let spawns = sqlx::query_as::<_, ZoneSpawnRow>(
+                "SELECT n.name AS npc_name, n.lastname, n.level, n.race, n.class, \
+                 n.gender, n.bodytype, n.hp, n.size, n.runspeed, n.walkspeed, \
+                 n.texture, n.helmtexture, n.light, n.findable, n.flymode, \
+                 s.x, s.y, s.z, s.heading \
+                 FROM spawn2 s \
+                 JOIN spawnentry se ON s.spawngroupid = se.spawngroupid \
+                 JOIN npc_types n ON se.npcid = n.id \
+                 WHERE s.zone = $1 AND (s.version = 0 OR s.version = -1)"
+            )
+            .bind(&zone_short)
+            .fetch_all(&world_state.pool)
+            .await?;
+
+            let mut bulk_spawns = Vec::new();
+            for row in &spawns {
+                let npc_id = cs.alloc_spawn_id();
+                let spawn = structs::build_spawn_struct(&SpawnData {
+                    spawn_id: npc_id,
+                    name: row.npc_name.replace('#', ""),
+                    last_name: row.lastname.clone().unwrap_or_default(),
+                    level: row.level as u8,
+                    race: row.race as u32,
+                    class_id: row.class as u8,
+                    gender: row.gender as u8,
+                    deity: 0,
+                    x: row.x, y: row.y, z: row.z, heading: row.heading,
+                    size: if row.size > 0.0 { row.size } else { 6.0 },
+                    npc_type: 1,
+                    cur_hp: 100,
+                    max_hp: 100,
+                    body_type: row.bodytype as u8,
+                    run_speed: if row.runspeed > 0.0 { row.runspeed } else { 0.7 },
+                    walk_speed: if row.walkspeed > 0.0 { row.walkspeed } else { 0.46 },
+                    findable: row.findable as u8,
+                    light: row.light as u8,
+                    texture: row.texture as u8,
+                    helm_texture: row.helmtexture as u8,
+                    guild_id: 0,
+                });
+                bulk_spawns.extend_from_slice(&spawn);
+            }
+            if !bulk_spawns.is_empty() {
+                send_app_packet(session, socket, addr, opcodes::OP_ZONE_SPAWNS, &bulk_spawns).await?;
+            }
+            info!(count = spawns.len(), zone = %zone_short, "Zone: sent bulk NPC spawns via OP_ZoneSpawns");
 
             send_app_packet(session, socket, addr, opcodes::OP_CHAR_INVENTORY, &0u32.to_le_bytes()).await?;
             send_app_packet(session, socket, addr, opcodes::OP_TIME_OF_DAY, &structs::build_time_of_day(14, 0, 1, 3100)).await?;
@@ -610,52 +660,6 @@ async fn handle_zone_packet(
             let sa = structs::build_spawn_appearance(cs.player_spawn_id, 0x10, cs.player_spawn_id);
             send_app_packet(session, socket, addr, opcodes::OP_SPAWN_APPEARANCE, &sa).await?;
             info!(character = %cs.char_name, "=== CLIENT IN ZONE ===");
-
-            let zone_short = if cs.char_zone_short.is_empty() { "innothule".to_string() } else { cs.char_zone_short.clone() };
-            let spawns = sqlx::query_as::<_, ZoneSpawnRow>(
-                "SELECT n.name AS npc_name, n.lastname, n.level, n.race, n.class, \
-                 n.gender, n.bodytype, n.hp, n.size, n.runspeed, n.walkspeed, \
-                 n.texture, n.helmtexture, n.light, n.findable, n.flymode, \
-                 s.x, s.y, s.z, s.heading \
-                 FROM spawn2 s \
-                 JOIN spawnentry se ON s.spawngroupid = se.spawngroupid \
-                 JOIN npc_types n ON se.npcid = n.id \
-                 WHERE s.zone = $1 AND (s.version = 0 OR s.version = -1)"
-            )
-            .bind(&zone_short)
-            .fetch_all(&world_state.pool)
-            .await?;
-
-            let mut count = 0u32;
-            for row in &spawns {
-                let npc_id = cs.alloc_spawn_id();
-                let spawn = structs::build_spawn_struct(&SpawnData {
-                    spawn_id: npc_id,
-                    name: row.npc_name.replace('#', ""),
-                    last_name: row.lastname.clone().unwrap_or_default(),
-                    level: row.level as u8,
-                    race: row.race as u32,
-                    class_id: row.class as u8,
-                    gender: row.gender as u8,
-                    deity: 0,
-                    x: row.x, y: row.y, z: row.z, heading: row.heading,
-                    size: if row.size > 0.0 { row.size } else { 6.0 },
-                    npc_type: 1,
-                    cur_hp: 100,
-                    max_hp: 100,
-                    body_type: row.bodytype as u8,
-                    run_speed: if row.runspeed > 0.0 { row.runspeed } else { 0.7 },
-                    walk_speed: if row.walkspeed > 0.0 { row.walkspeed } else { 0.46 },
-                    findable: row.findable as u8,
-                    light: row.light as u8,
-                    texture: row.texture as u8,
-                    helm_texture: row.helmtexture as u8,
-                    guild_id: 0,
-                });
-                send_app_packet(session, socket, addr, opcodes::OP_NEW_SPAWN, &spawn).await?;
-                count += 1;
-            }
-            info!(count, zone = %zone_short, "Zone: sent DB-backed NPC spawns");
         }
 
         opcodes::OP_CLIENT_UPDATE => {}

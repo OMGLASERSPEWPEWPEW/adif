@@ -185,13 +185,13 @@
   <div class="col-header adif">ADIF Bridge (main.rs:454-561)</div>
 
   <div class="cell eqemu"><span class="s g"></span><span class="op">OP_PlayerProfile</span> (0x75DF) <span class="data">19592 bytes</span><br><span class="cmt">Line 1712. m_pp.entityid = GetID(). CRC set by ENCODE layer. Full character data from DB.</span></div>
-  <div class="cell adif"><span class="s y"></span><span class="op">OP_PlayerProfile</span> <span class="data">19592 bytes, 39 fragments</span><br><span class="warn">entityid NOT set (offset 14384=0). Many fields zeroed. CRC range fixed.</span></div>
+  <div class="cell adif"><span class="s y"></span><span class="op">OP_PlayerProfile</span> <span class="data">19592 bytes, 39 fragments</span><br><span class="warn">entityid set to spawn_id. Still missing: skills, spells, disciplines.</span></div>
 
   <div class="cell eqemu"><span class="s g"></span><span class="op">OP_ZoneEntry</span> (0x7213) <span class="data">player spawn</span><br><span class="cmt">Line 1753. FillSpawnStruct. curHp=1, NPC=0, z+=6</span></div>
   <div class="cell adif"><span class="s g"></span><span class="op">OP_ZoneEntry</span> <span class="data">385 bytes</span><br><span class="ok">curHp=1, z+=6. Match &#10003;</span></div>
 
   <div class="cell eqemu"><span class="s g"></span><span class="op">SendZoneSpawnsBulk()</span> <span class="data">OP_ZoneSpawns (0x2E78)</span><br><span class="cmt">Line 1764. ALL NPCs in one bulk packet. Large.</span></div>
-  <div class="cell adif"><span class="s y"></span><span class="op">OP_NewSpawn</span> (0x1860) &times; 259 from DB<br><span class="warn">DB-backed (spawn2+npc_types). Sent after CLIENT_READY instead of Phase 1. Should move to Phase 1 as OP_ZoneSpawns bulk to restore loading bar.</span></div>
+  <div class="cell adif"><span class="s g"></span><span class="op">OP_ZoneSpawns</span> (0x2E78) <span class="data">259 NPCs from DB, 99KB bulk, 198 fragments</span><br><span class="ok">DB-backed (spawn2+spawnentry+npc_types). Sent in Phase 1 as bulk packet. Match &#10003;</span></div>
 
   <div class="cell eqemu"><span class="s r"></span><span class="op">SendZoneCorpsesBulk()</span> <span class="data">corpses</span><br><span class="cmt">Line 1765</span></div>
   <div class="cell adif missing"><span class="s r"></span><span class="bad">NOT SENT</span></div>

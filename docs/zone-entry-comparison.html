@@ -296,15 +296,23 @@
   <li><span class="ok">FIXED:</span> Added fog_minclip/maxclip[4] and max_z to NewZone_Struct.</li>
   <li><span class="ok">FIXED:</span> Added response handlers for client AA/tribute/exp requests.</li>
 </ol>
-<h3>Remaining Work — Road to 100% Packet Parity</h3>
+<h3>Completed — Packet Parity Achieved</h3>
 <ol>
-  <li><span class="ok">FIXED:</span> NPC spawning — 259 NPCs from DB via bulk OP_ZoneSpawns in Phase 1.</li>
-  <li><span class="ok">FIXED:</span> Player spawn — curHp=1, z+=6, PlayerProfile entityid set.</li>
-  <li><span class="ok">FIXED:</span> NewZone from DB — all fog/weather/terrain fields loaded from zone table.</li>
-  <li><span class="warn">Protocol retransmits</span> — 0xCB-prefixed packets cause parse errors. Need to handle retransmit protocol opcodes.</li>
-  <li><span class="warn">PlayerProfile</span> — no skills, spells, or disciplines populated. Character has no abilities.</li>
-  <li><span class="ok">FIXED:</span> Zone points from DB — 5 zone_points entries for Innothule loaded and sent.</li>
-  <li><span class="warn">Doors from DB</span> — currently count=0. Need doors table query for OP_SpawnDoor.</li>
+  <li><span class="ok">DONE:</span> Compression matching EQEmu (encode_key=0xFFFFFFFF, pass1=1, sequence inside compressed block).</li>
+  <li><span class="ok">DONE:</span> NPC spawning — 259 NPCs from DB via bulk OP_ZoneSpawns in Phase 1.</li>
+  <li><span class="ok">DONE:</span> Player spawn — curHp=1, z+=6, PlayerProfile entityid set to spawn_id.</li>
+  <li><span class="ok">DONE:</span> NewZone from DB — all fog/weather/terrain fields loaded from zone table.</li>
+  <li><span class="ok">DONE:</span> Zone points from DB — zone_points table queried, ZonePoint_Entry structs sent.</li>
+  <li><span class="ok">DONE:</span> OP_SpawnDoor, OP_CharInventory, OP_SendAAStats, OP_SendExpZonein, OP_WorldObjectsSent.</li>
+  <li><span class="ok">DONE:</span> Client request responses — AA table, AA updates, tributes, guild tributes, exp zone-in.</li>
+  <li><span class="ok">DONE:</span> Spawn struct fixes — is_npc=1, guild_id=0 for NPCs.</li>
+  <li><span class="ok">DONE:</span> Fog clip distances, max_z in NewZone_Struct.</li>
+</ol>
+<h3>Remaining — Road to 100%</h3>
+<ol>
+  <li><span class="warn">Protocol retransmits</span> — 0xCB-prefixed packets cause parse errors. Likely causes 10% loading hang. Need to handle retransmit protocol opcodes.</li>
+  <li><span class="warn">PlayerProfile skills/spells</span> — no skills, spells, or disciplines populated. Character has no abilities in-game.</li>
+  <li><span class="warn">Doors from DB</span> — currently count=0. Need doors table query for OP_SpawnDoor with real data.</li>
   <li><span class="warn">Ground objects</span> — SendZoneObjects() not sent. Need object table query.</li>
   <li><span class="warn">Phase 4 CompleteConnect</span> — only sends OP_SpawnAppearance. Missing: HP update, exp update, guild MOTD, rules, AA timers.</li>
   <li><span class="warn">Corpses</span> — SendZoneCorpsesBulk() not sent.</li>

@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Full Protocol Flow: EQEmu vs ADIF Bridge</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Consolas', 'Monaco', monospace; background: #1a1a2e; color: #e0e0e0; padding: 20px; max-width: 1400px; margin: 0 auto; }
+  h1 { color: #00d4ff; margin-bottom: 4px; font-size: 1.4em; }
+  .subtitle { color: #888; margin-bottom: 20px; font-size: 0.85em; }
+  .phase { margin-bottom: 24px; }
+  .phase-title { background: #16213e; color: #00d4ff; padding: 8px 16px; font-size: 1.05em; font-weight: bold; border-left: 4px solid #00d4ff; margin-bottom: 2px; }
+  .phase-title.proto { border-left-color: #a78bfa; color: #a78bfa; }
+  .phase-title.login { border-left-color: #f472b6; color: #f472b6; }
+  .phase-title.world { border-left-color: #fbbf24; color: #fbbf24; }
+  .phase-title.zone { border-left-color: #4ade80; color: #4ade80; }
+  .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+  .col-header { padding: 5px 10px; font-weight: bold; font-size: 0.8em; text-transform: uppercase; letter-spacing: 1px; }
+  .col-header.eqemu { background: #1b3a1b; color: #4ade80; border-bottom: 2px solid #4ade80; }
+  .col-header.adif { background: #1b1b3a; color: #60a5fa; border-bottom: 2px solid #60a5fa; }
+  .cell { padding: 5px 10px; border-bottom: 1px solid #2a2a4a; font-size: 0.78em; line-height: 1.4; }
+  .cell.eqemu { background: #0f1a0f; }
+  .cell.adif { background: #0f0f1a; }
+  .cell.missing { background: #2a0a0a; }
+  .cell.extra { background: #2a2a0a; }
+  .op { color: #60a5fa; font-weight: bold; }
+  .data { color: #a78bfa; }
+  .cmt { color: #6b7280; font-style: italic; font-size: 0.9em; }
+  .ok { color: #4ade80; }
+  .warn { color: #fbbf24; }
+  .bad { color: #f87171; font-weight: bold; }
+  .s { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+  .s.g { background: #4ade80; }
+  .s.y { background: #fbbf24; }
+  .s.r { background: #f87171; }
+  .legend { margin-bottom: 16px; display: flex; gap: 16px; font-size: 0.8em; }
+  .legend-item { display: flex; align-items: center; gap: 4px; }
+  .notes { background: #16213e; padding: 10px 14px; margin-top: 16px; border-left: 4px solid #fbbf24; font-size: 0.82em; }
+  .notes h3 { color: #fbbf24; margin-bottom: 6px; font-size: 1em; }
+  .notes li { margin-left: 20px; margin-bottom: 3px; }
+  .notes.red { border-color: #f87171; }
+  .notes.red h3 { color: #f87171; }
+  .capture { background: #0a0a1a; padding: 4px 8px; margin: 4px 0; font-size: 0.85em; border-left: 2px solid #4a4a6a; }
+  .hex { color: #818cf8; font-family: monospace; }
+  .tab { display: flex; gap: 0; margin-bottom: 0; }
+  .tab-btn { padding: 8px 16px; background: #16213e; color: #888; border: none; cursor: pointer; font-family: inherit; font-size: 0.85em; border-bottom: 2px solid transparent; }
+  .tab-btn.active { color: #00d4ff; border-bottom-color: #00d4ff; background: #1a1a2e; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+</style>
+</head>
+<body>
+<h1>Full Protocol Flow: EQEmu vs ADIF Bridge</h1>
+<p class="subtitle">Every packet in the login &rarr; world &rarr; zone pipeline. EQEmu source + wire captures vs our Rust bridge. Port 5906.</p>
+
+<div class="legend">
+  <div class="legend-item"><span class="s g"></span> Match</div>
+  <div class="legend-item"><span class="s y"></span> Partial / Different</div>
+  <div class="legend-item"><span class="s r"></span> Missing</div>
+</div>
+
+<div class="tab">
+  <button class="tab-btn active" onclick="showTab('proto')">Protocol Layer</button>
+  <button class="tab-btn" onclick="showTab('login')">Login Phase</button>
+  <button class="tab-btn" onclick="showTab('world')">World Phase</button>
+  <button class="tab-btn" onclick="showTab('zone1')">Zone: Entry</button>
+  <button class="tab-btn" onclick="showTab('zone2')">Zone: NewZone</button>
+  <button class="tab-btn" onclick="showTab('zone3')">Zone: ClientSpawn</button>
+  <button class="tab-btn" onclick="showTab('zone4')">Zone: Ready</button>
+</div>
+
+<!-- ===== PROTOCOL LAYER ===== -->
+<div id="proto" class="tab-content active">
+<div class="phase">
+<div class="phase-title proto">SessionResponse — Protocol Negotiation</div>
+<div class="compare">
+  <div class="col-header eqemu">EQEmu (from wire captures)</div>
+  <div class="col-header adif">ADIF Bridge (packet.rs:152-168)</div>
+
+  <div class="cell eqemu"><span class="s g"></span><strong>Login:</strong> <span class="hex">encode_key=0x00000000, crc_bytes=0, pass1=0, pass2=0</span></div>
+  <div class="cell adif"><span class="s g"></span><span class="hex">encode_key=0, crc_bytes=0, pass1=0, pass2=0</span><br><span class="ok">Match &#10003;</span></div>
+
+  <div class="cell eqemu"><span class="s y"></span><strong>World:</strong> <span class="hex">encode_key=0x00000000, crc_bytes=2, pass1=0, pass2=0</span></div>
+  <div class="cell adif"><span class="s g"></span><span class="hex">encode_key=0, crc_bytes=2, pass1=0, pass2=0</span><br><span class="ok">Match &#10003;</span></div>
+
+  <div class="cell eqemu"><span class="s y"></span><strong>Zone:</strong> <span class="hex">encode_key=0xFFFFFFFF, crc_bytes=2, pass1=1, pass2=0</span><br><span class="cmt">COMPRESSION ON. Every sequenced packet has 0x5A/0xA5 flag byte.</span></div>
+  <div class="cell adif"><span class="s g"></span><span class="hex">encode_key=0xFFFFFFFF, crc_bytes=2, pass1=1, pass2=0</span><br><span class="ok">Match &#10003; Compression ON. 0x5A/0xA5 flag on every sequenced packet.</span></div>
+</div>
+<div class="compare">
+  <div class="col-header eqemu">Fragment Format</div>
+  <div class="col-header adif">Fragment Format</div>
+  <div class="cell eqemu"><span class="s y"></span><strong>511 bytes</strong> per fragment (reserves 1 byte for compress flag)</div>
+  <div class="cell adif"><span class="s g"></span><strong>511 bytes</strong> per fragment (reserves 1 byte for compress flag)<br><span class="ok">Match &#10003;</span></div>
+</div>
+</div>
+</div>
+
+<!-- ===== LOGIN PHASE ===== -->
+<div id="login" class="tab-content">
+<div class="phase">
+<div class="phase-title login">Login Phase (port 5998)</div>
+<div class="compare">
+  <div class="col-header eqemu">EQEmu Login Server</div>
+  <div class="col-header adif">ADIF Bridge (login_handler.rs)</div>
+
+  <div class="cell eqemu"><span class="s g"></span><span class="op">OP_LoginChatMessage</span> (0x0016) <span class="data">handshake reply</span></div>
+  <div class="cell adif"><span class="s g"></span><span class="op">OP_LoginChatMessage</span> <span class="data">BaseMessage(seq=2) + BaseReply(success)</span><br><span class="ok">Match &#10003;</span></div>
+
+  <div class="cell eqemu"><span class="s g"></span><span class="op">OP_LoginAccepted</span> (0x0017) <span class="data">DES CBC encrypted, zero key</span></div>
+  <div class="cell adif"><span class="s g"></span><span class="op">OP_LoginAccepted</span> <span class="data">90 bytes, DES zero-key CBC</span><br><span class="ok">Match &#10003;</span></div>
+
+  <div class="cell eqemu"><span class="s g"></span><span class="op">OP_LoginServerListResponse</span> (0x0018) <span class="data">server list</span></div>
+  <div class="cell adif"><span class="s g"></span><span class="op">OP_LoginServerListResponse</span> <span class="data">"ADIF Dev"</span><br><span class="ok">Match &#10003;</span></div>
+
+  <div class="cell eqemu"><span class="s g"></span><span class="op">OP_LoginPlayResponse</span> (0x0021) <span class="data">play approved, echo client sequence</span></div>
+  <div class="cell adif"><span class="s g"></span><span class="op">OP_LoginPlayResponse</span> <span class="data">echoes sequence + server_number</span><br><span class="ok">Match &#10003;</span></div>
+</div>
+<div class="notes"><h3>Login Phase Status</h3><ul><li><span class="ok">Fully working.</span> Client gets server list, selects server, transitions to world.</li></ul></div>
+</div>
+</div>
+
+<!-- ===== WORLD PHASE ===== -->
+<div id="world" class="tab-content">
+<div class="phase">
+<div class="phase-title world">World Phase: OP_SendLoginInfo Response (port 9000)</div>
+<div class="compare">
+  <div class="col-header eqemu">EQEmu World Server</div>
+  <div class="col-header adif">ADIF Bridge (world_handler.rs)</div>
+
+  <div class="cell eqemu"><span class="s y"></span>All packets <strong>BUNDLED</strong> into one 96KB fragmented blob<br><span class="cmt">GuildsList+LogServer+EnterWorld+etc sent as single Combined</span></div>
+  <div class="cell adif"><span class="s y"></span>Each packet sent <strong>individually</strong><br><span class="warn">Different packaging but client processes both. Working.</span></div>
+
+  <div class="cell eqemu"><span class="s g"></span><span class="op">OP_GuildsList</span> (0x6957) <span class="data">guild data</span></div>
+  <div class="cell adif"><span class="s g"></span><span class="op">OP_GuildsList</span> <span class="data">4 bytes zeros (0 guilds)</span><br><span class="ok">&#10003;</span></div>
+
+  <div class="cell eqemu"><span class="s g"></span><span class="op">OP_LogServer</span> (0x0FA6) <span class="data">264 bytes, server short name at offset 32</span></div>
+  <div class="cell adif"><span class="s g"></span><span class="op">OP_LogServer</span> <span class="data">264 bytes, "ADIF Dev"</span><br><span class="ok">&#10003;</span></div>
+
+  <div class="cell eqemu"><span class="s r"></span><span class="op">OP_ApproveWorld</span> (0x3C25) <span class="data">544 bytes — hardcoded data</span><br><span class="cmt">Sent by EQEmu proactively. 88 bytes of fixed data + zeros.</span></div>
+  <div class="cell adif missing"><span class="s r"></span><span class="bad">NOT SENT</span><br><span class="cmt">We only handle receiving it from client. Never send it.</span></div>
+
+  <div class="cell eqemu"><span class="s g"></span><span class="op">OP_EnterWorld</span> (0x7CBA) <span class="data">auto-login char name</span></div>
+  <div class="cell adif"><span class="s g"></span><span class="op">OP_EnterWorld</span> <span class="data">first character name + null</span><br><span class="ok">&#10003;</span></div>
+
+  <div class="cell eqemu"><span class="s g"></span><span class="op">OP_PostEnterWorld</span> (0x52A4) <span class="data">empty</span></div>
+  <div class="cell adif"><span class="s g"></span><span class="op">OP_PostEnterWorld</span> <span class="data">empty</span><br><span class="ok">&#10003;</span></div>
+
+  <div class="cell eqemu"><span class="s g"></span><span class="op">OP_ExpansionInfo</span> (0x04EC) <span class="data">bitmask</span></div>
+  <div class="cell adif"><span class="s g"></span><span class="op">OP_ExpansionInfo</span> <span class="data">0x7FFF</span><br><span class="ok">&#10003;</span></div>
+
+  <div class="cell eqemu"><span class="s g"></span><span class="op">OP_SendCharInfo</span> (0x4513) <span class="data">1704 bytes — CharacterSelect_Struct</span></div>
+  <div class="cell adif"><span class="s y"></span><span class="op">OP_SendCharInfo</span> <span class="data">1704 bytes, fragmented into 4</span><br><span class="warn">Character renders black — appearance/equipment data probably wrong</span></div>
+</div>
+</div>
+
+<div class="phase">
+<div class="phase-title world">World Phase: OP_EnterWorld (Click "Enter World")</div>
+<div class="compare">
+  <div class="col-header eqemu">EQEmu</div>
+  <div class="col-header adif">ADIF Bridge</div>
+
+  <div class="cell eqemu"><span class="s g"></span><span class="op">OP_MOTD</span> (0x024D) <span class="data">message of the day</span></div>
+  <div class="cell adif"><span class="s g"></span><span class="op">OP_MOTD</span> <span class="data">"Welcome to ADIF"</span><br><span class="ok">&#10003;</span></div>
+
+  <div class="cell eqemu"><span class="s g"></span><span class="op">OP_ZoneServerInfo</span> (0x61B6) <span class="data">IP + port (zone to connect to)</span></div>
+  <div class="cell adif"><span class="s g"></span><span class="op">OP_ZoneServerInfo</span> <span class="data">127.0.0.1:7778</span><br><span class="ok">&#10003;</span></div>
+
+  <div class="cell eqemu"><span class="s g"></span><em>Wait for client OP_WorldComplete (0x509D)</em></div>
+  <div class="cell adif"><span class="s g"></span><em>Wait for OP_WorldComplete, then send SessionDisconnect</em><br><span class="ok">&#10003;</span></div>
+</div>
+<div class="notes"><h3>World Phase Status</h3><ul>
+  <li><span class="ok">Working.</span> Client reaches character select, clicks Enter World, transitions to zone.</li>
+  <li><span class="warn">Character renders black</span> on char select — likely missing equipment/tint data in CharSelect struct.</li>
+  <li><span class="bad">OP_ApproveWorld not sent</span> — EQEmu sends 544 bytes proactively. May affect client state.</li>
+</ul></div>
+</div>
+</div>
+
+<!-- ===== ZONE PHASE 1: ENTRY ===== -->
+<div id="zone1" class="tab-content">
+<div class="phase">
+<div class="phase-title zone">Zone Phase 1: OP_ZoneEntry Response (client_packet.cpp:1249-1810)</div>
+<div class="compare">
+  <div class="col-header eqemu">EQEmu Zone Server</div>
+  <div class="col-header adif">ADIF Bridge (main.rs:454-561)</div>
+
+  <div class="cell eqemu"><span class="s g"></span><span class="op">OP_PlayerProfile</span> (0x75DF) <span class="data">19592 bytes</span><br><span class="cmt">Line 1712. m_pp.entityid = GetID(). CRC set by ENCODE layer. Full character data from DB.</span></div>
+  <div class="cell adif"><span class="s y"></span><span class="op">OP_PlayerProfile</span> <span class="data">19592 bytes, 39 fragments</span><br><span class="warn">entityid NOT set (offset 14384=0). Many fields zeroed. CRC range fixed.</span></div>
+
+  <div class="cell eqemu"><span class="s g"></span><span class="op">OP_ZoneEntry</span> (0x7213) <span class="data">player spawn</span><br><span class="cmt">Line 1753. FillSpawnStruct. curHp=1, NPC=0, z+=6</span></div>
+  <div class="cell adif"><span class="s y"></span><span class="op">OP_ZoneEntry</span> <span class="data">385 bytes</span><br><span class="warn">curHp=100 (should be 1). z NOT lifted +6.</span></div>
+
+  <div class="cell eqemu"><span class="s g"></span><span class="op">SendZoneSpawnsBulk()</span> <span class="data">OP_ZoneSpawns (0x2E78)</span><br><span class="cmt">Line 1764. ALL NPCs in one bulk packet. Large.</span></div>
+  <div class="cell adif"><span class="s y"></span><span class="op">OP_NewSpawn</span> (0x1860) &times; 4<br><span class="warn">Individual spawns, different opcode. Bulk format not used.</span></div>
+
+  <div class="cell eqemu"><span class="s r"></span><span class="op">SendZoneCorpsesBulk()</span> <span class="data">corpses</span><br><span class="cmt">Line 1765</span></div>
+  <div class="cell adif missing"><span class="s r"></span><span class="bad">NOT SENT</span></div>
+
+  <div class="cell eqemu"><span class="s g"></span><span class="op">OP_TimeOfDay</span> (0x1580) <span class="data">8 bytes</span><br><span class="cmt">Line 1769</span></div>
+  <div class="cell adif"><span class="s g"></span><span class="op">OP_TimeOfDay</span> <span class="data">8 bytes</span><br><span class="ok">&#10003;</span></div>
+
+  <div class="cell eqemu"><span class="s r"></span><span class="op">DoTributeUpdate()</span> <span class="data">tribute</span><br><span class="cmt">Line 1776</span></div>
+  <div class="cell adif missing"><span class="s r"></span><span class="bad">NOT SENT</span> <span class="cmt">(OK to skip)</span></div>
+
+  <div class="cell eqemu"><span class="s r"></span><span class="op">BulkSendInventoryItems()</span> <span class="data">ALL equipment + inventory</span><br><span class="cmt">Line 1791. Large packet. Client processes during loading.</span></div>
+  <div class="cell adif"><span class="s y"></span><span class="op">OP_CharInventory</span> (0x5394) <span class="data">count=0 (empty)</span><br><span class="warn">Sent empty. Client knows character has no equipment.</span></div>
+
+  <div class="cell eqemu"><span class="s g"></span><span class="op">OP_Weather</span> (0x254D) <span class="data">weather</span></div>
+  <div class="cell adif"><span class="s g"></span><span class="op">OP_Weather</span> <span class="data">12 bytes</span><br><span class="ok">&#10003;</span></div>
+</div>
+</div>
+</div>
+
+<!-- ===== ZONE PHASE 2: NEWZONE ===== -->
+<div id="zone2" class="tab-content">
+<div class="phase">
+<div class="phase-title zone">Zone Phase 2: OP_ReqNewZone Response (client_packet.cpp:1119-1140)</div>
+<div class="compare">
+  <div class="col-header eqemu">EQEmu</div>
+  <div class="col-header adif">ADIF Bridge</div>
+
+  <div class="cell eqemu"><span class="s g"></span><span class="op">OP_NewZone</span> (0x0920) <span class="data">700 bytes (NewZone_Struct)</span><br><span class="cmt">Line 1129. memcpy from zone->newzone_data. ALL fields from DB zone table.</span></div>
+  <div class="cell adif"><span class="s y"></span><span class="op">OP_NewZone</span> <span class="data">700 bytes, 2 fragments</span><br><span class="warn">Only ~15 fields set. Fog, rain, snow, zone_type, etc all ZEROED.</span></div>
+</div>
+<div class="notes"><h3>NewZone_Struct Fields (700 bytes)</h3><ul>
+  <li>Set: char_name, zone_short, zone_long, ztype=0xFF, fog_minclip[4]=50.0, fog_maxclip[4]=800.0, gravity=0.4, time_type=2, sky=1, zone_exp_multiplier=1.0, safe_xyz, max_z=10000, underworld=-1000, minclip=50, maxclip=800, zone_short2, zone_id=46</li>
+  <li><span class="warn">Missing:</span> fog_red/green/blue/density (4 sets), rain_chance/duration, snow_chance/duration, zone_type details, suspend_buffs, lava_damage, min_lava_damage</li>
+</ul></div>
+</div>
+</div>
+
+<!-- ===== ZONE PHASE 3: CLIENT SPAWN ===== -->
+<div id="zone3" class="tab-content">
+<div class="phase">
+<div class="phase-title zone">Zone Phase 3: OP_ReqClientSpawn Response (client_packet.cpp:1077-1117)</div>
+<div class="compare">
+  <div class="col-header eqemu">EQEmu</div>
+  <div class="col-header adif">ADIF Bridge</div>
+
+  <div class="cell eqemu"><span class="s r"></span><span class="op">MakeDoorSpawnPacket()</span> <span class="data">zone doors</span><br><span class="cmt">Line 1084</span></div>
+  <div class="cell adif missing"><span class="s r"></span><span class="bad">NOT SENT</span></div>
+
+  <div class="cell eqemu"><span class="s r"></span><span class="op">SendZoneObjects()</span> <span class="data">ground objects</span><br><span class="cmt">Line 1091</span></div>
+  <div class="cell adif missing"><span class="s r"></span><span class="bad">NOT SENT</span></div>
+
+  <div class="cell eqemu"><span class="s g"></span><span class="op">SendZonePoints()</span> (0x3EBA) <span class="data">zone transition points WITH DATA</span><br><span class="cmt">Line 1092. Contains u32 count + ZonePoint structs. NOT empty.</span></div>
+  <div class="cell adif"><span class="s y"></span><span class="op">OP_SendZonepoints</span> <span class="data"><span class="warn">EMPTY (0 bytes)</span></span><br><span class="warn">Should have zone point data. Sending empty may be OK.</span></div>
+
+  <div class="cell eqemu"><span class="s g"></span><span class="op">OP_SendAAStats</span> (0x5918) <span class="data">empty</span><br><span class="cmt">Line 1094</span></div>
+  <div class="cell adif"><span class="s g"></span><span class="op">OP_SendAAStats</span> <span class="data">empty</span><br><span class="ok">&#10003;</span></div>
+
+  <div class="cell eqemu"><span class="s g"></span><span class="op">OP_ZoneServerReady</span> <span class="data">empty — EAT_ENCODE'd for Titanium</span><br><span class="cmt">Line 1098. Opcode = 0x0000. Titanium NEVER receives this.</span></div>
+  <div class="cell adif"><span class="s g"></span><span class="cmt">Correctly not sent.</span><br><span class="ok">&#10003;</span></div>
+
+  <div class="cell eqemu"><span class="s g"></span><span class="op">OP_SendExpZonein</span> (0x0587) <span class="data">empty</span><br><span class="cmt">Line 1100</span></div>
+  <div class="cell adif"><span class="s g"></span><span class="op">OP_SendExpZonein</span> <span class="data">empty</span><br><span class="ok">&#10003;</span></div>
+
+  <div class="cell eqemu"><span class="s g"></span><span class="op">OP_WorldObjectsSent</span> (0x1FA1) <span class="data">empty — final signal</span><br><span class="cmt">Line 1110. Last packet in sequence.</span></div>
+  <div class="cell adif"><span class="s g"></span><span class="op">OP_WorldObjectsSent</span> <span class="data">empty</span><br><span class="ok">&#10003;</span></div>
+</div>
+
+<div class="notes red"><h3>REGRESSION: Extra Packet We Added</h3><ul>
+  <li><span class="bad">OP_ZoneSpawns (0x2E78) EMPTY</span> — We added this in Phase 3 based on /escalate panel guess. EQEmu sends this in Phase 1 with ACTUAL DATA via SendZoneSpawnsBulk(). Sending it empty in Phase 3 likely confuses the client (loading bar went from ~100% to 40%).</li>
+  <li><strong>Fix:</strong> Remove OP_ZoneSpawns from Phase 3. It belongs in Phase 1 with real spawn data.</li>
+</ul></div>
+</div>
+</div>
+
+<!-- ===== ZONE PHASE 4: READY ===== -->
+<div id="zone4" class="tab-content">
+<div class="phase">
+<div class="phase-title zone">Zone Phase 4: OP_ClientReady (client sends when loading complete)</div>
+<div class="compare">
+  <div class="col-header eqemu">EQEmu (client_packet.cpp — Handle_Connect_OP_ClientReady)</div>
+  <div class="col-header adif">ADIF Bridge</div>
+
+  <div class="cell eqemu"><span class="s r"></span>CompleteConnect() — massive handler: SendHPUpdate, guild MOTD, rules, AA, leadership, petition, mail, weather updates, etc.</div>
+  <div class="cell adif"><span class="s y"></span><span class="op">OP_SpawnAppearance</span> <span class="data">12 bytes</span><br><span class="warn">Only sends one packet. Many things missing.</span></div>
+
+  <div class="cell eqemu"><span class="s g"></span><em>Client is now IN ZONE — can move, chat, fight</em></div>
+  <div class="cell adif"><span class="s y"></span><em>Would log "=== CLIENT IN ZONE ===" — but client never reaches this</em></div>
+</div>
+</div>
+</div>
+
+<div class="notes red">
+<h3>Root Cause Analysis — Loading Screen Progress</h3>
+<ol>
+  <li><span class="ok">FIXED:</span> Removed empty OP_ZoneSpawns from Phase 3 (was confusing client).</li>
+  <li><span class="ok">FIXED:</span> Added OP_SpawnDoor (count=0) and OP_SendZonePoints (count=0) to Phase 3.</li>
+  <li><span class="ok">FIXED:</span> Added OP_CharInventory (count=0) before OP_Weather in Phase 1.</li>
+  <li><span class="ok">FIXED:</span> Added fog_minclip/maxclip[4] and max_z to NewZone_Struct.</li>
+  <li><span class="ok">FIXED:</span> Added response handlers for client AA/tribute/exp requests (see below).</li>
+  <li><span class="warn">Minor:</span> PlayerProfile entityid=0 (should be spawn_id), player spawn curHp=100 (should be 1), missing z+=6 lift.</li>
+  <li><span class="cmt">Low priority:</span> Missing OP_ApproveWorld in world phase.</li>
+</ol>
+<h3>Client Requests During Zone Entry</h3>
+<p>Because we don't proactively send AA/tribute data (EQEmu does in Phase 1), the client requests it. We now echo empty responses:</p>
+<ul>
+  <li><span class="ok">OP_SendAATable</span> (0x367D) — client requests AA table → respond empty</li>
+  <li><span class="ok">OP_UpdateAA</span> (0x5966) — client requests AA updates → respond empty</li>
+  <li><span class="ok">OP_SendTributes</span> (0x067A) — client requests tribute data → respond empty</li>
+  <li><span class="ok">OP_GuildTributes</span> (0x5E3A) — client requests guild tributes → respond empty</li>
+  <li><span class="ok">OP_SendExpZonein</span> (0x0587) — client echoes back → respond empty</li>
+</ul>
+</div>
+
+<script>
+function showTab(id) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  event.target.classList.add('active');
+}
+</script>
+</body>
+</html>

@@ -85,6 +85,17 @@ struct ZoneDbRow {
 }
 
 #[derive(Debug, sqlx::FromRow)]
+struct ZonePointRow {
+    number: i32,
+    target_y: f32,
+    target_x: f32,
+    target_z: f32,
+    target_heading: f32,
+    target_zone_id: i32,
+    target_instance: i32,
+}
+
+#[derive(Debug, sqlx::FromRow)]
 struct ZoneSpawnRow {
     npc_name: String,
     lastname: Option<String>,
@@ -744,7 +755,34 @@ async fn handle_zone_packet(
         opcodes::OP_REQ_CLIENT_SPAWN => {
             info!("Zone: sending zone contents and ready signals");
             send_app_packet(session, socket, addr, opcodes::OP_SPAWN_DOOR, &0u32.to_le_bytes()).await?;
-            send_app_packet(session, socket, addr, opcodes::OP_SEND_ZONE_POINTS, &0u32.to_le_bytes()).await?;
+
+            let zone_short = if cs.char_zone_short.is_empty() { "innothule".to_string() } else { cs.char_zone_short.clone() };
+            let zp_rows = sqlx::query_as::<_, ZonePointRow>(
+                "SELECT number, target_y, target_x, target_z, target_heading, \
+                 target_zone_id, target_instance \
+                 FROM zone_points WHERE zone = $1"
+            )
+            .bind(&zone_short)
+            .fetch_all(&world_state.pool)
+            .await?;
+
+            let count = zp_rows.len() as u32;
+            let entry_size = 24usize; // ZonePoint_Entry: u32 + f32 + f32 + f32 + f32 + u16 + u16
+            let mut zp_buf = Vec::with_capacity(4 + (count as usize + 1) * entry_size);
+            zp_buf.extend_from_slice(&count.to_le_bytes());
+            for row in &zp_rows {
+                zp_buf.extend_from_slice(&(row.number as u32).to_le_bytes());
+                zp_buf.extend_from_slice(&row.target_y.to_le_bytes());
+                zp_buf.extend_from_slice(&row.target_x.to_le_bytes());
+                zp_buf.extend_from_slice(&row.target_z.to_le_bytes());
+                zp_buf.extend_from_slice(&row.target_heading.to_le_bytes());
+                zp_buf.extend_from_slice(&(row.target_zone_id as u16).to_le_bytes());
+                zp_buf.extend_from_slice(&(row.target_instance as u16).to_le_bytes());
+            }
+            zp_buf.extend_from_slice(&[0u8; 24]); // extra empty entry per EQEmu
+            send_app_packet(session, socket, addr, opcodes::OP_SEND_ZONE_POINTS, &zp_buf).await?;
+            info!(count, zone = %zone_short, "Zone: sent zone points from DB");
+
             send_app_packet(session, socket, addr, opcodes::OP_SEND_AA_STATS, &[]).await?;
             send_app_packet(session, socket, addr, opcodes::OP_SEND_EXP_ZONEIN, &[]).await?;
             send_app_packet(session, socket, addr, opcodes::OP_WORLD_OBJECTS_SENT, &[]).await?;

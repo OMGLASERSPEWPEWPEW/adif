@@ -244,7 +244,7 @@
   <div class="cell adif missing"><span class="s r"></span><span class="bad">NOT SENT</span></div>
 
   <div class="cell eqemu"><span class="s g"></span><span class="op">SendZonePoints()</span> (0x3EBA) <span class="data">zone transition points WITH DATA</span><br><span class="cmt">Line 1092. Contains u32 count + ZonePoint structs. NOT empty.</span></div>
-  <div class="cell adif"><span class="s y"></span><span class="op">OP_SendZonepoints</span> <span class="data">count=0 (4 bytes)</span><br><span class="warn">Sent with count=0. No zone transition points yet.</span></div>
+  <div class="cell adif"><span class="s g"></span><span class="op">OP_SendZonepoints</span> <span class="data">DB-backed (zone_points table)</span><br><span class="ok">5 zone points from DB + extra empty entry per EQEmu. Match &#10003;</span></div>
 
   <div class="cell eqemu"><span class="s g"></span><span class="op">OP_SendAAStats</span> (0x5918) <span class="data">empty</span><br><span class="cmt">Line 1094</span></div>
   <div class="cell adif"><span class="s g"></span><span class="op">OP_SendAAStats</span> <span class="data">empty</span><br><span class="ok">&#10003;</span></div>
@@ -303,7 +303,7 @@
   <li><span class="ok">FIXED:</span> NewZone from DB — all fog/weather/terrain fields loaded from zone table.</li>
   <li><span class="warn">Protocol retransmits</span> — 0xCB-prefixed packets cause parse errors. Need to handle retransmit protocol opcodes.</li>
   <li><span class="warn">PlayerProfile</span> — no skills, spells, or disciplines populated. Character has no abilities.</li>
-  <li><span class="warn">Zone points from DB</span> — currently count=0. Need zone_points table query for zone transitions.</li>
+  <li><span class="ok">FIXED:</span> Zone points from DB — 5 zone_points entries for Innothule loaded and sent.</li>
   <li><span class="warn">Doors from DB</span> — currently count=0. Need doors table query for OP_SpawnDoor.</li>
   <li><span class="warn">Ground objects</span> — SendZoneObjects() not sent. Need object table query.</li>
   <li><span class="warn">Phase 4 CompleteConnect</span> — only sends OP_SpawnAppearance. Missing: HP update, exp update, guild MOTD, rules, AA timers.</li>

@@ -55,6 +55,8 @@ pub const OP_UPDATE_AA: u16 = 0x5966;
 pub const OP_SEND_TRIBUTES: u16 = 0x067A;
 pub const OP_GUILD_TRIBUTES: u16 = 0x5E3A;
 pub const OP_APP_COMBINED: u16 = 0x1900;
+pub const OP_EXP_UPDATE: u16 = 0x5ecd;
+pub const OP_RAID_UPDATE: u16 = 0x1f21;
 
 pub fn opcode_name(opcode: u16) -> &'static str {
     match opcode {

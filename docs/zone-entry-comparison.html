@@ -276,7 +276,7 @@
   <div class="col-header adif">ADIF Bridge</div>
 
   <div class="cell eqemu"><span class="s r"></span>CompleteConnect() — massive handler: SendHPUpdate, guild MOTD, rules, AA, leadership, petition, mail, weather updates, etc.</div>
-  <div class="cell adif"><span class="s y"></span><span class="op">OP_SpawnAppearance</span> <span class="data">12 bytes</span><br><span class="warn">Only sends one packet. Missing: HP update, guild MOTD, rules, AA timers, exp update.</span></div>
+  <div class="cell adif"><span class="s y"></span><span class="op">OP_SpawnAppearance</span> + <span class="op">OP_ExpUpdate</span> + <span class="op">OP_RaidUpdate</span><br><span class="warn">3 packets sent. Still missing: guild MOTD, rules, AA timers, HP update.</span></div>
 
   <div class="cell eqemu"><span class="s g"></span><em>Client is now IN ZONE — can move, chat, fight</em></div>
   <div class="cell adif"><span class="s g"></span><em><strong>=== CLIENT IN ZONE ===</strong> Character stands in Innothule Swamp. Movement works, music plays.</em><br><span class="ok">MILESTONE ACHIEVED 2026-06-29 &#10003;</span></div>
@@ -314,7 +314,7 @@
   <li><span class="warn">PlayerProfile skills/spells</span> — no skills, spells, or disciplines populated. Character has no abilities in-game.</li>
   <li><span class="ok">DONE:</span> Doors from DB — Door_Struct (80 bytes) built from doors table with magic bytes.</li>
   <li><span class="warn">Ground objects</span> — SendZoneObjects() not sent. Need object table query.</li>
-  <li><span class="warn">Phase 4 CompleteConnect</span> — only sends OP_SpawnAppearance. Missing: HP update, exp update, guild MOTD, rules, AA timers.</li>
+  <li><span class="ok">PARTIAL:</span> Phase 4 CompleteConnect — sends SpawnAppearance + ExpUpdate + RaidUpdate. Still missing: guild MOTD, rules, AA timers, HP update.</li>
   <li><span class="warn">Corpses</span> — SendZoneCorpsesBulk() not sent.</li>
   <li><span class="cmt">Polish:</span> OP_ApproveWorld in world phase, CharInventory with real items, tribute data.</li>
 </ol>

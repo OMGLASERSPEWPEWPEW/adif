@@ -843,6 +843,22 @@ async fn handle_zone_packet(
         opcodes::OP_CLIENT_READY => {
             let sa = structs::build_spawn_appearance(cs.player_spawn_id, 0x10, cs.player_spawn_id);
             send_app_packet(session, socket, addr, opcodes::OP_SPAWN_APPEARANCE, &sa).await?;
+
+            // OP_ExpUpdate: exp ratio (0-330) + aa exp ratio
+            let mut exp_buf = [0u8; 8];
+            exp_buf[0..4].copy_from_slice(&0u32.to_le_bytes()); // exp = 0 (bottom of level)
+            exp_buf[4..8].copy_from_slice(&0u32.to_le_bytes()); // aaxp = 0
+            send_app_packet(session, socket, addr, opcodes::OP_EXP_UPDATE, &exp_buf).await?;
+
+            // OP_RaidUpdate: ZoneInSendName_Struct (136 bytes)
+            let mut raid_buf = vec![0u8; 136];
+            raid_buf[0..4].copy_from_slice(&0x0Au32.to_le_bytes()); // unknown0 = 0x0A
+            let name_bytes = cs.char_name.as_bytes();
+            let name_len = name_bytes.len().min(63);
+            raid_buf[4..4 + name_len].copy_from_slice(&name_bytes[..name_len]);
+            raid_buf[68..68 + name_len].copy_from_slice(&name_bytes[..name_len]);
+            send_app_packet(session, socket, addr, opcodes::OP_RAID_UPDATE, &raid_buf).await?;
+
             info!(character = %cs.char_name, "=== CLIENT IN ZONE ===");
         }
 

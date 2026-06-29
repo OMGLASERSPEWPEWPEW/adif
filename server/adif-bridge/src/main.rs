@@ -657,7 +657,26 @@ async fn handle_zone_packet(
             let heading = ppd.heading;
             let last_name = ppd.last_name.clone();
 
-            let pp = structs::build_player_profile_full(&ppd);
+            let mut pp = structs::build_player_profile_full(&ppd);
+
+            // Load skills from DB and write into PP at offset 4460 (100 x u32)
+            if let Some(ref r) = record {
+                let skills: Vec<(i16, i16)> = sqlx::query_as(
+                    "SELECT skill_id, value FROM character_skills WHERE id = $1"
+                )
+                .bind(r.id)
+                .fetch_all(&world_state.pool)
+                .await?;
+                for (skill_id, value) in &skills {
+                    let idx = *skill_id as usize;
+                    if idx < 100 {
+                        let off = 4460 + idx * 4;
+                        pp[off..off + 4].copy_from_slice(&(*value as u32).to_le_bytes());
+                    }
+                }
+                structs::recompute_pp_checksum(&mut pp);
+                info!(count = skills.len(), "Zone: loaded skills from DB into PlayerProfile");
+            }
             info!(
                 "PP dump: checksum={:08X} gender={} race={} class={} level={} zone_id_at_13276={} name_at_12940={}",
                 u32::from_le_bytes([pp[0], pp[1], pp[2], pp[3]]),

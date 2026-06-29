@@ -185,7 +185,7 @@
   <div class="col-header adif">ADIF Bridge (main.rs:454-561)</div>
 
   <div class="cell eqemu"><span class="s g"></span><span class="op">OP_PlayerProfile</span> (0x75DF) <span class="data">19592 bytes</span><br><span class="cmt">Line 1712. m_pp.entityid = GetID(). CRC set by ENCODE layer. Full character data from DB.</span></div>
-  <div class="cell adif"><span class="s y"></span><span class="op">OP_PlayerProfile</span> <span class="data">19592 bytes, 39 fragments</span><br><span class="warn">entityid set to spawn_id. Still missing: skills, spells, disciplines.</span></div>
+  <div class="cell adif"><span class="s y"></span><span class="op">OP_PlayerProfile</span> <span class="data">19592 bytes, 39 fragments</span><br><span class="warn">entityid + skills from DB. Still missing: spells, disciplines (none in DB for lvl 2).</span></div>
 
   <div class="cell eqemu"><span class="s g"></span><span class="op">OP_ZoneEntry</span> (0x7213) <span class="data">player spawn</span><br><span class="cmt">Line 1753. FillSpawnStruct. curHp=1, NPC=0, z+=6</span></div>
   <div class="cell adif"><span class="s g"></span><span class="op">OP_ZoneEntry</span> <span class="data">385 bytes</span><br><span class="ok">curHp=1, z+=6. Match &#10003;</span></div>
@@ -311,7 +311,7 @@
 <h3>Remaining — Road to 100%</h3>
 <ol>
   <li><span class="ok">DONE:</span> Raw app packets (0xCB etc.) — non-zero first byte packets are now CRC-stripped, decompressed, and dispatched as app packets. No more parse errors.</li>
-  <li><span class="warn">PlayerProfile skills/spells</span> — no skills, spells, or disciplines populated. Character has no abilities in-game.</li>
+  <li><span class="ok">DONE:</span> PlayerProfile skills — 100 skills loaded from character_skills table. Spells empty (lvl 2 has none).</li>
   <li><span class="ok">DONE:</span> Doors from DB — Door_Struct (80 bytes) built from doors table with magic bytes.</li>
   <li><span class="warn">Ground objects</span> — SendZoneObjects() not sent. Need object table query.</li>
   <li><span class="ok">PARTIAL:</span> Phase 4 CompleteConnect — sends SpawnAppearance + ExpUpdate + RaidUpdate. Still missing: guild MOTD, rules, AA timers, HP update.</li>

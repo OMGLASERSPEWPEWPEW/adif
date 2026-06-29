@@ -396,6 +396,16 @@ pub fn build_player_profile_full(pp: &PlayerProfileData) -> Vec<u8> {
     buf
 }
 
+pub fn recompute_pp_checksum(buf: &mut [u8]) {
+    let crc_end = buf.len() - 4;
+    let mut check: u32 = 0xFFFFFFFF;
+    for &byte in &buf[4..crc_end] {
+        let index = ((byte as u32) ^ check) & 0xFF;
+        check = (check >> 8) ^ crate::eq_protocol::codec::CRC32_TABLE[index as usize];
+    }
+    buf[0..4].copy_from_slice(&check.to_le_bytes());
+}
+
 pub fn build_time_of_day(hour: u8, minute: u8, day: u16, year: u16) -> Vec<u8> {
     let mut buf = vec![0u8; TIME_OF_DAY_SIZE];
     write_u8(&mut buf, 0, hour);

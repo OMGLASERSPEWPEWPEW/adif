@@ -78,7 +78,7 @@ tailwind.config = {
 <tr><td class="py-1"><code>OP_LogoutReply</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-m1 px-1 rounded text-xs">M1</span></td><td>→ Add <code>LogoutResponse</code></td></tr>
 <tr><td class="py-1"><code>OP_WorldLogout</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-m3 px-1 rounded text-xs">M3</span></td><td>→ Add <code>WorldLogout</code> (return to char select)</td></tr>
 <tr><td class="py-1"><code>OP_LogServer</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>EQ internal logging</td></tr>
-<tr><td class="py-1"><code>OP_Camp</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-m4 px-1 rounded text-xs">M4</span></td><td>→ Add <code>CampRequest</code> (sit + timer to log out)</td></tr>
+<tr><td class="py-1"><code>OP_Camp</code></td><td><span class="tag-have px-1 rounded text-xs">HAVE</span></td><td><span class="tag-m3 px-1 rounded text-xs">M3</span></td><td>Bridge: camp handler with position save + logout sequence</td></tr>
 <tr><td class="py-1"><code>OP_SessionReady</code></td><td><span class="tag-have px-1 rounded text-xs">HAVE</span></td><td><span class="tag-m1 px-1 rounded text-xs">M1</span></td><td>→ <code>SessionRequest/Response</code></td></tr>
 </tbody>
 </table>
@@ -288,7 +288,7 @@ tailwind.config = {
 </tr></thead>
 <tbody>
 <tr><td class="py-1"><code>OP_ItemPacket</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Expand <code>ItemDefinition</code></td></tr>
-<tr><td class="py-1"><code>OP_CharInventory</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>InventoryList</code></td></tr>
+<tr><td class="py-1"><code>OP_CharInventory</code></td><td><span class="tag-have px-1 rounded text-xs">HAVE</span></td><td><span class="tag-m3 px-1 rounded text-xs">M3</span></td><td>Bridge: DB-backed Titanium pipe-delimited item serialization</td></tr>
 <tr><td class="py-1"><code>OP_MoveItem</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>MoveItem</code></td></tr>
 <tr><td class="py-1"><code>OP_DeleteCharge</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>ItemChargeUpdate</code></td></tr>
 <tr><td class="py-1"><code>OP_ContainerPacket</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>ContainerContents</code></td></tr>
@@ -551,7 +551,7 @@ tailwind.config = {
 <tr><td class="py-1"><code>OP_SetServerFilter</code></td><td><span class="tag-adapt px-1 rounded text-xs">ADAPT</span></td><td><span class="tag-later px-1 rounded text-xs">LATER</span></td><td>→ Add <code>MessageFilter</code></td></tr>
 <tr><td class="py-1"><code>OP_ClientError</code></td><td><span class="tag-need px-1 rounded text-xs">NEED</span></td><td><span class="tag-m1 px-1 rounded text-xs">M1</span></td><td>→ Add <code>ClientError</code></td></tr>
 <tr><td class="py-1"><code>OP_ExpansionInfo</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>EQ expansion flags — not applicable</td></tr>
-<tr><td class="py-1"><code>OP_ApproveWorld</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>EQ client verification</td></tr>
+<tr><td class="py-1"><code>OP_ApproveWorld</code></td><td><span class="tag-have px-1 rounded text-xs">HAVE</span></td><td><span class="tag-m3 px-1 rounded text-xs">M3</span></td><td>Bridge: 544-byte hardcoded packet sent in world phase</td></tr>
 <tr><td class="py-1"><code>OP_ExploreUnknown</code></td><td><span class="tag-skip px-1 rounded text-xs">SKIP</span></td><td></td><td>Unknown/unused</td></tr>
 </tbody>
 </table>

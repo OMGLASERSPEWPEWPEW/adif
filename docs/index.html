@@ -44,7 +44,7 @@
   <header class="pt-20 pb-16 text-center">
     <div class="flex items-center justify-center gap-3 mb-6">
       <div class="w-2 h-2 rounded-full bg-green-400 pulse"></div>
-      <span class="text-xs mono text-gray-500 uppercase tracking-[0.2em]">Server Implementation Phase</span>
+      <span class="text-xs mono text-gray-500 uppercase tracking-[0.2em]">Protocol Bridge Parity Achieved</span>
     </div>
     <h1 class="text-5xl font-bold text-white mb-4 tracking-tight">ADIF</h1>
     <p class="text-xl text-gray-400 mb-2">Another Day In Forever</p>
@@ -151,13 +151,13 @@
             <span class="text-xs text-gray-600 mono">Breakthrough</span>
           </div>
           <h2 class="card-title text-xl font-semibold text-white mb-2 transition-colors">EQ Protocol Bridge</h2>
-          <p class="text-sm text-gray-400 leading-relaxed">EQ Titanium client connects and sees "ADIF Dev" in the server list. DES-encrypted login, UDP reliability protocol, session management. The bridge translates EQ's 1999 wire format into ADIF's protobuf world.</p>
+          <p class="text-sm text-gray-400 leading-relaxed">Full EQEmu packet parity achieved. Login, world, zone entry, real inventory, camp/logout with position persistence — the complete lifecycle works end-to-end through the Rust protocol bridge.</p>
           <div class="flex gap-4 mt-4 text-xs text-gray-600">
-            <span>Login phase working</span>
+            <span>Full lifecycle working</span>
             <span class="text-gray-700">|</span>
-            <span>DES CBC encryption</span>
+            <span>DB-backed inventory</span>
             <span class="text-gray-700">|</span>
-            <span class="text-green-600 font-medium">Client connected</span>
+            <span class="text-green-600 font-medium">100% parity</span>
           </div>
         </div>
         <div class="card-arrow text-gray-500 text-2xl ml-4 mt-2">→</div>
@@ -169,20 +169,42 @@
       <div class="flex items-start justify-between">
         <div class="flex-1">
           <div class="flex items-center gap-3 mb-3">
-            <span class="tag tag-study">Study</span>
-            <span class="text-xs text-gray-600 mono">Side-by-side</span>
+            <span class="tag tag-done">Complete</span>
+            <span class="text-xs text-gray-600 mono">Parity tracker</span>
           </div>
           <h2 class="card-title text-xl font-semibold text-white mb-2 transition-colors">Zone Entry Comparison</h2>
-          <p class="text-sm text-gray-400 leading-relaxed">Full protocol flow comparison between EQEmu and the ADIF bridge. Login, world, and zone phases side-by-side — every packet, every struct, every difference highlighted.</p>
+          <p class="text-sm text-gray-400 leading-relaxed">Full protocol flow comparison between EQEmu and the ADIF bridge. Login, world, and zone phases side-by-side — every packet matched. 100% parity achieved.</p>
           <div class="flex gap-4 mt-4 text-xs text-gray-600">
             <span>EQEmu vs ADIF Bridge</span>
             <span class="text-gray-700">|</span>
             <span>Packet-level diff</span>
             <span class="text-gray-700">|</span>
-            <span class="text-amber-500 font-medium">Zone entry debugging</span>
+            <span class="text-green-600 font-medium">100% parity</span>
           </div>
         </div>
         <div class="card-arrow text-gray-500 text-2xl ml-4 mt-2">→</div>
+      </div>
+    </a>
+
+    <!-- Combat System -->
+    <a href="combat-system.html" class="card-link p-6">
+      <div class="flex items-start justify-between">
+        <div class="flex-1">
+          <div class="flex items-center gap-3 mb-3">
+            <span class="tag tag-study">Planning</span>
+            <span class="text-xs text-gray-600 mono">8 tabs</span>
+          </div>
+          <h2 class="card-title text-xl font-semibold text-white mb-2 transition-colors">Combat System</h2>
+          <p class="text-sm text-gray-400 leading-relaxed">Complete combat architecture: targeting, consider, auto-attack, damage, death, corpse, and looting. Full opcode reference, struct layouts, gap analysis, and implementation plan.</p>
+          <div class="flex gap-4 mt-4 text-xs text-gray-600">
+            <span>17 opcodes mapped</span>
+            <span class="text-gray-700">|</span>
+            <span>4-phase plan</span>
+            <span class="text-gray-700">|</span>
+            <span class="text-amber-500 font-medium">Next milestone</span>
+          </div>
+        </div>
+        <div class="card-arrow text-gray-500 text-2xl ml-4 mt-2">&rarr;</div>
       </div>
     </a>
 

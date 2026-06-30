@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ADIF Combat System — Architecture & Gap Analysis</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: 'Consolas', 'Monaco', monospace; background: #0f172a; color: #e2e8f0; }
+  .tab-btn { cursor: pointer; padding: 10px 20px; border-bottom: 2px solid transparent; color: #94a3b8; font-size: 0.85em; }
+  .tab-btn.active { color: #38bdf8; border-bottom-color: #38bdf8; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+  .op { color: #60a5fa; font-weight: bold; }
+  .struct { color: #a78bfa; }
+  .dir-cs { color: #4ade80; }
+  .dir-sc { color: #fbbf24; }
+  .missing { color: #f87171; }
+  .exists { color: #4ade80; }
+  .partial { color: #fbbf24; }
+  .phase-box { border-left: 4px solid #38bdf8; background: #1e293b; padding: 16px; margin: 12px 0; }
+  .phase-box.combat { border-left-color: #f87171; }
+  .phase-box.done { border-left-color: #4ade80; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.82em; }
+  th { background: #1e293b; padding: 8px; text-align: left; color: #94a3b8; border-bottom: 1px solid #334155; }
+  td { padding: 6px 8px; border-bottom: 1px solid #1e293b; }
+  .hex { color: #818cf8; font-family: monospace; }
+  code { background: #1e293b; padding: 2px 6px; border-radius: 3px; font-size: 0.9em; }
+  .timeline { position: relative; padding-left: 24px; }
+  .timeline::before { content: ''; position: absolute; left: 8px; top: 0; bottom: 0; width: 2px; background: #334155; }
+  .timeline-item { position: relative; margin-bottom: 8px; font-size: 0.85em; }
+  .timeline-item::before { content: ''; position: absolute; left: -20px; top: 6px; width: 10px; height: 10px; border-radius: 50%; background: #38bdf8; }
+  .timeline-item.client::before { background: #4ade80; }
+  .timeline-item.server::before { background: #fbbf24; }
+</style>
+</head>
+<body class="p-6 max-w-[1400px] mx-auto">
+
+<h1 class="text-3xl font-bold text-sky-400 mb-1">ADIF Combat System</h1>
+<p class="text-sm text-slate-500 mb-6">Architecture, Gap Analysis & Implementation Plan &mdash; June 2026</p>
+
+<!-- Tabs -->
+<div class="flex gap-0 border-b border-slate-700 mb-6">
+  <div class="tab-btn active" onclick="showTab('overview')">Overview</div>
+  <div class="tab-btn" onclick="showTab('opcodes')">Opcodes</div>
+  <div class="tab-btn" onclick="showTab('targeting')">Targeting & Consider</div>
+  <div class="tab-btn" onclick="showTab('combat')">Combat Flow</div>
+  <div class="tab-btn" onclick="showTab('death')">Death & Corpse</div>
+  <div class="tab-btn" onclick="showTab('looting')">Looting</div>
+  <div class="tab-btn" onclick="showTab('gap')">Gap Analysis</div>
+  <div class="tab-btn" onclick="showTab('plan')">Implementation Plan</div>
+</div>
+
+<!-- ===== OVERVIEW TAB ===== -->
+<div id="overview" class="tab-content active">
+  <h2 class="text-xl font-bold text-white mb-4">Current State</h2>
+  <div class="grid grid-cols-3 gap-4 mb-6">
+    <div class="bg-slate-800 rounded p-4 border-l-4 border-green-500">
+      <h3 class="text-green-400 font-bold mb-2">Working (Bridge)</h3>
+      <ul class="text-sm text-slate-400 space-y-1">
+        <li>Login &rarr; World &rarr; Zone entry</li>
+        <li>119 NPCs spawned from DB</li>
+        <li>7 inventory items (pipe-delimited)</li>
+        <li>Camp/logout with position save</li>
+        <li>Zone transitions</li>
+        <li>Full packet parity for zone entry</li>
+      </ul>
+    </div>
+    <div class="bg-slate-800 rounded p-4 border-l-4 border-yellow-500">
+      <h3 class="text-yellow-400 font-bold mb-2">Partial (Zone Server)</h3>
+      <ul class="text-sm text-slate-400 space-y-1">
+        <li>ECS with Health, MeleeStats components</li>
+        <li>AI: aggro detection, chase, leash</li>
+        <li>HateList with hate/damage tracking</li>
+        <li>NPC auto-attack system (ECS-internal)</li>
+        <li>Death detection (DeadMarker)</li>
+        <li>Protobuf schemas for all combat messages</li>
+      </ul>
+    </div>
+    <div class="bg-slate-800 rounded p-4 border-l-4 border-red-500">
+      <h3 class="text-red-400 font-bold mb-2">Missing (The Gap)</h3>
+      <ul class="text-sm text-slate-400 space-y-1">
+        <li>Targeting response (OP_TargetMouse)</li>
+        <li>Consider response (OP_Consider)</li>
+        <li>Player auto-attack (OP_AutoAttack)</li>
+        <li>Damage broadcast (OP_Damage)</li>
+        <li>Death packets (OP_Death)</li>
+        <li>Corpse creation & loot system</li>
+        <li>HP update broadcasts</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2 class="text-xl font-bold text-white mb-4">The Kill-and-Loot Packet Timeline</h2>
+  <div class="bg-slate-800 rounded p-4">
+    <div class="timeline">
+      <div class="timeline-item client"><span class="dir-cs">C&rarr;S</span> <span class="op">OP_TargetMouse</span> <span class="text-slate-500">(4 bytes: entity_id) &mdash; Player clicks NPC</span></div>
+      <div class="timeline-item client"><span class="dir-cs">C&rarr;S</span> <span class="op">OP_Consider</span> <span class="text-slate-500">(28 bytes: target_id) &mdash; Player right-clicks /con</span></div>
+      <div class="timeline-item server"><span class="dir-sc">S&rarr;C</span> <span class="op">OP_Consider</span> <span class="text-slate-500">(28 bytes: faction, con color, HP) &mdash; Server response</span></div>
+      <div class="timeline-item client"><span class="dir-cs">C&rarr;S</span> <span class="op">OP_AutoAttack</span> <span class="text-slate-500">(4 bytes: 0x01) &mdash; Player presses attack</span></div>
+      <div class="timeline-item server"><span class="dir-sc">S&rarr;C</span> <span class="op">OP_Damage</span> <span class="text-slate-500">(23 bytes Titanium) &mdash; Each melee hit/miss</span></div>
+      <div class="timeline-item server"><span class="dir-sc">S&rarr;C</span> <span class="op">OP_MobHealth</span> <span class="text-slate-500">(3 bytes: HP %) &mdash; Broadcast to nearby</span></div>
+      <div class="timeline-item server"><span class="dir-sc">S&rarr;C</span> <span class="op">OP_HPUpdate</span> <span class="text-slate-500">(10 bytes) &mdash; Player's own HP bar</span></div>
+      <div class="timeline-item server"><span class="dir-sc">S&rarr;C</span> <span class="op">OP_Death</span> <span class="text-slate-500">(32 bytes) &mdash; NPC dies, corpse created</span></div>
+      <div class="timeline-item client"><span class="dir-cs">C&rarr;S</span> <span class="op">OP_LootRequest</span> <span class="text-slate-500">(4 bytes: corpse_id) &mdash; Player opens corpse</span></div>
+      <div class="timeline-item server"><span class="dir-sc">S&rarr;C</span> <span class="op">OP_MoneyOnCorpse</span> <span class="text-slate-500">(20 bytes) &mdash; Opens loot window + coins</span></div>
+      <div class="timeline-item server"><span class="dir-sc">S&rarr;C</span> <span class="op">OP_ItemPacket</span> <span class="text-slate-500">(variable) &mdash; One per loot item</span></div>
+      <div class="timeline-item server"><span class="dir-sc">S&rarr;C</span> <span class="op">OP_LootRequest</span> <span class="text-slate-500">(4 bytes: echo) &mdash; Client requires echo</span></div>
+      <div class="timeline-item client"><span class="dir-cs">C&rarr;S</span> <span class="op">OP_LootItem</span> <span class="text-slate-500">(12 bytes) &mdash; Player takes item</span></div>
+      <div class="timeline-item server"><span class="dir-sc">S&rarr;C</span> <span class="op">OP_LootItem</span> <span class="text-slate-500">(12 bytes: echo ACK) &mdash; Confirm pickup</span></div>
+      <div class="timeline-item client"><span class="dir-cs">C&rarr;S</span> <span class="op">OP_EndLootRequest</span> <span class="text-slate-500">(4 bytes) &mdash; Close loot window</span></div>
+      <div class="timeline-item server"><span class="dir-sc">S&rarr;C</span> <span class="op">OP_LootComplete</span> <span class="text-slate-500">(0 bytes) &mdash; Done</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== OPCODES TAB ===== -->
+<div id="opcodes" class="tab-content">
+  <h2 class="text-xl font-bold text-white mb-4">Combat Opcodes &mdash; Titanium Client</h2>
+  <table>
+    <tr><th>Opcode</th><th>Hex</th><th>Direction</th><th>Struct</th><th>Size</th><th>Bridge Status</th></tr>
+    <tr><td class="op">OP_TargetMouse</td><td class="hex">0x6C47</td><td class="dir-cs">C&rarr;S</td><td class="struct">ClientTarget_Struct</td><td>4</td><td class="partial">Defined, empty handler</td></tr>
+    <tr><td class="op">OP_TargetCommand</td><td class="hex">0x1477</td><td class="dir-cs">C&rarr;S / S&rarr;C</td><td class="struct">ClientTarget_Struct</td><td>4</td><td class="missing">Not defined</td></tr>
+    <tr><td class="op">OP_Consider</td><td class="hex">0x65CA</td><td class="dir-cs">C&rarr;S / S&rarr;C</td><td class="struct">Consider_Struct</td><td>28</td><td class="partial">Defined, empty handler</td></tr>
+    <tr><td class="op">OP_AutoAttack</td><td class="hex">0x5E55</td><td class="dir-cs">C&rarr;S</td><td>uint32</td><td>4</td><td class="missing">Not defined</td></tr>
+    <tr><td class="op">OP_AutoAttack2</td><td class="hex">0x0701</td><td class="dir-cs">C&rarr;S</td><td>ignored</td><td>-</td><td class="missing">Not defined</td></tr>
+    <tr><td class="op">OP_Damage</td><td class="hex">0x5C78</td><td class="dir-sc">S&rarr;C</td><td class="struct">CombatDamage_Struct</td><td>23*</td><td class="exists">Implemented</td></tr>
+    <tr><td class="op">OP_Animation</td><td class="hex">0x2ACF</td><td class="dir-sc">S&rarr;C</td><td class="struct">Animation_Struct</td><td>4</td><td class="exists">Implemented</td></tr>
+    <tr><td class="op">OP_MobHealth</td><td class="hex">0x0695</td><td class="dir-sc">S&rarr;C</td><td class="struct">SpawnHPUpdate_Struct2</td><td>3</td><td class="exists">Implemented</td></tr>
+    <tr><td class="op">OP_HPUpdate</td><td class="hex">0x3BCF</td><td class="dir-sc">S&rarr;C</td><td class="struct">SpawnHPUpdate_Struct</td><td>10</td><td class="exists">Defined, sent on connect</td></tr>
+    <tr><td class="op">OP_Death</td><td class="hex">0x6160</td><td class="dir-sc">S&rarr;C</td><td class="struct">Death_Struct</td><td>32</td><td class="exists">Implemented</td></tr>
+    <tr><td class="op">OP_BecomeCorpse</td><td class="hex">0x4DBC</td><td class="dir-sc">S&rarr;C</td><td class="struct">BecomeCorpse_Struct</td><td>16</td><td class="missing">Not needed (entity reuses spawn ID)</td></tr>
+    <tr><td class="op">OP_DeleteSpawn</td><td class="hex">0x55BC</td><td class="dir-sc">S&rarr;C</td><td class="struct">DeleteSpawn_Struct</td><td>4*</td><td class="exists">Implemented (corpse cleanup)</td></tr>
+    <tr><td class="op">OP_LootRequest</td><td class="hex">0x6F90</td><td class="dir-cs">C&rarr;S</td><td>uint32</td><td>4</td><td class="exists">Implemented</td></tr>
+    <tr><td class="op">OP_MoneyOnCorpse</td><td class="hex">0x7FE4</td><td class="dir-sc">S&rarr;C</td><td class="struct">moneyOnCorpseStruct</td><td>20</td><td class="exists">Implemented</td></tr>
+    <tr><td class="op">OP_ItemPacket</td><td class="hex">0x3397</td><td class="dir-sc">S&rarr;C</td><td>serialized item</td><td>var</td><td class="exists">Implemented</td></tr>
+    <tr><td class="op">OP_LootItem</td><td class="hex">0x7081</td><td class="dir-cs">C&rarr;S / S&rarr;C</td><td class="struct">LootingItem_Struct</td><td>16</td><td class="exists">Implemented</td></tr>
+    <tr><td class="op">OP_EndLootRequest</td><td class="hex">0x2316</td><td class="dir-cs">C&rarr;S</td><td>uint32</td><td>4</td><td class="exists">Implemented</td></tr>
+    <tr><td class="op">OP_LootComplete</td><td class="hex">0x0A94</td><td class="dir-sc">S&rarr;C</td><td>empty</td><td>0</td><td class="exists">Implemented</td></tr>
+  </table>
+  <p class="text-xs text-slate-500 mt-3">* Titanium-specific sizes. CombatDamage_Struct is 23 bytes in Titanium (no <code>special</code> field, common struct is 27). DeleteSpawn_Struct is 4 bytes (no <code>Decay</code> field, common is 5).</p>
+</div>
+
+<!-- ===== TARGETING & CONSIDER TAB ===== -->
+<div id="targeting" class="tab-content">
+  <h2 class="text-xl font-bold text-white mb-4">Targeting</h2>
+  <div class="phase-box">
+    <h3 class="text-sky-400 font-bold mb-2">OP_TargetMouse (0x6C47) &mdash; Mouse Click Target</h3>
+    <p class="text-sm text-slate-400 mb-2">Client sends 4-byte <code>ClientTarget_Struct</code> with the entity ID of the clicked mob.</p>
+    <p class="text-sm text-slate-400 mb-2"><strong>Server behavior:</strong> Sets internal target, un-targets previous. <strong>No response packet is sent.</strong> The client already knows its target.</p>
+    <p class="text-sm text-slate-400"><strong>Bridge implementation:</strong> Store <code>cs.target_id</code> from the packet. No response needed.</p>
+  </div>
+
+  <h2 class="text-xl font-bold text-white mb-4 mt-6">Consider</h2>
+  <div class="phase-box">
+    <h3 class="text-sky-400 font-bold mb-2">OP_Consider (0x65CA) &mdash; Right-click /con</h3>
+    <div class="grid grid-cols-2 gap-4">
+      <div>
+        <h4 class="text-sm font-bold text-slate-300 mb-2">Request (C&rarr;S, 28 bytes)</h4>
+        <pre class="text-xs bg-slate-900 p-3 rounded">struct Consider_Struct {
+  u32 playerid;    // 0: (unused in request)
+  u32 targetid;    // 4: entity ID to consider
+  u32 faction;     // 8: (unused in request)
+  u32 level;       // 12: (unused in request)
+  i32 cur_hp;      // 16: (unused in request)
+  i32 max_hp;      // 20: (unused in request)
+  u8  pvpcon;      // 24: (unused in request)
+  u8  pad[3];      // 25: padding
+}; // 28 bytes</pre>
+      </div>
+      <div>
+        <h4 class="text-sm font-bold text-slate-300 mb-2">Response (S&rarr;C, 28 bytes)</h4>
+        <pre class="text-xs bg-slate-900 p-3 rounded">struct Consider_Struct {
+  u32 playerid;    // player's entity ID
+  u32 targetid;    // target's entity ID
+  u32 faction;     // faction standing (see below)
+  u32 level;       // con color (see below)
+  i32 cur_hp;      // target current HP
+  i32 max_hp;      // target max HP
+  u8  pvpcon;      // 0 for PvE
+  u8  pad[3];
+};</pre>
+      </div>
+    </div>
+    <h4 class="text-sm font-bold text-slate-300 mt-3 mb-2">Con Colors (Titanium)</h4>
+    <table class="text-xs">
+      <tr><th>Level Diff</th><th>Color</th><th>Value</th><th>Note</th></tr>
+      <tr><td>-4 or below</td><td style="color:#4ade80">Green</td><td>2</td><td>Titanium: Gray (6) remapped to Green (2)</td></tr>
+      <tr><td>-3 to -1</td><td style="color:#60a5fa">Blue</td><td>1</td><td></td></tr>
+      <tr><td>0</td><td style="color:#e2e8f0">White</td><td>4</td><td>Titanium: uses WhiteTitanium (20)</td></tr>
+      <tr><td>+1 to +2</td><td style="color:#fbbf24">Yellow</td><td>3</td><td></td></tr>
+      <tr><td>+3 or more</td><td style="color:#f87171">Red</td><td>5</td><td></td></tr>
+    </table>
+    <h4 class="text-sm font-bold text-slate-300 mt-3 mb-2">Faction Values</h4>
+    <table class="text-xs">
+      <tr><th>Faction</th><th>Value</th><th>Note</th></tr>
+      <tr><td>Ally</td><td>1</td><td></td></tr>
+      <tr><td>Warmly</td><td>2</td><td></td></tr>
+      <tr><td>Kindly</td><td>3</td><td></td></tr>
+      <tr><td>Amiably</td><td>4</td><td></td></tr>
+      <tr><td>Indifferently</td><td>5</td><td>Default for no faction data</td></tr>
+      <tr><td>Apprehensively</td><td>6</td><td>Swapped with Scowls in response</td></tr>
+      <tr><td>Dubiously</td><td>7</td><td>Swapped with Threateningly in response</td></tr>
+      <tr><td>Threateningly</td><td>8</td><td>Swapped with Dubiously in response</td></tr>
+      <tr><td>Scowls</td><td>9</td><td>Swapped with Apprehensively in response</td></tr>
+    </table>
+    <p class="text-xs text-slate-500 mt-2">Note: EQEmu intentionally swaps Apprehensive&harr;Scowls and Dubious&harr;Threatening in the Consider response. The enum values and what the client displays are different.</p>
+  </div>
+</div>
+
+<!-- ===== COMBAT FLOW TAB ===== -->
+<div id="combat" class="tab-content">
+  <h2 class="text-xl font-bold text-white mb-4">Melee Combat Flow</h2>
+
+  <div class="phase-box combat">
+    <h3 class="text-red-400 font-bold mb-2">OP_AutoAttack (0x5E55) &mdash; Toggle Auto-Attack</h3>
+    <p class="text-sm text-slate-400 mb-2">Client sends <code>uint32</code>: <code>1</code> = start attacking, <code>0</code> = stop. No server response.</p>
+    <p class="text-sm text-slate-400">Server starts melee round timer based on weapon delay (primary hand). Each timer tick = one attack round.</p>
+  </div>
+
+  <div class="phase-box combat">
+    <h3 class="text-red-400 font-bold mb-2">OP_Damage (0x5C78) &mdash; Damage Event</h3>
+    <pre class="text-xs bg-slate-900 p-3 rounded mb-3">// Titanium CombatDamage_Struct -- 23 bytes (NO special field)
+struct CombatDamage_Struct {
+  u16 target;       // 0: target entity ID
+  u16 source;       // 2: attacker entity ID
+  u8  type;         // 4: damage type (0=1HS, 1=1HB, 2=2HS, 36=pierce, 28=H2H, 0xE7=spell)
+  u16 spellid;      // 5: spell ID (0 for melee)
+  u32 damage;       // 7: damage amount (0 = miss)
+  f32 force;        // 11: melee push force
+  f32 hit_heading;  // 15: attacker heading
+  f32 hit_pitch;    // 19: pitch
+}; // 23 bytes total</pre>
+    <p class="text-sm text-slate-400">Broadcast to all nearby clients via <code>QueueCloseClients()</code> after each hit.</p>
+  </div>
+
+  <div class="phase-box combat">
+    <h3 class="text-red-400 font-bold mb-2">HP Updates After Damage</h3>
+    <div class="grid grid-cols-2 gap-4">
+      <div>
+        <h4 class="text-sm font-bold text-slate-300 mb-1">OP_HPUpdate (0x3BCF) &mdash; To Self</h4>
+        <pre class="text-xs bg-slate-900 p-2 rounded">u32 cur_hp;     // exact HP
+i32 max_hp;
+i16 spawn_id;   // 10 bytes</pre>
+      </div>
+      <div>
+        <h4 class="text-sm font-bold text-slate-300 mb-1">OP_MobHealth (0x0695) &mdash; To Others</h4>
+        <pre class="text-xs bg-slate-900 p-2 rounded">i16 spawn_id;
+u8  hp;         // HP percentage 0-100
+              // 3 bytes</pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="phase-box">
+    <h3 class="text-sky-400 font-bold mb-2">Melee Round Sequence (EQEmu)</h3>
+    <ol class="text-sm text-slate-400 space-y-1 ml-4 list-decimal">
+      <li>Check auto_attack == true && attack_timer.Check()</li>
+      <li>Validate: target alive, in LOS, within combat range</li>
+      <li>DoAttackRounds(target, slotPrimary):
+        <ul class="ml-4 list-disc">
+          <li>Primary hand attack (hit/miss roll, damage calculation)</li>
+          <li>Check double attack skill &rarr; extra swing</li>
+          <li>Check triple attack &rarr; extra swing</li>
+          <li>Check flurry &rarr; extra swing</li>
+        </ul>
+      </li>
+      <li>If dual wield && attack_dw_timer.Check(): DoAttackRounds(target, slotSecondary)</li>
+      <li>Each hit: send OP_Damage, update HP, broadcast OP_MobHealth</li>
+    </ol>
+  </div>
+</div>
+
+<!-- ===== DEATH & CORPSE TAB ===== -->
+<div id="death" class="tab-content">
+  <h2 class="text-xl font-bold text-white mb-4">NPC Death &amp; Corpse</h2>
+
+  <div class="phase-box combat">
+    <h3 class="text-red-400 font-bold mb-2">OP_Death (0x6160) &mdash; Death Broadcast</h3>
+    <pre class="text-xs bg-slate-900 p-3 rounded mb-3">struct Death_Struct {
+  u32 spawn_id;      // 0: who died
+  u32 killer_id;     // 4: who killed them
+  u32 corpseid;      // 8: corpse entity ID (= spawn_id for NPCs)
+  u32 bindzoneid;    // 12: bind zone (0 for NPCs)
+  u32 spell_id;      // 16: killing spell (0xFFFFFFFF = melee)
+  u32 attack_skill;  // 20: damage type
+  u32 damage;        // 24: killing blow damage
+  u32 unknown028;    // 28: padding
+}; // 32 bytes</pre>
+    <p class="text-sm text-slate-400 mb-3">Key insight: The corpse <strong>inherits the NPC's entity ID</strong>. No OP_DeleteSpawn + OP_NewSpawn needed. The client renders the death animation and switches to corpse state automatically from OP_Death.</p>
+  </div>
+
+  <div class="phase-box">
+    <h3 class="text-sky-400 font-bold mb-2">Death Sequence (EQEmu)</h3>
+    <ol class="text-sm text-slate-400 space-y-1 ml-4 list-decimal">
+      <li>NPC HP reaches 0 via CommonDamage()</li>
+      <li>Broadcast <span class="op">OP_Death</span> to all clients</li>
+      <li>Compute XP distribution (solo/group)</li>
+      <li>Create Corpse object from NPC's loot table (inherits entity ID)</li>
+      <li>Add loot items from loottable &rarr; loottable_entries &rarr; lootdrop &rarr; lootdrop_entries &rarr; items</li>
+      <li>Add coins (mincash/maxcash from loottable)</li>
+      <li>Remove NPC entity, add Corpse entity (same ID)</li>
+      <li>Start corpse decay timer</li>
+    </ol>
+  </div>
+
+  <div class="phase-box">
+    <h3 class="text-sky-400 font-bold mb-2">Loot Data Chain (PostgreSQL)</h3>
+    <pre class="text-xs bg-slate-900 p-3 rounded">npc_types.loottable_id (e.g., 102975 for Grobb Bashers)
+    &rarr; loottable (26,514 rows) &mdash; mincash, maxcash, avgcoin
+        &rarr; loottable_entries (55,339 rows) &mdash; lootdrop_id, probability, multiplier
+            &rarr; lootdrop (51,943 rows) &mdash; name
+                &rarr; lootdrop_entries (482,577 rows) &mdash; item_id, chance
+                    &rarr; items (117,944 rows) &mdash; full item data
+
+Example: Basher_Banzuk (loottable 102975):
+  &bull; 50% Intestine Necklace (item 13311)
+  &bull; 66.7% Round Shield (item 9002)
+  &bull; 100% Long Sword (item 5002)</pre>
+  </div>
+</div>
+
+<!-- ===== LOOTING TAB ===== -->
+<div id="looting" class="tab-content">
+  <h2 class="text-xl font-bold text-white mb-4">Loot Window Flow</h2>
+
+  <div class="phase-box">
+    <h3 class="text-sky-400 font-bold mb-2">Step 1: OP_LootRequest (0x6F90) &mdash; Open Corpse</h3>
+    <p class="text-sm text-slate-400 mb-2">Client sends <code>uint32</code> corpse entity ID. Server validates distance (&le;25 units), permissions, not already being looted.</p>
+  </div>
+
+  <div class="phase-box">
+    <h3 class="text-sky-400 font-bold mb-2">Step 2: OP_MoneyOnCorpse (0x7FE4) &mdash; Opens Loot Window</h3>
+    <pre class="text-xs bg-slate-900 p-3 rounded mb-2">struct moneyOnCorpseStruct {
+  u8  response;    // 0: LootResponse enum (1=Normal, 5=TooFar)
+  u8  unknown1;    // 1: 0x42 on success, 0x5a on error
+  u8  unknown2;    // 2: 0xef on success, 0x40 on error
+  u8  unknown3;    // 3: 0
+  u32 platinum;    // 4-7
+  u32 gold;        // 8-11
+  u32 silver;      // 12-15
+  u32 copper;      // 16-19
+}; // 20 bytes</pre>
+    <p class="text-sm text-slate-400">This packet is what opens the loot window on the client. Even if there's no money, it must be sent with response=1.</p>
+  </div>
+
+  <div class="phase-box">
+    <h3 class="text-sky-400 font-bold mb-2">Step 3: OP_ItemPacket (0x3397) &mdash; Send Each Item</h3>
+    <p class="text-sm text-slate-400 mb-2">One packet per loot slot. Uses the same Titanium pipe-delimited text serialization as CharInventory (we already have <code>serialize_titanium_item()</code>).</p>
+    <p class="text-sm text-slate-400">The loot slot ID is used instead of the inventory slot ID in the item's slot field.</p>
+  </div>
+
+  <div class="phase-box">
+    <h3 class="text-sky-400 font-bold mb-2">Step 4: Echo OP_LootRequest Back</h3>
+    <p class="text-sm text-slate-400">EQEmu source comment: "Disgrace: Client seems to require that we send the packet back." The client hangs without this echo.</p>
+  </div>
+
+  <div class="phase-box">
+    <h3 class="text-sky-400 font-bold mb-2">Step 5: OP_LootItem (0x7081) &mdash; Pick Up Item</h3>
+    <pre class="text-xs bg-slate-900 p-3 rounded mb-2">struct LootingItem_Struct {
+  u32 lootee;      // corpse entity ID
+  u32 looter;      // player entity ID
+  u16 slot_id;     // corpse loot slot
+  u8  pad[2];
+  i32 auto_loot;   // >0 for auto-loot
+}; // 12 bytes</pre>
+    <p class="text-sm text-slate-400">Server echoes this packet back as ACK, moves item to player inventory.</p>
+  </div>
+
+  <div class="phase-box">
+    <h3 class="text-sky-400 font-bold mb-2">Step 6: OP_EndLootRequest / OP_LootComplete</h3>
+    <p class="text-sm text-slate-400">Client sends EndLootRequest (uint32 corpse_id). Server sends LootComplete (0 bytes). If corpse is now empty, server sends OP_DeleteSpawn (4 bytes).</p>
+  </div>
+</div>
+
+<!-- ===== GAP ANALYSIS TAB ===== -->
+<div id="gap" class="tab-content">
+  <h2 class="text-xl font-bold text-white mb-4">Gap Analysis: What's Missing</h2>
+
+  <h3 class="text-lg font-bold text-sky-400 mb-3">Bridge (adif-bridge) Gaps</h3>
+  <table>
+    <tr><th>Feature</th><th>Status</th><th>Effort</th><th>Notes</th></tr>
+    <tr><td>OP_TargetMouse handler</td><td class="exists">Done</td><td>Small</td><td>Stores target_id in ClientState.</td></tr>
+    <tr><td>OP_Consider response</td><td class="exists">Done</td><td>Medium</td><td>Con color from level diff, 28-byte response.</td></tr>
+    <tr><td>OP_AutoAttack handler</td><td class="exists">Done</td><td>Small</td><td>Server-side melee timer with 4s delay.</td></tr>
+    <tr><td>OP_Damage broadcast</td><td class="exists">Done</td><td>Medium</td><td>23-byte Titanium CombatDamage_Struct.</td></tr>
+    <tr><td>OP_MobHealth broadcast</td><td class="exists">Done</td><td>Small</td><td>3-byte HP percentage update.</td></tr>
+    <tr><td>OP_Death broadcast</td><td class="exists">Done</td><td>Medium</td><td>32-byte Death_Struct. Corpse inherits entity ID.</td></tr>
+    <tr><td>Corpse entity tracking</td><td class="exists">Done</td><td>Medium</td><td>is_corpse flag on SpawnedNpcInfo, loot_items Vec.</td></tr>
+    <tr><td>OP_LootRequest handler</td><td class="exists">Done</td><td>Large</td><td>MoneyOnCorpse + ItemPackets + echo. Lazy loot resolution.</td></tr>
+    <tr><td>OP_LootItem handler</td><td class="exists">Done</td><td>Medium</td><td>Remove from corpse, echo ACK.</td></tr>
+    <tr><td>OP_EndLootRequest</td><td class="exists">Done</td><td>Small</td><td>LootComplete + OP_DeleteSpawn for empty corpses.</td></tr>
+    <tr><td>Melee damage calculation</td><td class="partial">Simplified</td><td>Large</td><td>Random range based on level. No AC/hit-miss/dual wield yet.</td></tr>
+    <tr><td>Loot table resolution</td><td class="exists">Done</td><td>Medium</td><td>Full 5-table chain: loottable&rarr;entries&rarr;lootdrop&rarr;items with probability/chance rolls.</td></tr>
+  </table>
+
+  <h3 class="text-lg font-bold text-sky-400 mt-6 mb-3">Zone Server (adif-zone) Gaps</h3>
+  <table>
+    <tr><th>Feature</th><th>Status</th><th>Notes</th></tr>
+    <tr><td>Player-attacks-NPC system</td><td class="missing">Missing</td><td>NPC-attacks-player exists but not the reverse</td></tr>
+    <tr><td>Damage broadcast to network</td><td class="missing">Missing</td><td>Combat runs in ECS but clients never see it</td></tr>
+    <tr><td>Death broadcast</td><td class="missing">Missing</td><td>DeadMarker exists but no despawn/corpse/XP</td></tr>
+    <tr><td>Corpse entity creation</td><td class="missing">Missing</td><td>No corpse component or loot inventory</td></tr>
+    <tr><td>Respawn system</td><td class="partial">Partial</td><td>RespawnQueue resource exists but nothing calls drain_ready()</td></tr>
+    <tr><td>Faction system</td><td class="missing">Missing</td><td>No faction data loaded, no con calculation</td></tr>
+    <tr><td>Equipment-based damage</td><td class="missing">Missing</td><td>Uses DB min/max only, no weapon stats</td></tr>
+    <tr><td>Spell system</td><td class="missing">Missing</td><td>Protobuf schemas exist but no implementation</td></tr>
+  </table>
+
+  <h3 class="text-lg font-bold text-sky-400 mt-6 mb-3">What We Can Reuse</h3>
+  <table>
+    <tr><th>Asset</th><th>Location</th><th>Notes</th></tr>
+    <tr><td class="exists">serialize_titanium_item()</td><td>titanium/structs.rs</td><td>Already works for CharInventory &mdash; reuse for loot OP_ItemPacket</td></tr>
+    <tr><td class="exists">NPC spawn data from DB</td><td>main.rs zone entry</td><td>Level, race, class already loaded &mdash; can compute con color</td></tr>
+    <tr><td class="exists">Spawn struct builder</td><td>titanium/structs.rs</td><td>build_spawn_struct() for corpse spawning</td></tr>
+    <tr><td class="exists">Loot chain data</td><td>PostgreSQL</td><td>117K items, 482K drop entries, NPCs have loottable_ids</td></tr>
+    <tr><td class="exists">Protobuf combat schemas</td><td>proto/adif/combat.proto</td><td>All 18 combat messages defined</td></tr>
+    <tr><td class="exists">ECS combat systems</td><td>adif-zone/src/combat/</td><td>MeleeStats, auto_attack, damage calc, death detection</td></tr>
+    <tr><td class="exists">AI/HateList</td><td>adif-zone/src/ai/</td><td>Aggro, chase, leash, hate tracking</td></tr>
+  </table>
+</div>
+
+<!-- ===== IMPLEMENTATION PLAN TAB ===== -->
+<div id="plan" class="tab-content">
+  <h2 class="text-xl font-bold text-white mb-4">Implementation Plan &mdash; 4 Phases</h2>
+
+  <div class="phase-box done">
+    <h3 class="text-green-400 font-bold mb-2">Phase 1: Targeting & Consider (1 session)</h3>
+    <p class="text-sm text-slate-400 mb-2">Simplest combat feature. One opcode in, one response out. Proves the targeting pipeline works.</p>
+    <ol class="text-sm text-slate-400 ml-4 list-decimal space-y-1">
+      <li>Store target_id in ClientState when OP_TargetMouse received</li>
+      <li>Keep a HashMap of spawned NPC data (entity_id &rarr; level, race, class, hp) during zone entry</li>
+      <li>On OP_Consider: look up NPC by target_id, compute con color from level difference, build 28-byte response</li>
+      <li>Default faction to INDIFFERENTLY (5) &mdash; full faction system deferred</li>
+    </ol>
+  </div>
+
+  <div class="phase-box combat">
+    <h3 class="text-red-400 font-bold mb-2">Phase 2: Auto-Attack & Damage (2-3 sessions)</h3>
+    <p class="text-sm text-slate-400 mb-2">The core combat loop. Player can attack and see damage numbers.</p>
+    <ol class="text-sm text-slate-400 ml-4 list-decimal space-y-1">
+      <li>Add OP_AutoAttack handler &mdash; store auto_attack flag + target in ClientState</li>
+      <li>Implement server-side melee timer (weapon delay from equipped weapon or default 2000ms)</li>
+      <li>On each melee round: hit/miss roll, damage calculation (simple: player_level * 2 vs NPC AC)</li>
+      <li>Send OP_Damage (23 bytes) to client for each hit</li>
+      <li>Send OP_MobHealth (3 bytes) after HP changes</li>
+      <li>Track NPC HP in bridge (reduce on each hit)</li>
+      <li>NPC can also hit player &mdash; send OP_Damage from NPC source to player target</li>
+      <li>Send OP_HPUpdate (10 bytes) when player takes damage</li>
+    </ol>
+  </div>
+
+  <div class="phase-box combat" style="border-color: #22c55e;">
+    <h3 class="text-green-400 font-bold mb-2">Phase 3: Death & Corpse &mdash; DONE (2026-06-30)</h3>
+    <p class="text-sm text-slate-400 mb-2">NPC death with corpse transition and XP award.</p>
+    <ol class="text-sm text-slate-400 ml-4 list-decimal space-y-1">
+      <li class="line-through">OP_Death (32 bytes) sent on NPC HP &le; 0</li>
+      <li class="line-through">Corpse inherits entity ID &mdash; is_corpse flag on SpawnedNpcInfo</li>
+      <li class="line-through">OP_ExpUpdate sent with XP gain (level * 15)</li>
+      <li class="line-through">Auto-attack stops, combat tick skips corpses</li>
+    </ol>
+  </div>
+
+  <div class="phase-box combat" style="border-color: #22c55e;">
+    <h3 class="text-green-400 font-bold mb-2">Phase 4: Looting &mdash; DONE (2026-06-30)</h3>
+    <p class="text-sm text-slate-400 mb-2">Full loot window with DB-backed loot resolution. Reuses serialize_titanium_item().</p>
+    <ol class="text-sm text-slate-400 ml-4 list-decimal space-y-1">
+      <li class="line-through">OP_LootRequest: validate corpse, lazy-resolve loot from 5-table DB chain</li>
+      <li class="line-through">OP_MoneyOnCorpse: opens loot window with coins (mincash/maxcash from loottable)</li>
+      <li class="line-through">OP_ItemPacket for each item (probability/chance rolls per lootdrop group)</li>
+      <li class="line-through">Echo OP_LootRequest back (client requires it)</li>
+      <li class="line-through">OP_LootItem: remove from corpse, echo ACK</li>
+      <li class="line-through">OP_EndLootRequest: LootComplete + OP_DeleteSpawn for empty corpses</li>
+    </ol>
+  </div>
+
+  <div class="bg-slate-800 rounded p-4 mt-6">
+    <h3 class="text-white font-bold mb-2">Decision: Bridge-Only vs Full Zone Server</h3>
+    <p class="text-sm text-slate-400 mb-2">Two approaches for implementing combat:</p>
+    <div class="grid grid-cols-2 gap-4">
+      <div class="border border-slate-700 rounded p-3">
+        <h4 class="text-sky-400 font-bold text-sm mb-1">Option A: Bridge-Only (Recommended for now)</h4>
+        <p class="text-xs text-slate-400">Implement combat directly in the bridge (main.rs). The bridge already tracks NPCs, has DB access, and manages the UDP session. Add melee timer, HP tracking, and loot state to the bridge. Faster to ship, single process.</p>
+      </div>
+      <div class="border border-slate-700 rounded p-3">
+        <h4 class="text-yellow-400 font-bold text-sm mb-1">Option B: Full ECS Integration (Future)</h4>
+        <p class="text-xs text-slate-400">Wire the bridge to the adif-zone ECS server via protobuf. Bridge translates Titanium opcodes &rarr; protobuf. Zone server runs combat in ECS and sends results back. Proper architecture but requires the full TCP pipeline between bridge and zone.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="text-center text-xs text-slate-600 mt-8 pb-4">
+  ADIF Combat System Architecture &mdash; Generated June 2026 &mdash; Reference: EQEmu Server (github.com/EQEmu/Server)
+</div>
+
+<script>
+function showTab(id) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  event.target.classList.add('active');
+}
+</script>
+</body>
+</html>

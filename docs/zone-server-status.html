@@ -338,20 +338,21 @@ tailwind.config = { darkMode: 'class', theme: { extend: { colors: { adif: { bg: 
     <!-- Protocol Bridge Bonus -->
     <div class="card p-5" style="border: 1px solid #4ade80;">
       <div class="flex items-center gap-3 mb-3">
-        <span class="tag tag-done">BONUS</span>
-        <h3 class="text-white font-bold flex-1">Protocol Bridge — EQ Client Connected</h3>
-        <span class="text-adif-dim text-xs mono">1 session (2026-06-27)</span>
+        <span class="tag tag-done">COMPLETE</span>
+        <h3 class="text-white font-bold flex-1">Protocol Bridge — Full EQEmu Parity</h3>
+        <span class="text-adif-dim text-xs mono">4 sessions (2026-06-27 to 2026-06-29)</span>
       </div>
-      <p class="text-sm text-adif-dim mb-3">Built after Milestone 3 — the adif-bridge crate speaks the EQ Titanium wire format and translates to ADIF's protobuf world. The EQ client connects and sees "ADIF Dev" in the server list.</p>
+      <p class="text-sm text-adif-dim mb-3">Full EQEmu Titanium packet parity achieved. The complete login &rarr; world &rarr; zone &rarr; camp lifecycle works end-to-end through the Rust protocol bridge.</p>
       <div class="text-xs text-adif-dim space-y-1">
         <div>&#x2705; DES CBC encrypted login (zero-key) — LoginAccepted with server list</div>
         <div>&#x2705; UDP reliability protocol (session, CRC, compression, fragmentation)</div>
-        <div>&#x2705; Three-phase connection: Login &rarr; World &rarr; Zone (detected by IP connection count)</div>
-        <div>&#x2705; World phase: GuildsList, ApproveWorld, MOTD, character list, OP_EnterWorld</div>
-        <div>&#x2705; Zone phase: PlayerProfile, player spawn, NPC spawns, movement, chat</div>
-      </div>
-      <div class="mt-3 pt-3 border-t border-adif-border text-xs">
-        <span class="text-adif-dim">Next:</span> World server implementation — real authentication, DB-backed character list, zone routing
+        <div>&#x2705; Three-phase connection: Login &rarr; World &rarr; Zone (multi-port)</div>
+        <div>&#x2705; World phase: GuildsList, ApproveWorld, MOTD, character list, ZoneServerInfo</div>
+        <div>&#x2705; Zone phase: PlayerProfile, spawns, doors, ground objects, zone points from DB</div>
+        <div>&#x2705; CharInventory: 7 real items from DB via Titanium pipe-delimited serialization</div>
+        <div>&#x2705; CompleteConnect: SpawnAppearance, ExpUpdate, RaidUpdate, HPUpdate, GuildMOTD, Weather</div>
+        <div>&#x2705; Camp/Logout: position tracking from OP_ClientUpdate, save to DB, PreLogoutReply + LogoutReply</div>
+        <div>&#x2705; Zone transitions: OP_ZoneChange, DB update, world reconnect, new zone load</div>
       </div>
     </div>
 

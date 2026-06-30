@@ -706,6 +706,141 @@ pub fn serialize_titanium_item(row: &InventoryItemRow, serial: i32) -> Vec<u8> {
     out
 }
 
+pub const DEATH_STRUCT_SIZE: usize = 32;
+pub const COMBAT_DAMAGE_SIZE: usize = 23;
+pub const ANIMATION_SIZE: usize = 4;
+pub const MOB_HEALTH_SIZE: usize = 3;
+
+pub fn build_death_struct(
+    spawn_id: u32, killer_id: u32, corpse_id: u32,
+    damage: u32, spell_id: u32, attack_skill: u32,
+) -> Vec<u8> {
+    let mut buf = vec![0u8; DEATH_STRUCT_SIZE];
+    write_u32_le(&mut buf, 0, spawn_id);
+    write_u32_le(&mut buf, 4, killer_id);
+    write_u32_le(&mut buf, 8, corpse_id);
+    write_u32_le(&mut buf, 12, 0); // bindzoneid (0 for NPCs)
+    write_u32_le(&mut buf, 16, spell_id);
+    write_u32_le(&mut buf, 20, attack_skill);
+    write_u32_le(&mut buf, 24, damage);
+    // offset 28: unknown028 = 0 (already zeroed)
+    buf
+}
+
+pub fn build_combat_damage(
+    target: u16, source: u16, dmg_type: u8, spell_id: u16,
+    damage: u32, force: f32, hit_heading: f32, hit_pitch: f32,
+) -> Vec<u8> {
+    let mut buf = vec![0u8; COMBAT_DAMAGE_SIZE];
+    write_u16_le(&mut buf, 0, target);
+    write_u16_le(&mut buf, 2, source);
+    buf[4] = dmg_type;
+    write_u16_le(&mut buf, 5, spell_id);
+    write_u32_le(&mut buf, 7, damage);
+    write_f32_le(&mut buf, 11, force);
+    write_f32_le(&mut buf, 15, hit_heading);
+    write_f32_le(&mut buf, 19, hit_pitch);
+    buf
+}
+
+pub fn build_animation(spawn_id: u16, speed: u8, action: u8) -> Vec<u8> {
+    let mut buf = vec![0u8; ANIMATION_SIZE];
+    write_u16_le(&mut buf, 0, spawn_id);
+    buf[2] = speed;
+    buf[3] = action;
+    buf
+}
+
+pub fn build_mob_health(spawn_id: i16, hp_percent: u8) -> Vec<u8> {
+    let mut buf = vec![0u8; MOB_HEALTH_SIZE];
+    write_u16_le(&mut buf, 0, spawn_id as u16);
+    buf[2] = hp_percent;
+    buf
+}
+
+pub const MONEY_ON_CORPSE_SIZE: usize = 20;
+pub const LOOT_ITEM_SIZE: usize = 16;
+
+pub fn build_money_on_corpse(
+    response: u8, platinum: u32, gold: u32, silver: u32, copper: u32,
+) -> Vec<u8> {
+    let mut buf = vec![0u8; MONEY_ON_CORPSE_SIZE];
+    buf[0] = response;
+    if response == 1 {
+        buf[1] = 0x42;
+        buf[2] = 0xef;
+    } else {
+        buf[1] = 0x5a;
+        buf[2] = 0x40;
+    }
+    write_u32_le(&mut buf, 4, platinum);
+    write_u32_le(&mut buf, 8, gold);
+    write_u32_le(&mut buf, 12, silver);
+    write_u32_le(&mut buf, 16, copper);
+    buf
+}
+
+pub fn build_loot_item(
+    lootee: u32, looter: u32, slot_id: u16, auto_loot: i32,
+) -> Vec<u8> {
+    let mut buf = vec![0u8; LOOT_ITEM_SIZE];
+    write_u32_le(&mut buf, 0, lootee);
+    write_u32_le(&mut buf, 4, looter);
+    write_u16_le(&mut buf, 8, slot_id);
+    write_u32_le(&mut buf, 12, auto_loot as u32);
+    buf
+}
+
+pub fn get_con_color_titanium(player_level: u8, target_level: u8) -> u32 {
+    const GREEN: u32 = 2;
+    const DARK_BLUE: u32 = 4;
+    const RED: u32 = 13;
+    const YELLOW: u32 = 15;
+    const LIGHT_BLUE: u32 = 18;
+    const WHITE_TITANIUM: u32 = 20;
+
+    let diff = target_level as i16 - player_level as i16;
+
+    if diff == 0 {
+        return WHITE_TITANIUM;
+    } else if diff >= 1 && diff <= 3 {
+        return YELLOW;
+    } else if diff >= 4 {
+        return RED;
+    }
+
+    let my = player_level as i32;
+    let other = target_level as i32;
+    let con_gray_lvl = my - (my + 5) / 3;
+    let con_green_lvl = my - (my + 7) / 4;
+
+    if my <= 15 {
+        if diff <= -6 {
+            GREEN // Titanium: Gray remapped to Green
+        } else {
+            DARK_BLUE
+        }
+    } else if my <= 20 {
+        if other <= con_gray_lvl {
+            GREEN // Titanium: Gray remapped to Green
+        } else if other <= con_green_lvl {
+            GREEN
+        } else {
+            DARK_BLUE
+        }
+    } else {
+        if other <= con_gray_lvl {
+            GREEN // Titanium: Gray remapped to Green
+        } else if other <= con_green_lvl {
+            GREEN
+        } else if diff <= -6 {
+            LIGHT_BLUE
+        } else {
+            DARK_BLUE
+        }
+    }
+}
+
 pub fn extract_zone_entry_name(data: &[u8]) -> String {
     if data.len() < 5 {
         return String::from("Unknown");
@@ -771,5 +906,97 @@ mod tests {
         assert_eq!(buf.len(), TIME_OF_DAY_SIZE);
         assert_eq!(buf[0], 14);
         assert_eq!(buf[1], 30);
+    }
+
+    #[test]
+    fn con_color_same_level() {
+        assert_eq!(get_con_color_titanium(10, 10), 20); // WhiteTitanium
+        assert_eq!(get_con_color_titanium(50, 50), 20);
+        assert_eq!(get_con_color_titanium(1, 1), 20);
+    }
+
+    #[test]
+    fn con_color_yellow() {
+        assert_eq!(get_con_color_titanium(10, 11), 15); // diff +1
+        assert_eq!(get_con_color_titanium(10, 12), 15); // diff +2
+        assert_eq!(get_con_color_titanium(10, 13), 15); // diff +3
+    }
+
+    #[test]
+    fn con_color_red() {
+        assert_eq!(get_con_color_titanium(10, 14), 13); // diff +4
+        assert_eq!(get_con_color_titanium(10, 20), 13); // diff +10
+    }
+
+    #[test]
+    fn con_color_dark_blue() {
+        assert_eq!(get_con_color_titanium(10, 8), 4); // diff -2
+        assert_eq!(get_con_color_titanium(10, 6), 4); // diff -4
+    }
+
+    #[test]
+    fn con_color_green_low_level() {
+        assert_eq!(get_con_color_titanium(10, 3), 2); // diff -7, level<=15 → Green
+        assert_eq!(get_con_color_titanium(10, 1), 2); // diff -9 → Green
+    }
+
+    #[test]
+    fn con_color_light_blue_high_level() {
+        // level 50: gray_lvl = 50 - 55/3 = 50 - 18 = 32, green_lvl = 50 - 57/4 = 50 - 14 = 36
+        assert_eq!(get_con_color_titanium(50, 44), 18); // diff -6, above green_lvl → LightBlue
+        assert_eq!(get_con_color_titanium(50, 40), 18); // diff -10, above green_lvl → LightBlue
+    }
+
+    #[test]
+    fn con_color_green_high_level() {
+        // level 50: green_lvl = 36, gray_lvl = 32
+        assert_eq!(get_con_color_titanium(50, 35), 2); // below green_lvl, above gray → Green
+        assert_eq!(get_con_color_titanium(50, 33), 2); // below green_lvl, above gray → Green
+    }
+
+    #[test]
+    fn con_color_gray_remapped_to_green() {
+        // level 50: gray_lvl = 32
+        assert_eq!(get_con_color_titanium(50, 30), 2); // below gray → Green (Titanium remap)
+        assert_eq!(get_con_color_titanium(50, 1), 2);  // way below → Green
+    }
+
+    #[test]
+    fn death_struct_correct_size() {
+        let buf = build_death_struct(10, 1, 10, 5, 0xFFFFFFFF, 0);
+        assert_eq!(buf.len(), DEATH_STRUCT_SIZE);
+        assert_eq!(u32::from_le_bytes([buf[0], buf[1], buf[2], buf[3]]), 10); // spawn_id
+        assert_eq!(u32::from_le_bytes([buf[4], buf[5], buf[6], buf[7]]), 1);  // killer_id
+        assert_eq!(u32::from_le_bytes([buf[8], buf[9], buf[10], buf[11]]), 10); // corpseid
+        assert_eq!(u32::from_le_bytes([buf[12], buf[13], buf[14], buf[15]]), 0); // bindzoneid
+        assert_eq!(u32::from_le_bytes([buf[16], buf[17], buf[18], buf[19]]), 0xFFFFFFFF); // spell_id
+        assert_eq!(u32::from_le_bytes([buf[24], buf[25], buf[26], buf[27]]), 5); // damage
+    }
+
+    #[test]
+    fn combat_damage_correct_size() {
+        let buf = build_combat_damage(10, 1, 0, 0xFFFF, 42, 0.0, 1.5, 0.0);
+        assert_eq!(buf.len(), COMBAT_DAMAGE_SIZE);
+        assert_eq!(u16::from_le_bytes([buf[0], buf[1]]), 10); // target
+        assert_eq!(u16::from_le_bytes([buf[2], buf[3]]), 1);  // source
+        assert_eq!(buf[4], 0); // type
+        assert_eq!(u16::from_le_bytes([buf[5], buf[6]]), 0xFFFF); // spellid
+        assert_eq!(u32::from_le_bytes([buf[7], buf[8], buf[9], buf[10]]), 42); // damage
+    }
+
+    #[test]
+    fn animation_correct_size() {
+        let buf = build_animation(5, 10, 8);
+        assert_eq!(buf.len(), ANIMATION_SIZE);
+        assert_eq!(u16::from_le_bytes([buf[0], buf[1]]), 5);
+        assert_eq!(buf[2], 10); // speed
+        assert_eq!(buf[3], 8);  // action (h2h)
+    }
+
+    #[test]
+    fn mob_health_correct_size() {
+        let buf = build_mob_health(10, 75);
+        assert_eq!(buf.len(), MOB_HEALTH_SIZE);
+        assert_eq!(buf[2], 75); // hp percent
     }
 }

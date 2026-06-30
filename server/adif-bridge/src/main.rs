@@ -2,8 +2,10 @@ use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use anyhow::Context;
+use rand::Rng;
 use sqlx;
 use tokio::net::UdpSocket;
 use tracing::{debug, info, warn};
@@ -173,6 +175,23 @@ struct ZonePointRow {
     target_instance: i32,
 }
 
+struct SpawnedNpcInfo {
+    level: u8,
+    name: String,
+    cur_hp: i64,
+    max_hp: i64,
+    min_dmg: i32,
+    max_dmg: i32,
+    attack_delay: i16,
+    loottable_id: i32,
+    is_corpse: bool,
+    loot_items: Vec<structs::InventoryItemRow>,
+    loot_platinum: u32,
+    loot_gold: u32,
+    loot_silver: u32,
+    loot_copper: u32,
+}
+
 #[derive(Debug, sqlx::FromRow)]
 struct ZoneSpawnRow {
     npc_name: String,
@@ -191,6 +210,10 @@ struct ZoneSpawnRow {
     light: i16,
     findable: i16,
     flymode: i16,
+    mindmg: i32,
+    maxdmg: i32,
+    attack_delay: i16,
+    loottable_id: i32,
     x: f32,
     y: f32,
     z: f32,
@@ -221,6 +244,14 @@ struct ClientState {
     last_y: f32,
     last_z: f32,
     last_heading: f32,
+    player_level: u8,
+    target_id: Option<u32>,
+    spawned_npcs: HashMap<u32, SpawnedNpcInfo>,
+    auto_attack: bool,
+    last_attack_time: Option<Instant>,
+    attack_delay_ms: u32,
+    zone_transition_pending: bool,
+    exp_ratio: u32,
 }
 
 impl ClientState {
@@ -238,6 +269,14 @@ impl ClientState {
             last_y: 0.0,
             last_z: 0.0,
             last_heading: 0.0,
+            player_level: 0,
+            target_id: None,
+            spawned_npcs: HashMap::new(),
+            auto_attack: false,
+            last_attack_time: None,
+            attack_delay_ms: 4000,
+            zone_transition_pending: false,
+            exp_ratio: 0,
         }
     }
 
@@ -315,6 +354,7 @@ async fn main() -> anyhow::Result<()> {
     let mut login_buf = vec![0u8; 8192];
     let mut world_buf = vec![0u8; 8192];
     let mut zone_buf = vec![0u8; 8192];
+    let mut combat_tick = tokio::time::interval(Duration::from_millis(250));
 
     loop {
         tokio::select! {
@@ -339,8 +379,470 @@ async fn main() -> anyhow::Result<()> {
                     &mut zone_state, &zone_socket, &world_state,
                 ).await?;
             }
+            _ = combat_tick.tick() => {
+                if let Err(e) = process_combat_tick(&mut zone_state, &zone_socket).await {
+                    warn!(error = %e, "Combat tick error");
+                }
+            }
         }
     }
+}
+
+async fn process_combat_tick(
+    state: &mut PhaseState,
+    socket: &UdpSocket,
+) -> anyhow::Result<()> {
+    let now = Instant::now();
+    let PhaseState { sessions, client_states } = state;
+
+    let mut packets_to_send: Vec<(SocketAddr, Vec<(u16, Vec<u8>)>)> = Vec::new();
+
+    for (addr, cs) in client_states.iter_mut() {
+        if !cs.auto_attack {
+            continue;
+        }
+        let target_id = match cs.target_id {
+            Some(id) if id != cs.player_spawn_id => id,
+            _ => { cs.auto_attack = false; continue; }
+        };
+        if let Some(last) = cs.last_attack_time {
+            if now.duration_since(last) < Duration::from_millis(cs.attack_delay_ms as u64) {
+                continue;
+            }
+        }
+        let player_spawn_id = cs.player_spawn_id;
+        let player_level = cs.player_level;
+        let heading = cs.last_heading;
+
+        let (dead, npc_level, mut pkts) = {
+            let npc = match cs.spawned_npcs.get_mut(&target_id) {
+                Some(n) if n.cur_hp > 0 && !n.is_corpse => n,
+                _ => { cs.auto_attack = false; continue; }
+            };
+
+            let damage = rand::thread_rng().gen_range(
+                (player_level.max(1) as i32)..=((player_level as i32) * 3).max(1)
+            );
+            npc.cur_hp = (npc.cur_hp - damage as i64).max(0);
+            let hp_pct = ((npc.cur_hp * 100) / npc.max_hp.max(1)).clamp(0, 100) as u8;
+            let dead = npc.cur_hp <= 0;
+
+            info!(
+                target = %npc.name, damage, hp_remaining = npc.cur_hp,
+                hp_pct, "Combat: hit"
+            );
+
+            let mut pkts: Vec<(u16, Vec<u8>)> = Vec::new();
+            pkts.push((opcodes::OP_ANIMATION, structs::build_animation(
+                player_spawn_id as u16, 10, 8,
+            )));
+            pkts.push((opcodes::OP_DAMAGE, structs::build_combat_damage(
+                target_id as u16, player_spawn_id as u16,
+                0, 0xFFFF, damage as u32, 0.0, heading, 0.0,
+            )));
+            pkts.push((opcodes::OP_MOB_HEALTH, structs::build_mob_health(
+                target_id as i16, hp_pct,
+            )));
+
+            if dead {
+                pkts.push((opcodes::OP_DEATH, structs::build_death_struct(
+                    target_id, player_spawn_id, target_id,
+                    damage as u32, 0xFFFFFFFF, 0,
+                )));
+            }
+
+            (dead, npc.level, pkts)
+        };
+
+        cs.last_attack_time = Some(now);
+        if dead {
+            cs.auto_attack = false;
+            if let Some(npc) = cs.spawned_npcs.get_mut(&target_id) {
+                npc.is_corpse = true;
+                npc.cur_hp = 0;
+            }
+            let xp_gain = (npc_level as u32) * 15;
+            cs.exp_ratio = (cs.exp_ratio + xp_gain).min(330);
+            let mut exp_buf = vec![0u8; 8];
+            exp_buf[0..4].copy_from_slice(&cs.exp_ratio.to_le_bytes());
+            pkts.push((opcodes::OP_EXP_UPDATE, exp_buf));
+            info!(target_id, npc_level, xp_gain, exp_ratio = cs.exp_ratio, "Combat: target killed");
+        }
+
+        packets_to_send.push((*addr, pkts));
+    }
+
+    for (addr, pkts) in packets_to_send {
+        if let Some(session) = sessions.get_mut(&addr) {
+            for (opcode, data) in pkts {
+                send_app_packet(session, socket, addr, opcode, &data).await?;
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn split_money(total_copper: u32) -> (u32, u32, u32, u32) {
+    let plat = total_copper / 1000;
+    let gold = (total_copper % 1000) / 100;
+    let silver = (total_copper % 100) / 10;
+    let copper = total_copper % 10;
+    (plat, gold, silver, copper)
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct LootMoneyRow {
+    mincash: i32,
+    maxcash: i32,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct LootCandidateRow {
+    lootdrop_id: i32,
+    group_probability: f32,
+    group_multiplier: i32,
+    group_droplimit: i32,
+    item_chance: f32,
+    item_charges: i32,
+    itemclass: i32,
+    name: String,
+    lore: String,
+    idfile: String,
+    item_db_id: i32,
+    weight: i32,
+    norent: i32,
+    nodrop: i32,
+    size: i32,
+    slots: i32,
+    price: i32,
+    icon: i32,
+    benefitflag: i32,
+    tradeskills: i32,
+    cr: i32, dr: i32, pr: i32, mr: i32, fr: i32,
+    astr: i32, asta: i32, aagi: i32, adex: i32, acha: i32, aint: i32, awis: i32,
+    hp: i32, mana: i32, ac: i32, deity: i32,
+    skillmodvalue: i32, skillmodmax: i32, skillmodtype: i32,
+    banedmgrace: i32, banedmgamt: i32, banedmgbody: i32,
+    magic: i32, casttime_: i32, reqlevel: i32, bardtype: i32, bardvalue: i32,
+    light: i32, delay: i32, reclevel: i32, recskill: i32,
+    elemdmgtype: i32, elemdmgamt: i32, range: i32, damage: i32,
+    color: i64, classes: i32, races: i32,
+    maxcharges: i32, itemtype: i32, material: i32, sellrate: f32,
+    procrate: i32, combateffects: String, shielding: i32, stunresist: i32,
+    strikethrough: i32, extradmgskill: i32, extradmgamt: i32,
+    spellshield: i32, avoidance: i32, accuracy: i32,
+    charmfileid: String,
+    factionmod1: i32, factionmod2: i32, factionmod3: i32, factionmod4: i32,
+    factionamt1: i32, factionamt2: i32, factionamt3: i32, factionamt4: i32,
+    charmfile: String,
+    augtype: i32,
+    augslot1type: i16, augslot1visible: i16,
+    augslot2type: i16, augslot2visible: i16,
+    augslot3type: i16, augslot3visible: i16,
+    augslot4type: i16, augslot4visible: i16,
+    augslot5type: i16, augslot5visible: i16,
+    ldontheme: i32, ldonprice: i32, ldonsold: i32,
+    bagtype: i32, bagslots: i32, bagsize: i32, bagwr: i32,
+    book: i32, booktype: i32, filename: String,
+    banedmgraceamt: i32, augrestrict: i32, loregroup: i32,
+    pendingloreflag: i16, artifactflag: i16, summonedflag: i16,
+    favor: i32, fvnodrop: i32, endur: i32, dotshielding: i32,
+    attack: i32, regen: i32, manaregen: i32, enduranceregen: i32,
+    haste: i32, damageshield: i32, recastdelay: i32, recasttype: i32, guildfavor: i32,
+    augdistiller: i32, attuneable: i32, nopet: i32, pointtype: i32,
+    potionbelt: i32, potionbeltslots: i32, stacksize: i32, notransfer: i32, stackable: i32,
+    clickeffect: i32, clicktype: i32, clicklevel2: i32, clicklevel: i32,
+    proceffect: i32, proctype: i32, proclevel2: i32, proclevel: i32,
+    worneffect: i32, worntype: i32, wornlevel2: i32, wornlevel: i32,
+    focuseffect: i32, focustype: i32, focuslevel2: i32, focuslevel: i32,
+    scrolleffect: i32, scrolltype: i32, scrolllevel2: i32, scrolllevel: i32,
+}
+
+impl LootCandidateRow {
+    fn into_inventory_item(self, loot_slot: i32) -> structs::InventoryItemRow {
+        structs::InventoryItemRow {
+            slot_id: loot_slot,
+            item_id: self.item_db_id,
+            charges: self.item_charges as i16,
+            itemclass: self.itemclass,
+            name: self.name,
+            lore: self.lore,
+            idfile: self.idfile,
+            item_db_id: self.item_db_id,
+            weight: self.weight,
+            norent: self.norent,
+            nodrop: self.nodrop,
+            size: self.size,
+            slots: self.slots,
+            price: self.price,
+            icon: self.icon,
+            benefitflag: self.benefitflag,
+            tradeskills: self.tradeskills,
+            cr: self.cr, dr: self.dr, pr: self.pr, mr: self.mr, fr: self.fr,
+            astr: self.astr, asta: self.asta, aagi: self.aagi, adex: self.adex,
+            acha: self.acha, aint: self.aint, awis: self.awis,
+            hp: self.hp, mana: self.mana, ac: self.ac, deity: self.deity,
+            skillmodvalue: self.skillmodvalue, skillmodmax: self.skillmodmax,
+            skillmodtype: self.skillmodtype,
+            banedmgrace: self.banedmgrace, banedmgamt: self.banedmgamt,
+            banedmgbody: self.banedmgbody,
+            magic: self.magic, casttime_: self.casttime_, reqlevel: self.reqlevel,
+            bardtype: self.bardtype, bardvalue: self.bardvalue,
+            light: self.light, delay: self.delay, reclevel: self.reclevel,
+            recskill: self.recskill,
+            elemdmgtype: self.elemdmgtype, elemdmgamt: self.elemdmgamt,
+            range: self.range, damage: self.damage,
+            color: self.color, classes: self.classes, races: self.races,
+            maxcharges: self.maxcharges, itemtype: self.itemtype,
+            material: self.material, sellrate: self.sellrate,
+            procrate: self.procrate, combateffects: self.combateffects,
+            shielding: self.shielding, stunresist: self.stunresist,
+            strikethrough: self.strikethrough, extradmgskill: self.extradmgskill,
+            extradmgamt: self.extradmgamt,
+            spellshield: self.spellshield, avoidance: self.avoidance,
+            accuracy: self.accuracy,
+            charmfileid: self.charmfileid,
+            factionmod1: self.factionmod1, factionmod2: self.factionmod2,
+            factionmod3: self.factionmod3, factionmod4: self.factionmod4,
+            factionamt1: self.factionamt1, factionamt2: self.factionamt2,
+            factionamt3: self.factionamt3, factionamt4: self.factionamt4,
+            charmfile: self.charmfile,
+            augtype: self.augtype,
+            augslot1type: self.augslot1type, augslot1visible: self.augslot1visible,
+            augslot2type: self.augslot2type, augslot2visible: self.augslot2visible,
+            augslot3type: self.augslot3type, augslot3visible: self.augslot3visible,
+            augslot4type: self.augslot4type, augslot4visible: self.augslot4visible,
+            augslot5type: self.augslot5type, augslot5visible: self.augslot5visible,
+            ldontheme: self.ldontheme, ldonprice: self.ldonprice, ldonsold: self.ldonsold,
+            bagtype: self.bagtype, bagslots: self.bagslots, bagsize: self.bagsize,
+            bagwr: self.bagwr,
+            book: self.book, booktype: self.booktype, filename: self.filename,
+            banedmgraceamt: self.banedmgraceamt, augrestrict: self.augrestrict,
+            loregroup: self.loregroup,
+            pendingloreflag: self.pendingloreflag, artifactflag: self.artifactflag,
+            summonedflag: self.summonedflag,
+            favor: self.favor, fvnodrop: self.fvnodrop, endur: self.endur,
+            dotshielding: self.dotshielding,
+            attack: self.attack, regen: self.regen, manaregen: self.manaregen,
+            enduranceregen: self.enduranceregen,
+            haste: self.haste, damageshield: self.damageshield,
+            recastdelay: self.recastdelay, recasttype: self.recasttype,
+            guildfavor: self.guildfavor,
+            augdistiller: self.augdistiller, attuneable: self.attuneable,
+            nopet: self.nopet, pointtype: self.pointtype,
+            potionbelt: self.potionbelt, potionbeltslots: self.potionbeltslots,
+            stacksize: self.stacksize, notransfer: self.notransfer,
+            stackable: self.stackable,
+            clickeffect: self.clickeffect, clicktype: self.clicktype,
+            clicklevel2: self.clicklevel2, clicklevel: self.clicklevel,
+            proceffect: self.proceffect, proctype: self.proctype,
+            proclevel2: self.proclevel2, proclevel: self.proclevel,
+            worneffect: self.worneffect, worntype: self.worntype,
+            wornlevel2: self.wornlevel2, wornlevel: self.wornlevel,
+            focuseffect: self.focuseffect, focustype: self.focustype,
+            focuslevel2: self.focuslevel2, focuslevel: self.focuslevel,
+            scrolleffect: self.scrolleffect, scrolltype: self.scrolltype,
+            scrolllevel2: self.scrolllevel2, scrolllevel: self.scrolllevel,
+        }
+    }
+}
+
+async fn resolve_npc_loot(
+    pool: &sqlx::PgPool,
+    loottable_id: i32,
+) -> anyhow::Result<(Vec<structs::InventoryItemRow>, u32, u32, u32, u32)> {
+    let mut rng = rand::thread_rng();
+
+    let money = sqlx::query_as::<_, LootMoneyRow>(
+        "SELECT mincash, maxcash FROM loottable WHERE id = $1"
+    )
+    .bind(loottable_id)
+    .fetch_optional(pool)
+    .await?;
+
+    let (plat, gold, silver, copper) = if let Some(m) = money {
+        if m.maxcash > 0 {
+            let total = rng.gen_range(m.mincash.max(0)..=m.maxcash) as u32;
+            split_money(total)
+        } else {
+            (0, 0, 0, 0)
+        }
+    } else {
+        (0, 0, 0, 0)
+    };
+
+    let candidates = sqlx::query_as::<_, LootCandidateRow>(
+        "SELECT \
+            lte.lootdrop_id, \
+            lte.probability AS group_probability, \
+            lte.multiplier AS group_multiplier, \
+            lte.droplimit AS group_droplimit, \
+            lde.item_charges, \
+            lde.chance AS item_chance, \
+            it.itemclass, it.name, it.lore, it.idfile, it.id AS item_db_id, \
+            it.weight, it.norent, it.nodrop, it.size, it.slots, it.price, it.icon, \
+            it.benefitflag, it.tradeskills, \
+            it.cr, it.dr, it.pr, it.mr, it.fr, \
+            it.astr, it.asta, it.aagi, it.adex, it.acha, it.aint, it.awis, \
+            it.hp, it.mana, it.ac, it.deity, \
+            it.skillmodvalue, it.skillmodmax, it.skillmodtype, \
+            it.banedmgrace, it.banedmgamt, it.banedmgbody, \
+            it.magic, it.casttime_, it.reqlevel, it.bardtype, it.bardvalue, \
+            it.light, it.delay, it.reclevel, it.recskill, \
+            it.elemdmgtype, it.elemdmgamt, it.range, it.damage, \
+            it.color, it.classes, it.races, \
+            it.maxcharges, it.itemtype, it.material, it.sellrate, \
+            it.procrate, it.combateffects, it.shielding, it.stunresist, \
+            it.strikethrough, it.extradmgskill, it.extradmgamt, \
+            it.spellshield, it.avoidance, it.accuracy, \
+            it.charmfileid, \
+            it.factionmod1, it.factionmod2, it.factionmod3, it.factionmod4, \
+            it.factionamt1, it.factionamt2, it.factionamt3, it.factionamt4, \
+            it.charmfile, \
+            it.augtype, \
+            it.augslot1type, it.augslot1visible, it.augslot2type, it.augslot2visible, \
+            it.augslot3type, it.augslot3visible, it.augslot4type, it.augslot4visible, \
+            it.augslot5type, it.augslot5visible, \
+            it.ldontheme, it.ldonprice, it.ldonsold, \
+            it.bagtype, it.bagslots, it.bagsize, it.bagwr, \
+            it.book, it.booktype, it.filename, \
+            it.banedmgraceamt, it.augrestrict, it.loregroup, it.pendingloreflag, \
+            it.artifactflag, it.summonedflag, \
+            it.favor, it.fvnodrop, it.endur, it.dotshielding, \
+            it.attack, it.regen, it.manaregen, it.enduranceregen, \
+            it.haste, it.damageshield, it.recastdelay, it.recasttype, it.guildfavor, \
+            it.augdistiller, it.attuneable, it.nopet, it.pointtype, \
+            it.potionbelt, it.potionbeltslots, it.stacksize, it.notransfer, it.stackable, \
+            it.clickeffect, it.clicktype, it.clicklevel2, it.clicklevel, \
+            it.proceffect, it.proctype, it.proclevel2, it.proclevel, \
+            it.worneffect, it.worntype, it.wornlevel2, it.wornlevel, \
+            it.focuseffect, it.focustype, it.focuslevel2, it.focuslevel, \
+            it.scrolleffect, it.scrolltype, it.scrolllevel2, it.scrolllevel \
+        FROM loottable_entries lte \
+        JOIN lootdrop_entries lde ON lte.lootdrop_id = lde.lootdrop_id \
+        JOIN items it ON lde.item_id = it.id \
+        WHERE lte.loottable_id = $1 \
+        ORDER BY lte.lootdrop_id, lde.chance DESC"
+    )
+    .bind(loottable_id)
+    .fetch_all(pool)
+    .await?;
+
+    let mut groups: HashMap<i32, Vec<LootCandidateRow>> = HashMap::new();
+    for c in candidates {
+        groups.entry(c.lootdrop_id).or_default().push(c);
+    }
+
+    let mut won_items: Vec<structs::InventoryItemRow> = Vec::new();
+    let mut slot = 0i32;
+
+    for (_, entries) in &groups {
+        let prob = entries[0].group_probability;
+        let multiplier = entries[0].group_multiplier.max(1) as usize;
+        let droplimit = entries[0].group_droplimit;
+
+        if prob < 100.0 && rng.gen_range(0.0f32..100.0) >= prob {
+            continue;
+        }
+
+        for _ in 0..multiplier {
+            let mut picks = 0i32;
+            for entry in entries.iter() {
+                if droplimit > 0 && picks >= droplimit { break; }
+                if rng.gen_range(0.0f32..100.0) < entry.item_chance {
+                    won_items.push(structs::InventoryItemRow {
+                        slot_id: slot,
+                        item_id: entry.item_db_id,
+                        charges: entry.item_charges as i16,
+                        itemclass: entry.itemclass,
+                        name: entry.name.clone(),
+                        lore: entry.lore.clone(),
+                        idfile: entry.idfile.clone(),
+                        item_db_id: entry.item_db_id,
+                        weight: entry.weight,
+                        norent: entry.norent,
+                        nodrop: entry.nodrop,
+                        size: entry.size,
+                        slots: entry.slots,
+                        price: entry.price,
+                        icon: entry.icon,
+                        benefitflag: entry.benefitflag,
+                        tradeskills: entry.tradeskills,
+                        cr: entry.cr, dr: entry.dr, pr: entry.pr, mr: entry.mr, fr: entry.fr,
+                        astr: entry.astr, asta: entry.asta, aagi: entry.aagi, adex: entry.adex,
+                        acha: entry.acha, aint: entry.aint, awis: entry.awis,
+                        hp: entry.hp, mana: entry.mana, ac: entry.ac, deity: entry.deity,
+                        skillmodvalue: entry.skillmodvalue, skillmodmax: entry.skillmodmax,
+                        skillmodtype: entry.skillmodtype,
+                        banedmgrace: entry.banedmgrace, banedmgamt: entry.banedmgamt,
+                        banedmgbody: entry.banedmgbody,
+                        magic: entry.magic, casttime_: entry.casttime_, reqlevel: entry.reqlevel,
+                        bardtype: entry.bardtype, bardvalue: entry.bardvalue,
+                        light: entry.light, delay: entry.delay, reclevel: entry.reclevel,
+                        recskill: entry.recskill,
+                        elemdmgtype: entry.elemdmgtype, elemdmgamt: entry.elemdmgamt,
+                        range: entry.range, damage: entry.damage,
+                        color: entry.color, classes: entry.classes, races: entry.races,
+                        maxcharges: entry.maxcharges, itemtype: entry.itemtype,
+                        material: entry.material, sellrate: entry.sellrate,
+                        procrate: entry.procrate, combateffects: entry.combateffects.clone(),
+                        shielding: entry.shielding, stunresist: entry.stunresist,
+                        strikethrough: entry.strikethrough, extradmgskill: entry.extradmgskill,
+                        extradmgamt: entry.extradmgamt,
+                        spellshield: entry.spellshield, avoidance: entry.avoidance,
+                        accuracy: entry.accuracy,
+                        charmfileid: entry.charmfileid.clone(),
+                        factionmod1: entry.factionmod1, factionmod2: entry.factionmod2,
+                        factionmod3: entry.factionmod3, factionmod4: entry.factionmod4,
+                        factionamt1: entry.factionamt1, factionamt2: entry.factionamt2,
+                        factionamt3: entry.factionamt3, factionamt4: entry.factionamt4,
+                        charmfile: entry.charmfile.clone(),
+                        augtype: entry.augtype,
+                        augslot1type: entry.augslot1type, augslot1visible: entry.augslot1visible,
+                        augslot2type: entry.augslot2type, augslot2visible: entry.augslot2visible,
+                        augslot3type: entry.augslot3type, augslot3visible: entry.augslot3visible,
+                        augslot4type: entry.augslot4type, augslot4visible: entry.augslot4visible,
+                        augslot5type: entry.augslot5type, augslot5visible: entry.augslot5visible,
+                        ldontheme: entry.ldontheme, ldonprice: entry.ldonprice, ldonsold: entry.ldonsold,
+                        bagtype: entry.bagtype, bagslots: entry.bagslots, bagsize: entry.bagsize,
+                        bagwr: entry.bagwr,
+                        book: entry.book, booktype: entry.booktype, filename: entry.filename.clone(),
+                        banedmgraceamt: entry.banedmgraceamt, augrestrict: entry.augrestrict,
+                        loregroup: entry.loregroup,
+                        pendingloreflag: entry.pendingloreflag, artifactflag: entry.artifactflag,
+                        summonedflag: entry.summonedflag,
+                        favor: entry.favor, fvnodrop: entry.fvnodrop, endur: entry.endur,
+                        dotshielding: entry.dotshielding,
+                        attack: entry.attack, regen: entry.regen, manaregen: entry.manaregen,
+                        enduranceregen: entry.enduranceregen,
+                        haste: entry.haste, damageshield: entry.damageshield,
+                        recastdelay: entry.recastdelay, recasttype: entry.recasttype,
+                        guildfavor: entry.guildfavor,
+                        augdistiller: entry.augdistiller, attuneable: entry.attuneable,
+                        nopet: entry.nopet, pointtype: entry.pointtype,
+                        potionbelt: entry.potionbelt, potionbeltslots: entry.potionbeltslots,
+                        stacksize: entry.stacksize, notransfer: entry.notransfer,
+                        stackable: entry.stackable,
+                        clickeffect: entry.clickeffect, clicktype: entry.clicktype,
+                        clicklevel2: entry.clicklevel2, clicklevel: entry.clicklevel,
+                        proceffect: entry.proceffect, proctype: entry.proctype,
+                        proclevel2: entry.proclevel2, proclevel: entry.proclevel,
+                        worneffect: entry.worneffect, worntype: entry.worntype,
+                        wornlevel2: entry.wornlevel2, wornlevel: entry.wornlevel,
+                        focuseffect: entry.focuseffect, focustype: entry.focustype,
+                        focuslevel2: entry.focuslevel2, focuslevel: entry.focuslevel,
+                        scrolleffect: entry.scrolleffect, scrolltype: entry.scrolltype,
+                        scrolllevel2: entry.scrolllevel2, scrolllevel: entry.scrolllevel,
+                    });
+                    slot += 1;
+                    picks += 1;
+                }
+            }
+        }
+    }
+
+    Ok((won_items, plat, gold, silver, copper))
 }
 
 async fn handle_udp_packet(
@@ -454,7 +956,7 @@ async fn handle_udp_packet(
 
         Ok(ProtocolPacket::SessionDisconnect { .. }) => {
             if let Some(cs) = state.client_states.get(&addr) {
-                if !cs.char_name.is_empty() && phase == ConnectionPhase::Zone {
+                if !cs.char_name.is_empty() && phase == ConnectionPhase::Zone && !cs.zone_transition_pending {
                     info!(character = %cs.char_name, x = cs.last_x, y = cs.last_y, z = cs.last_z, "Saving position on disconnect");
                     let _ = save_character_position(
                         &world_state.pool, &cs.char_name,
@@ -741,6 +1243,7 @@ async fn handle_zone_packet(
             let race = ppd.race;
             let class_id = ppd.class_id;
             let level = ppd.level;
+            cs.player_level = level as u8;
             let gender = ppd.gender;
             let deity = ppd.deity as u16;
             let x = ppd.x;
@@ -804,11 +1307,30 @@ async fn handle_zone_packet(
             });
             send_app_packet(session, socket, addr, opcodes::OP_ZONE_ENTRY, &player_spawn).await?;
 
+            cs.spawned_npcs.clear();
+            cs.target_id = None;
+            cs.auto_attack = false;
+            cs.last_attack_time = None;
+            cs.spawned_npcs.insert(cs.player_spawn_id, SpawnedNpcInfo {
+                level: level as u8,
+                name: cs.char_name.clone(),
+                cur_hp: 1000,
+                max_hp: 1000,
+                min_dmg: 0,
+                max_dmg: 0,
+                attack_delay: 30,
+                loottable_id: 0,
+                is_corpse: false,
+                loot_items: Vec::new(),
+                loot_platinum: 0, loot_gold: 0, loot_silver: 0, loot_copper: 0,
+            });
+
             let zone_short = if cs.char_zone_short.is_empty() { "innothule".to_string() } else { cs.char_zone_short.clone() };
             let spawns = sqlx::query_as::<_, ZoneSpawnRow>(
                 "SELECT n.name AS npc_name, n.lastname, n.level, n.race, n.class, \
                  n.gender, n.bodytype, n.hp, n.size, n.runspeed, n.walkspeed, \
                  n.texture, n.helmtexture, n.light, n.findable, n.flymode, \
+                 n.mindmg, n.maxdmg, n.attack_delay, n.loottable_id, \
                  s.x, s.y, s.z, s.heading \
                  FROM spawn2 s \
                  JOIN spawnentry se ON s.spawngroupid = se.spawngroupid \
@@ -822,6 +1344,20 @@ async fn handle_zone_packet(
             let mut bulk_spawns = Vec::new();
             for row in &spawns {
                 let npc_id = cs.alloc_spawn_id();
+                let hp = if row.hp > 0 { row.hp } else { (row.level as i64) * 20 };
+                cs.spawned_npcs.insert(npc_id, SpawnedNpcInfo {
+                    level: row.level as u8,
+                    name: row.npc_name.replace('#', ""),
+                    cur_hp: hp,
+                    max_hp: hp,
+                    min_dmg: row.mindmg,
+                    max_dmg: row.maxdmg,
+                    attack_delay: row.attack_delay,
+                    loottable_id: row.loottable_id,
+                    is_corpse: false,
+                    loot_items: Vec::new(),
+                    loot_platinum: 0, loot_gold: 0, loot_silver: 0, loot_copper: 0,
+                });
                 let spawn = structs::build_spawn_struct(&SpawnData {
                     spawn_id: npc_id,
                     name: row.npc_name.replace('#', ""),
@@ -1143,8 +1679,69 @@ async fn handle_zone_packet(
             }
         }
         opcodes::OP_SET_SERVER_FILTER => {}
-        opcodes::OP_TARGET_MOUSE => {}
-        opcodes::OP_CONSIDER => {}
+        opcodes::OP_TARGET_MOUSE => {
+            if data.len() >= 4 {
+                let new_target = u32::from_le_bytes([data[0], data[1], data[2], data[3]]);
+                if new_target == 0 {
+                    cs.target_id = None;
+                    debug!("Zone: target cleared");
+                } else {
+                    cs.target_id = Some(new_target);
+                    debug!(target_id = new_target, "Zone: target set");
+                }
+            }
+        }
+        opcodes::OP_TARGET_COMMAND => {
+            if data.len() >= 4 {
+                let new_target = u32::from_le_bytes([data[0], data[1], data[2], data[3]]);
+                if cs.spawned_npcs.contains_key(&new_target) {
+                    cs.target_id = Some(new_target);
+                    debug!(target_id = new_target, "Zone: /target command");
+                    send_app_packet(session, socket, addr, opcodes::OP_TARGET_COMMAND, data).await?;
+                }
+            }
+        }
+        opcodes::OP_CONSIDER => {
+            if data.len() >= 8 {
+                let target_id = u32::from_le_bytes([data[4], data[5], data[6], data[7]]);
+
+                if let Some(npc) = cs.spawned_npcs.get(&target_id) {
+                    let con_color = structs::get_con_color_titanium(cs.player_level, npc.level);
+                    let faction: u32 = 5; // FACTION_INDIFFERENTLY
+
+                    let mut resp = vec![0u8; 28];
+                    resp[0..4].copy_from_slice(&cs.player_spawn_id.to_le_bytes());
+                    resp[4..8].copy_from_slice(&target_id.to_le_bytes());
+                    resp[8..12].copy_from_slice(&faction.to_le_bytes());
+                    resp[12..16].copy_from_slice(&con_color.to_le_bytes());
+                    resp[16..20].copy_from_slice(&(npc.cur_hp as i32).to_le_bytes());
+                    resp[20..24].copy_from_slice(&(npc.max_hp as i32).to_le_bytes());
+                    // pvpcon=0 and padding already zeroed
+
+                    send_app_packet(session, socket, addr, opcodes::OP_CONSIDER, &resp).await?;
+                    info!(
+                        target = %npc.name, target_level = npc.level,
+                        player_level = cs.player_level, con_color,
+                        "Zone: consider"
+                    );
+                }
+            }
+        }
+
+        opcodes::OP_AUTO_ATTACK => {
+            if data.len() >= 4 {
+                let toggle = u32::from_le_bytes([data[0], data[1], data[2], data[3]]);
+                cs.auto_attack = toggle != 0;
+                if cs.auto_attack {
+                    cs.last_attack_time = None;
+                    info!(character = %cs.char_name, target = ?cs.target_id, "Auto-attack ON");
+                } else {
+                    cs.last_attack_time = None;
+                    info!(character = %cs.char_name, "Auto-attack OFF");
+                }
+            }
+        }
+        opcodes::OP_AUTO_ATTACK_2 => {}
 
         opcodes::OP_ZONE_CHANGE => {
             if data.len() >= 88 {
@@ -1156,6 +1753,7 @@ async fn handle_zone_packet(
                 let zc_z = f32::from_le_bytes([data[76], data[77], data[78], data[79]]);
 
                 info!(zone_id, x = zc_x, y = zc_y, z = zc_z, "Zone: zone change request");
+                cs.auto_attack = false;
 
                 // Look up target from zone_points if zoneID=0 (unsolicited)
                 let zone_short = if cs.char_zone_short.is_empty() { "innothule".to_string() } else { cs.char_zone_short.clone() };
@@ -1200,6 +1798,7 @@ async fn handle_zone_packet(
                     info!(target_zone_id, "Zone: approved zone change");
 
                     // Update character's zone in DB so world handler loads the new zone
+                    cs.zone_transition_pending = true;
                     sqlx::query("UPDATE character_data SET zone_id = $1, x = $2, y = $3, z = $4 WHERE name = $5")
                         .bind(target_zone_id)
                         .bind(tx)
@@ -1227,6 +1826,151 @@ async fn handle_zone_packet(
                     info!("Zone: sent session disconnect for zone transition");
                 }
             }
+        }
+
+        opcodes::OP_LOOT_REQUEST => {
+            if data.len() >= 4 {
+                let corpse_id = u32::from_le_bytes([data[0], data[1], data[2], data[3]]);
+
+                let is_valid_corpse = cs.spawned_npcs.get(&corpse_id)
+                    .map(|n| n.is_corpse)
+                    .unwrap_or(false);
+
+                if !is_valid_corpse {
+                    let err = structs::build_money_on_corpse(2, 0, 0, 0, 0);
+                    send_app_packet(session, socket, addr, opcodes::OP_MONEY_ON_CORPSE, &err).await?;
+                } else {
+                    let loottable_id = cs.spawned_npcs.get(&corpse_id).unwrap().loottable_id;
+                    let needs_resolve = loottable_id > 0
+                        && cs.spawned_npcs.get(&corpse_id).unwrap().loot_items.is_empty()
+                        && cs.spawned_npcs.get(&corpse_id).unwrap().loot_platinum == 0
+                        && cs.spawned_npcs.get(&corpse_id).unwrap().loot_gold == 0
+                        && cs.spawned_npcs.get(&corpse_id).unwrap().loot_silver == 0
+                        && cs.spawned_npcs.get(&corpse_id).unwrap().loot_copper == 0;
+
+                    if needs_resolve {
+                        let (items, plat, gold, silver, copper) =
+                            resolve_npc_loot(&world_state.pool, loottable_id).await?;
+                        let corpse = cs.spawned_npcs.get_mut(&corpse_id).unwrap();
+                        corpse.loot_items = items;
+                        corpse.loot_platinum = plat;
+                        corpse.loot_gold = gold;
+                        corpse.loot_silver = silver;
+                        corpse.loot_copper = copper;
+                    }
+
+                    let corpse = cs.spawned_npcs.get(&corpse_id).unwrap();
+                    let money_pkt = structs::build_money_on_corpse(
+                        1, corpse.loot_platinum, corpse.loot_gold,
+                        corpse.loot_silver, corpse.loot_copper,
+                    );
+                    send_app_packet(session, socket, addr, opcodes::OP_MONEY_ON_CORPSE, &money_pkt).await?;
+
+                    let item_count = corpse.loot_items.len();
+                    for item in &corpse.loot_items {
+                        let serialized = structs::serialize_titanium_item(item, item.item_db_id);
+                        send_app_packet(session, socket, addr, opcodes::OP_ITEM_PACKET, &serialized).await?;
+                    }
+
+                    send_app_packet(session, socket, addr, opcodes::OP_LOOT_REQUEST, data).await?;
+
+                    let corpse = cs.spawned_npcs.get_mut(&corpse_id).unwrap();
+                    corpse.loot_platinum = 0;
+                    corpse.loot_gold = 0;
+                    corpse.loot_silver = 0;
+                    corpse.loot_copper = 0;
+
+                    info!(corpse_id, items = item_count, "Loot: opened corpse");
+                }
+            }
+        }
+
+        opcodes::OP_LOOT_ITEM => {
+            if data.len() >= 12 {
+                let lootee = u32::from_le_bytes([data[0], data[1], data[2], data[3]]);
+                let slot_id = u16::from_le_bytes([data[8], data[9]]);
+
+                if let Some(corpse) = cs.spawned_npcs.get_mut(&lootee) {
+                    if corpse.is_corpse {
+                        if let Some(idx) = corpse.loot_items.iter()
+                            .position(|item| item.slot_id == slot_id as i32)
+                        {
+                            let item = corpse.loot_items.remove(idx);
+                            info!(item_name = %item.name, slot = slot_id, "Loot: item taken");
+                        }
+                    }
+                }
+
+                send_app_packet(session, socket, addr, opcodes::OP_LOOT_ITEM, data).await?;
+            }
+        }
+
+        opcodes::OP_END_LOOT_REQUEST => {
+            if data.len() >= 4 {
+                let corpse_id = u32::from_le_bytes([data[0], data[1], data[2], data[3]]);
+
+                send_app_packet(session, socket, addr, opcodes::OP_LOOT_COMPLETE, &[]).await?;
+
+                let should_despawn = cs.spawned_npcs.get(&corpse_id)
+                    .map(|c| c.is_corpse && c.loot_items.is_empty()
+                        && c.loot_platinum == 0 && c.loot_gold == 0
+                        && c.loot_silver == 0 && c.loot_copper == 0)
+                    .unwrap_or(false);
+
+                if should_despawn {
+                    send_app_packet(session, socket, addr, opcodes::OP_DELETE_SPAWN,
+                        &corpse_id.to_le_bytes()).await?;
+                    cs.spawned_npcs.remove(&corpse_id);
+                    info!(corpse_id, "Loot: empty corpse despawned");
+                }
+
+                info!(corpse_id, "Loot: window closed");
+            }
+        }
+
+        opcodes::OP_FLOAT_LIST_THING => {
+            let entry_size = 17usize;
+            let count = data.len() / entry_size;
+            for i in 0..count {
+                let off = i * entry_size;
+                if off + entry_size <= data.len() {
+                    let _y = f32::from_le_bytes([data[off], data[off+1], data[off+2], data[off+3]]);
+                    let _x = f32::from_le_bytes([data[off+4], data[off+5], data[off+6], data[off+7]]);
+                    let _z = f32::from_le_bytes([data[off+8], data[off+9], data[off+10], data[off+11]]);
+                    let move_type = data[off+12];
+                    if move_type == 4 {
+                        debug!("MovementHistory: zone line detected");
+                    } else if move_type == 3 {
+                        debug!("MovementHistory: teleport detected");
+                    }
+                }
+            }
+            debug!(entries = count, "Zone: movement history received");
+        }
+
+        opcodes::OP_SPAWN_APPEARANCE => {
+            if data.len() >= 8 {
+                let spawn_id = u16::from_le_bytes([data[0], data[1]]);
+                let appear_type = u16::from_le_bytes([data[2], data[3]]);
+                let parameter = u32::from_le_bytes([data[4], data[5], data[6], data[7]]);
+                debug!(spawn_id, appear_type, parameter, "Zone: spawn appearance");
+            }
+        }
+
+        opcodes::OP_PLAYER_STATE_ADD => {
+            if data.len() >= 8 {
+                let spawn_id = u32::from_le_bytes([data[0], data[1], data[2], data[3]]);
+                let state = u32::from_le_bytes([data[4], data[5], data[6], data[7]]);
+                debug!(spawn_id, state, "Zone: player state add");
+            }
+        }
+
+        opcodes::OP_WEAR_CHANGE => {
+            debug!(len = data.len(), "Zone: wear change (no-op, matching EQEmu)");
+        }
+
+        opcodes::OP_WEAPON_EQUIP_1 => {
+            debug!(len = data.len(), "Zone: weapon equip visual (no-op, matching EQEmu)");
         }
 
         _ => {

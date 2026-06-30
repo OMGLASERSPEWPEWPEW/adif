@@ -38,6 +38,7 @@ pub const OP_CLIENT_READY: u16 = 0x5e20;
 pub const OP_NEW_SPAWN: u16 = 0x1860;
 pub const OP_WEATHER: u16 = 0x254d;
 pub const OP_TARGET_MOUSE: u16 = 0x6c47;
+pub const OP_TARGET_COMMAND: u16 = 0x1477;
 pub const OP_CLIENT_UPDATE: u16 = 0x14cb;
 pub const OP_CHANNEL_MESSAGE: u16 = 0x1004;
 pub const OP_HP_UPDATE: u16 = 0x3bcf;
@@ -64,6 +65,26 @@ pub const OP_LOGOUT: u16 = 0x61ff;
 pub const OP_LOGOUT_REPLY: u16 = 0x3cdc;
 pub const OP_PRE_LOGOUT_REPLY: u16 = 0x711e;
 pub const OP_GUILD_MOTD: u16 = 0x475a;
+pub const OP_AUTO_ATTACK: u16 = 0x5E55;
+pub const OP_AUTO_ATTACK_2: u16 = 0x0701;
+pub const OP_DAMAGE: u16 = 0x5C78;
+pub const OP_ANIMATION: u16 = 0x2ACF;
+pub const OP_MOB_HEALTH: u16 = 0x0695;
+pub const OP_DEATH: u16 = 0x6160;
+
+// Loot opcodes
+pub const OP_LOOT_REQUEST: u16 = 0x6F90;
+pub const OP_MONEY_ON_CORPSE: u16 = 0x7FE4;
+pub const OP_ITEM_PACKET: u16 = 0x3397;
+pub const OP_LOOT_ITEM: u16 = 0x7081;
+pub const OP_END_LOOT_REQUEST: u16 = 0x2316;
+pub const OP_LOOT_COMPLETE: u16 = 0x0A94;
+
+// Client state opcodes
+pub const OP_FLOAT_LIST_THING: u16 = 0x6A1B;
+pub const OP_WEAR_CHANGE: u16 = 0x7441;
+pub const OP_PLAYER_STATE_ADD: u16 = 0x63DA;
+pub const OP_WEAPON_EQUIP_1: u16 = 0x6C5E;
 
 pub fn opcode_name(opcode: u16) -> &'static str {
     match opcode {
@@ -84,11 +105,28 @@ pub fn opcode_name(opcode: u16) -> &'static str {
         OP_NEW_SPAWN => "OP_NewSpawn",
         OP_WEATHER => "OP_Weather",
         OP_TARGET_MOUSE => "OP_TargetMouse",
+        OP_TARGET_COMMAND => "OP_TargetCommand",
         OP_CLIENT_UPDATE => "OP_ClientUpdate",
         OP_CHANNEL_MESSAGE => "OP_ChannelMessage",
         OP_HP_UPDATE => "OP_HPUpdate",
         OP_ACK_PACKET => "OP_AckPacket",
         OP_WORLD_COMPLETE => "OP_WorldComplete",
+        OP_AUTO_ATTACK => "OP_AutoAttack",
+        OP_AUTO_ATTACK_2 => "OP_AutoAttack2",
+        OP_DAMAGE => "OP_Damage",
+        OP_ANIMATION => "OP_Animation",
+        OP_MOB_HEALTH => "OP_MobHealth",
+        OP_DEATH => "OP_Death",
+        OP_LOOT_REQUEST => "OP_LootRequest",
+        OP_MONEY_ON_CORPSE => "OP_MoneyOnCorpse",
+        OP_ITEM_PACKET => "OP_ItemPacket",
+        OP_LOOT_ITEM => "OP_LootItem",
+        OP_END_LOOT_REQUEST => "OP_EndLootRequest",
+        OP_LOOT_COMPLETE => "OP_LootComplete",
+        OP_FLOAT_LIST_THING => "OP_FloatListThing",
+        OP_WEAR_CHANGE => "OP_WearChange",
+        OP_PLAYER_STATE_ADD => "OP_PlayerStateAdd",
+        OP_WEAPON_EQUIP_1 => "OP_WeaponEquip1",
         _ => "Unknown",
     }
 }

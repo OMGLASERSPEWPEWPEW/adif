@@ -4182,3 +4182,215 @@ git log --grep="^refactor" --oneline       # all refactors
 
 ---
 
+## 2026-06-30_11-52-39 (session 6b42e11f)
+
+**assistant**: [tools: Skill]
+
+**user**: Base directory for this skill: E:\development\adif\.claude\skills\cap
+
+# /c&p — Commit and Push
+
+Group changes into logical commits with machine-readable messages, then push.
+
+## Commit Convention
+
+### Message format
+
+```
+type(scope): imperative summary (72 chars max)
+
+Why: one or two sentences explaining reasoning, not the diff
+Files: key-file-1.ts, key-file-2.ts, key-file-3.ts
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+```
+
+**Rules:**
+- Summary: imperative mood ("Add", "Fix", "Extract" — not "Added", "Fixing"), 72 chars max
+- `Why:` trailer: required for all types except `chore` and `docs`
+- `Files:` trailer: required, list the 2-5 most significant files touched
+- `Co-Authored-By:` footer: always present
+- Multi-scope: if genuinely equal, list both: `feat(palette,shared): extract helper`
+
+### Exempt types
+
+`Evolve:` and `Promote:` are ritual commit types produced by `/evolution` and `/promote`. They use their own format. **Never rewrite, absorb, or duplicate these.** If detected in today's git log, exclude their files from grouping.
+
+### Change types
+
+| Type | When to use | Example |
+|------|------------|---------|
+| `feat` | New user-facing capability | `feat(palette): add per-pane model selection` |
+| `fix` | Corrects a bug | `fix(agendas): prevent stale cache on day rollover` |
+| `refactor` | Restructuring without behavior change | `refactor(palette): extract pane registry` |
+| `perf` | Measurable performance improvement | `perf(filter): skip unchanged sentences on re-scan` |
+| `style` | CSS/visual changes only | `style(ui): tighten palette carousel spacing` |
+| `test` | Adding or fixing tests | `test(agendas): cover diffAgainstCache edge cases` |
+| `docs` | Documentation only | `docs(claude-md): add agendas cache section` |
+| `chore` | Agents, hooks, skills, config, deps | `chore(infra): add Thyra journal evolution entry` |
+
+### Module scopes
+
+| Scope | Files it covers |
+|-------|----------------|
+| `editor` | `main.ts`, `schema.ts`, `editor-utils.ts`, `day-rollover.ts`, `keyboard.ts`, `shortcuts.ts` |
+| `palette` | `palette/*` |
+| `filter` | `filter/*` |
+| `corrections` | `corrections/*` |
+| `scene-arc` | `scene-arc/*` |
+| `scene` | `scene/*` |
+| `agendas` | `agendas/*` |
+| `grammar` | `grammar/*` |
+| `storage` | `storage.ts`, `remote.ts`, `supabase.ts` |
+| `sync` | `sync.ts`, Vite sync middleware |
+| `auth` | `auth.ts`, `auth-ui.ts` |
+| `export` | `export.ts`, `docx-serializer.ts`, `pdf-serializer.ts` |
+| `stitch` | `stitch.ts` |
+| `ui` | `editor.css`, `theme.ts`, `toolbar.ts`, `focus.ts`, `find-replace.ts`, `quick-open.ts`, `diff-view.ts`, `browser.ts` |
+| `shared` | `shared/*` |
+| `gateway` | `gateway.ts`, `supabase/functions/*` |
+| `infra` | `.claude/agents/*`, `.claude/hooks/*`, `.claude/skills/*`, `CLAUDE.md` |
+| `build` | `vite.config.ts`, `tsconfig.json`, `package.json`, `package-lock.json` |
+
+### Agent grep patterns this enables
+
+```bash
+git log --grep="(palette)" --oneline       # all palette changes
+git log --grep="^fix" --oneline            # all bug fixes
+git log --grep="Files:.*storage.ts"        # all storage.ts touches
+git log --grep="^perf" --oneline           # all performance work
+git log --grep="(infra)" --oneline         # all agent/hook/skill changes
+git log --grep="^feat" --oneline           # all new features
+git log --grep="^refactor" --oneline       # all refactors
+```
+
+---
+
+## Execution Flow
+
+### Phase 1: SNAPSHOT
+
+Gather the full picture of what changed:
+
+```bash
+# All changes (staged, unstaged, untracked)
+git status --short
+
+# Unstaged changes
+git diff --stat
+
+# Staged changes
+git diff --cached --stat
+
+# Detect ritual commits already made this session
+git log --since="midnight" --oneline --all | grep -E "^[a-f0-9]+ (Evolve:|Promote:)"
+
+# What's already pushed
+git log origin/main..HEAD --oneline 2>/dev/null
+```
+
+### Phase 2: ANALYZE
+
+Apply th...
+
+---
+
+## 2026-06-30_12-05-11 (session 6b42e11f)
+
+**assistant**: [tools: Bash]
+
+**assistant**: [tools: Bash]
+
+**assistant**: [tools: Bash]
+
+**assistant**: [tools: Bash]
+
+**assistant**: [tools: Bash]
+
+**assistant**: [tools: Bash]
+
+**assistant**: 3 commits ready. Pushing.
+
+**assistant**: [tools: Bash]
+
+**assistant**: [tools: Bash]
+
+**assistant**: All pushed. 3 commits landed on main:
+
+```
+0045420 chore(infra): update session journals, memory heaps, and bridge journal
+bcebf65 docs(server): add combat system doc and update HTML docs with looting milestone
+6b902b9 feat(server): implement NPC looting with DB-backed loot resolution
+```
+
+1,012 lines of Rust for the looting system + 602 lines of doc updates. Combat phases 1-4 are complete.
+
+**user**: okay let's look to eqemu / postgress to see how they handle npc -> player combat and aggro. Let's think about it, plan it, document it and /new-feature it. What needs to go into that?
+
+**assistant**: [tools: Skill]
+
+**user**: Base directory for this skill: E:\development\adif\.claude\skills\new-feature
+
+# New Feature Implementation Workflow
+
+You are executing the **disciplined new feature workflow**. This ensures every feature is approached consistently with proper planning before implementation.
+
+<!-- === CONFIGURATION START === -->
+## Configuration
+
+| Setting | Value |
+|---------|-------|
+| **PRD Directory** | `.claude/docs/prd/` |
+| **Test Command** | `npm run test` |
+| **Build Command** | `npm run build` |
+| **Main Documentation File** | `CLAUDE.md` |
+
+<!-- === CONFIGURATION END === -->
+
+## Waterfall Process
+
+Execute these phases IN ORDER. Do not skip phases.
+
+```
++----------------------------------------------------------------------+
+|                    NEW FEATURE WATERFALL                               |
++----------------------------------------------------------------------+
+|                                                                       |
+|  Phase 1: STRATEGY (Orchestrator)                                    |
+|  +-> Analyze request, check roadmap fit, identify dependencies       |
+|                          |                                            |
+|  Phase 2: REQUIREMENTS (PRD Specialist)                              |
+|  +-> Create comprehensive PRD with specs, acceptance criteria        |
+|                          |                                            |
+|  Phase 3: UX RESEARCH (if user-facing)                               |
+|  +-> UX and mobile optimization input                                |
+|                          |                                            |
+|  Phase 4: ARCHITECTURE (Code Architect)                              |
+|  +-> Design folder structure, data models, API contracts             |
+|                          |                                            |
+|  Phase 4b: QA DOC                                                    |
+|  +-> Write docs/qa/<feature>.md checklist for bot verification       |
+|                          |                                            |
+|  Phase 5: IMPLEMENTATION (Developers)                                |
+|  +-> Build the feature following the PRD and architecture            |
+|                          |                                            |
+|  Phase 6: QUALITY (Code Reviewer + Test Engineer)                    |
+|  +-> Review code, write tests, verify acceptance criteria            |
+|                          |                                            |
+|  Phase 7: DOCUMENTATION                                              |
+|  +-> Update main docs, ADRs, feature inventory as needed            |
+|                                                                       |
++----------------------------------------------------------------------+
+```
+
+<!-- === PHASE AGENTS START === -->
+
+### Phase-to-Agent Mapping
+
+| Phase | Agent(s) | Purpose |
+|-------|----------|---------|
+| 1. Strategy | `orchestrator` | Roadmap fit, dependencies, go/no-go |
+| 2. Requirements | `prd-spe...
+
+---
+

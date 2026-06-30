@@ -1657,3 +1657,115 @@ Proceed?
 
 ---
 
+## 2026-06-30_10-55-00 (session 6b42e11f)
+
+**assistant**: [tools: Edit]
+
+**assistant**: Now update the gap analysis and phase status sections.
+
+**assistant**: [tools: Read]
+
+**assistant**: [tools: Edit]
+
+**assistant**: Now update the phase boxes.
+
+**assistant**: [tools: Read]
+
+**assistant**: [tools: Edit]
+
+**assistant**: Now update zone-entry-comparison.html to add a combat/looting status section.
+
+**assistant**: [tools: Read]
+
+**assistant**: [tools: Read]
+
+**assistant**: [tools: Edit]
+
+**assistant**: Now run the commit and push via /cap.
+
+**assistant**: [tools: Skill]
+
+**user**: Base directory for this skill: E:\development\adif\.claude\skills\cap
+
+# /c&p — Commit and Push
+
+Group changes into logical commits with machine-readable messages, then push.
+
+## Commit Convention
+
+### Message format
+
+```
+type(scope): imperative summary (72 chars max)
+
+Why: one or two sentences explaining reasoning, not the diff
+Files: key-file-1.ts, key-file-2.ts, key-file-3.ts
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+```
+
+**Rules:**
+- Summary: imperative mood ("Add", "Fix", "Extract" — not "Added", "Fixing"), 72 chars max
+- `Why:` trailer: required for all types except `chore` and `docs`
+- `Files:` trailer: required, list the 2-5 most significant files touched
+- `Co-Authored-By:` footer: always present
+- Multi-scope: if genuinely equal, list both: `feat(palette,shared): extract helper`
+
+### Exempt types
+
+`Evolve:` and `Promote:` are ritual commit types produced by `/evolution` and `/promote`. They use their own format. **Never rewrite, absorb, or duplicate these.** If detected in today's git log, exclude their files from grouping.
+
+### Change types
+
+| Type | When to use | Example |
+|------|------------|---------|
+| `feat` | New user-facing capability | `feat(palette): add per-pane model selection` |
+| `fix` | Corrects a bug | `fix(agendas): prevent stale cache on day rollover` |
+| `refactor` | Restructuring without behavior change | `refactor(palette): extract pane registry` |
+| `perf` | Measurable performance improvement | `perf(filter): skip unchanged sentences on re-scan` |
+| `style` | CSS/visual changes only | `style(ui): tighten palette carousel spacing` |
+| `test` | Adding or fixing tests | `test(agendas): cover diffAgainstCache edge cases` |
+| `docs` | Documentation only | `docs(claude-md): add agendas cache section` |
+| `chore` | Agents, hooks, skills, config, deps | `chore(infra): add Thyra journal evolution entry` |
+
+### Module scopes
+
+| Scope | Files it covers |
+|-------|----------------|
+| `editor` | `main.ts`, `schema.ts`, `editor-utils.ts`, `day-rollover.ts`, `keyboard.ts`, `shortcuts.ts` |
+| `palette` | `palette/*` |
+| `filter` | `filter/*` |
+| `corrections` | `corrections/*` |
+| `scene-arc` | `scene-arc/*` |
+| `scene` | `scene/*` |
+| `agendas` | `agendas/*` |
+| `grammar` | `grammar/*` |
+| `storage` | `storage.ts`, `remote.ts`, `supabase.ts` |
+| `sync` | `sync.ts`, Vite sync middleware |
+| `auth` | `auth.ts`, `auth-ui.ts` |
+| `export` | `export.ts`, `docx-serializer.ts`, `pdf-serializer.ts` |
+| `stitch` | `stitch.ts` |
+| `ui` | `editor.css`, `theme.ts`, `toolbar.ts`, `focus.ts`, `find-replace.ts`, `quick-open.ts`, `diff-view.ts`, `browser.ts` |
+| `shared` | `shared/*` |
+| `gateway` | `gateway.ts`, `supabase/functions/*` |
+| `infra` | `.claude/agents/*`, `.claude/hooks/*`, `.claude/skills/*`, `CLAUDE.md` |
+| `build` | `vite.config.ts`, `tsconfig.json`, `package.json`, `package-lock.json` |
+
+### Agent grep patterns this enables
+
+```bash
+git log --grep="(palette)" --oneline       # all palette changes
+git log --grep="^fix" --oneline            # all bug fixes
+git log --grep="Files:.*storage.ts"        # all storage.ts touches
+git log --grep="^perf" --oneline           # all performance work
+git log --grep="(infra)" --oneline         # all agent/hook/skill changes
+git log --grep="^feat" --oneline           # all new features
+git log --grep="^refactor" --oneline       # all refactors
+```
+
+---
+
+...
+
+---
+

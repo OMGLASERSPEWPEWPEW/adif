@@ -13,7 +13,7 @@ Append the user's message as a timestamped entry to `.claude/bridge-journal.md`,
 
 ## What this is
 
-The Bridge Journal is **the captain's voice** — not Claude's, not any agent's. It captures the user's thinking, priorities, frustrations, and decisions in their own words. Every agent reads it at session start as the highest-context source of truth. Each entry also carries auto-gathered session context (git history, conversation summary) so future agents understand what was happening when the captain spoke.
+The Bridge Journal is **the captain's voice** — not Claude's, not any agent's. It captures the user's thinking, priorities, frustrations, and decisions in their own words. Every agent reads it at session start as the highest-context source of truth. Each entry also carries auto-gathered session context (git history, build state) so future agents understand what was happening when the captain spoke.
 
 ## Execution
 
@@ -23,22 +23,30 @@ The Bridge Journal is **the captain's voice** — not Claude's, not any agent's.
    - Read `.claude/bridge-journal.md` and find the most recent `### YYYY-MM-DD HH:MM` header
    - Run `git log --since="<last entry timestamp>" --oneline -20` (fall back to `--since="midnight"` if no prior entries)
    - Run `git diff --stat HEAD~10..HEAD`
-4. **Summarize the conversation:**
-   - Review the current conversation and distill 2-4 bullet points covering: what was built/fixed, key decisions, notable problems solved
-   - Keep each bullet under 15 words
-   - Omit this section entirely if the conversation was trivial (no substantive work before `/bridge`)
-5. **Assemble the entry** using this format:
+4. **Check build state:**
+   - Note whether the project compiles and runs (from conversation context — don't re-run builds)
+   - One line: e.g., `cargo build clean (25 warnings, 0 errors). Bridge runs. Client connects.`
+5. **Check for redundancy:**
+   - If the captain's entry already covers what happened in detail, **skip** the "What happened" summary in the auto-gathered block — just keep commits and files touched
+   - Only write "What happened" bullets when the captain's entry is brief or omits work context
+6. **Assemble the entry** using this format:
 
 ```markdown
-### YYYY-MM-DD HH:MM
+### YYYY-MM-DD HH:MM `[Milestone Tag]`
 
 <user's message, verbatim>
 
+## Blockers / Open Questions
+- [ ] Unresolved issue 1
+- [ ] Unresolved issue 2
+- [x] Previously open issue now resolved
+
 > **Session context** *(auto-gathered)*
 >
-> **What happened:**
+> **Build:** cargo build clean (N warnings, 0 errors). Bridge runs.
+>
+> **What happened:** *(only if captain's entry doesn't already cover it)*
 > - Built X with Y approach
-> - Fixed Z caused by W
 > - Decided to defer Q until next phase
 >
 > **Commits since last entry:**
@@ -54,8 +62,48 @@ The Bridge Journal is **the captain's voice** — not Claude's, not any agent's.
 > ```
 ```
 
-6. Append to `.claude/bridge-journal.md`
-7. Confirm with a single line: "Logged to the Bridge Journal."
+7. Append to `.claude/bridge-journal.md`
+8. Confirm with a single line: "Logged to the Bridge Journal."
+
+## Entry structure guidance
+
+### Milestone tag
+
+Tag each entry with the current milestone/phase in the header:
+
+```
+### 2026-06-29 19:30 `[M3: Protocol Bridge]`
+```
+
+Tags help when scanning the journal to find entries from a specific era. Use whatever tag fits — `[M1: PostgreSQL]`, `[M3: Combat]`, `[M4: Voxel]`, `[Client: Engine Selection]`, etc.
+
+### Captain's entry: focus on WHY, not WHAT
+
+The commit log already captures *what* changed. The captain's entry should focus on:
+- **Why** we made the choices we did
+- **Surprises** — things that didn't work as expected
+- **Key discoveries** — hard-won technical knowledge that prevents re-learning
+- **What's next** — this is the most valuable section; it directly drives the next session
+
+Avoid changelog-style entries like "Added X, fixed Y, updated Z" — that's what the auto-gathered commits section is for.
+
+### Blockers / Open Questions
+
+A dedicated section for unresolved problems that span sessions. These persist until explicitly crossed off. Examples:
+
+```markdown
+## Blockers / Open Questions
+- [ ] Reference EQEmu PG server: looting doesn't work (data chain OK, likely C++ runtime bug)
+- [ ] Zone transitions: innothuleb (413) vs innothule (46) duplicate zone points — wrong spawn position
+- [ ] CharSelect: character renders black — equipment/tint data zeroed
+- [x] Camp/logout hangs — FIXED: added OP_Camp + OP_Logout handlers
+```
+
+When resolving a blocker from a previous entry, mark it `[x]` in the NEW entry (don't edit old entries). This creates a trail of when things were fixed.
+
+### What's Next
+
+The most-read section. Keep it as a numbered list of concrete next steps, ordered by priority. Future sessions start here.
 
 ## Rules
 
@@ -63,7 +111,8 @@ The Bridge Journal is **the captain's voice** — not Claude's, not any agent's.
 - **Never delete entries.** The journal is append-only.
 - **Never write your own entries.** Only the user writes to the Bridge Journal.
 - **Never mix your words with the captain's.** User message goes above the blockquote. Context goes inside the blockquote. They must never blend.
-- **Keep context proportional.** The context block should never exceed ~20 lines. If there are 50+ commits, show the 10 most recent and note "... and N more."
+- **Keep context proportional.** The context block should never exceed ~15 lines. If there are 50+ commits, show the 10 most recent and note "... and N more."
+- **Skip redundant summaries.** If the captain already wrote a detailed "What Happened", don't repeat it in the auto-gathered "What happened" bullets.
 - If invoked with no message, ask: "What do you want to log?"
 
 ## Context block reference
@@ -72,7 +121,8 @@ Include each sub-section only when it has content:
 
 | Sub-section | Include when |
 |-------------|-------------|
-| **What happened** | Conversation had substantive work before `/bridge` |
+| **Build** | Always — one line on compile/run state |
+| **What happened** | Only if captain's entry is brief and omits work context |
 | **Commits since last entry** | Any commits exist in the window |
 | **Files touched** | Any files changed in the commit range |
 
@@ -80,7 +130,7 @@ If there is nothing to gather (fresh session, no commits, no prior work), the en
 
 ## Integration with other skills
 
-- **`/standup`** — agents should reference recent bridge entries when arguing priorities; the context blocks give richer information about what was accomplished
+- **`/standup`** — agents should reference recent bridge entries when arguing priorities; the Blockers section surfaces persistent issues
 - **`/evolution`** — agents should check the bridge journal for founder context before reflecting
-- **Session startup** — the bridge journal is item #2 on the orientation checklist, read before conversation journals
-- **All consumers** — treat blockquoted `> **Session context**` sections as supplementary machine context, not the captain's words
+- **Session startup** — the bridge journal is item #2 on the orientation checklist, read before conversation journals. The `[Milestone Tag]` helps agents quickly find relevant entries.
+- **All consumers** — treat blockquoted `> **Session context**` sections as supplementary machine context, not the captain's words. The Blockers section is action items — agents should check if their work resolves any.

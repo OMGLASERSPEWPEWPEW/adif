@@ -624,3 +624,77 @@ SESSION 2026-06-29: MILESTONE — First character in-zone on ADIF Rust server.
 > docs/zone-entry-comparison.html             | 317 +++
 > docs/index.html                             |  22 +
 > ```
+
+### 2026-06-29 19:30
+
+SESSION 2026-06-29: Full packet parity achieved + combat system planned.
+
+## What Happened
+- CharInventory with real items — 7 items from DB using Titanium pipe-delimited text serialization (serialize_titanium_item in structs.rs). Cross-referenced against both akk-stack MariaDB and PostgreSQL.
+- Camp/logout with position persistence — OP_Camp saves position, OP_Logout sends PreLogoutReply + LogoutReply + SessionDisconnect. OP_ClientUpdate tracks x/y/z/heading (36-byte Titanium PlayerPositionUpdateClient_Struct). Position saves on camp, logout, and hard disconnect.
+- HP Update in Phase 4 CompleteConnect — 10-byte SpawnHPUpdate_Struct after RaidUpdate.
+- OP_ApproveWorld outbound — 544-byte hardcoded packet in world phase between LogServer and EnterWorld.
+- Guild MOTD + Weather re-send in CompleteConnect Phase 4.
+- Updated all 7 HTML docs to reflect parity achievement.
+- Enabled Loot + Error logging in PostgreSQL logsys_categories for reference server debugging.
+- Created comprehensive combat-system.html — 8-tab architecture doc covering all 17 combat opcodes, struct layouts, gap analysis, and 4-phase implementation plan.
+- Engine research for ADIF client: Godot 4 (pragmatic, 3 EQ-clones ship on it) vs Bevy (dream, same language as server). Every small-team EQ-clone uses Unity or Godot. Ashes of Creation (UE5) has 100+ people.
+
+## Current State
+- Bridge: 100% EQEmu packet parity for zone entry lifecycle (login → world → zone → camp)
+- Combat: ZERO — targeting, consider, auto-attack, damage, death, looting all missing from bridge
+- Zone transitions work but spawn position can be wrong (innothule vs innothuleb duplicate zone points)
+- Reference EQEmu PG server loot issue unresolved (data chain verified OK, likely C++ runtime bug)
+
+## Commit
+5684a4f feat(server): achieve full EQEmu packet parity in protocol bridge
+
+## What's Next
+1. Phase 1: Targeting & Consider — store target_id, compute con color from level diff, build 28-byte Consider response
+2. Phase 2: Auto-Attack & Damage — melee timer, hit/miss, OP_Damage (23 bytes Titanium), OP_MobHealth broadcasts
+3. Phase 3: Death & Corpse — OP_Death (32 bytes), corpse inherits entity ID, loot table query from PostgreSQL
+4. Phase 4: Looting — OP_LootRequest → MoneyOnCorpse → ItemPacket (reuse serialize_titanium_item) → LootItem → LootComplete
+
+## Key Technical Discoveries
+- Titanium CombatDamage_Struct is 23 bytes (no special field, common struct is 27)
+- Corpse inherits NPC entity ID — no OP_DeleteSpawn + OP_NewSpawn needed for NPC→corpse transition
+- Con color: Titanium remaps Gray→Green, White→WhiteTitanium (value 20)
+- Faction values intentionally swapped in Consider response (Apprehensive↔Scowls, Dubious↔Threatening)
+- OP_LootRequest echo is required — "Client seems to require that we send the packet back" (EQEmu source comment)
+- serialize_titanium_item() reusable for loot OP_ItemPacket (same pipe-delimited format)
+
+> **Session context** *(auto-gathered)*
+>
+> **What happened:**
+> - Implemented CharInventory (7 items, Titanium pipe-delimited serialization, 2937 bytes)
+> - Added camp/logout with position persistence (OP_Camp, OP_Logout, ClientUpdate tracking)
+> - Added HP Update, ApproveWorld (544 bytes), Guild MOTD, weather re-send
+> - Updated 7 HTML docs, created combat-system.html (8-tab architecture doc)
+> - Researched game engines for ADIF client (Godot vs Bevy vs Unity vs UE5)
+>
+> **Commits since last entry:**
+> ```
+> 5684a4f feat(server): achieve full EQEmu packet parity in protocol bridge
+> 8a453c5 docs(server): update zone-entry-comparison with zone transition milestone
+> 4234d91 feat(server): implement zone transitions and fix zone context lookup
+> 5bc3eae feat(server): send PC corpses from DB via OP_ZoneSpawns
+> ec80ad2 feat(server): load ground objects from DB via OP_GroundSpawn
+> c8cd101 feat(server): load character skills from DB into PlayerProfile
+> ... and 14 more
+> ```
+>
+> **Files touched:**
+> ```
+> server/adif-bridge/src/main.rs             | 137 ++++-
+> server/adif-bridge/src/titanium/structs.rs | 276 +++
+> server/adif-bridge/src/world_handler.rs    |  40 +
+> server/adif-bridge/src/titanium/opcodes.rs |   5 +
+> docs/combat-system.html                    | 450 +++ (new)
+> docs/zone-entry-comparison.html            |  40 +-
+> docs/index.html                            |  30 +-
+> docs/zone-server-status.html               |  20 +-
+> docs/rust-server.html                      |   2 +-
+> docs/adif-roadmap.html                     |   4 +-
+> docs/tech-comparison.html                  |   2 +-
+> docs/opcode-audit.html                     |   6 +-
+> ```

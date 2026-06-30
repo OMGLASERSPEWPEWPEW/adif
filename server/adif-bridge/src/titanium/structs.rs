@@ -758,6 +758,14 @@ pub fn build_mob_health(spawn_id: i16, hp_percent: u8) -> Vec<u8> {
     buf
 }
 
+pub fn build_hp_update(cur_hp: i32, max_hp: i32, spawn_id: i16) -> Vec<u8> {
+    let mut buf = vec![0u8; 10];
+    write_u32_le(&mut buf, 0, cur_hp as u32);
+    write_u32_le(&mut buf, 4, max_hp as u32);
+    write_u16_le(&mut buf, 8, spawn_id as u16);
+    buf
+}
+
 pub const MONEY_ON_CORPSE_SIZE: usize = 20;
 pub const LOOT_ITEM_SIZE: usize = 16;
 

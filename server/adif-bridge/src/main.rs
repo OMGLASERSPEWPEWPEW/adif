@@ -190,6 +190,11 @@ struct SpawnedNpcInfo {
     loot_gold: u32,
     loot_silver: u32,
     loot_copper: u32,
+    x: f32,
+    y: f32,
+    z: f32,
+    hate_target: Option<u32>,
+    last_npc_attack_time: Option<Instant>,
 }
 
 #[derive(Debug, sqlx::FromRow)]
@@ -252,6 +257,8 @@ struct ClientState {
     attack_delay_ms: u32,
     zone_transition_pending: bool,
     exp_ratio: u32,
+    cur_hp: i64,
+    max_hp: i64,
 }
 
 impl ClientState {
@@ -277,6 +284,8 @@ impl ClientState {
             attack_delay_ms: 4000,
             zone_transition_pending: false,
             exp_ratio: 0,
+            cur_hp: 0,
+            max_hp: 0,
         }
     }
 
@@ -398,78 +407,143 @@ async fn process_combat_tick(
     let mut packets_to_send: Vec<(SocketAddr, Vec<(u16, Vec<u8>)>)> = Vec::new();
 
     for (addr, cs) in client_states.iter_mut() {
-        if !cs.auto_attack {
-            continue;
-        }
-        let target_id = match cs.target_id {
-            Some(id) if id != cs.player_spawn_id => id,
-            _ => { cs.auto_attack = false; continue; }
-        };
-        if let Some(last) = cs.last_attack_time {
-            if now.duration_since(last) < Duration::from_millis(cs.attack_delay_ms as u64) {
-                continue;
-            }
-        }
         let player_spawn_id = cs.player_spawn_id;
         let player_level = cs.player_level;
         let heading = cs.last_heading;
+        let mut pkts: Vec<(u16, Vec<u8>)> = Vec::new();
 
-        let (dead, npc_level, mut pkts) = {
-            let npc = match cs.spawned_npcs.get_mut(&target_id) {
-                Some(n) if n.cur_hp > 0 && !n.is_corpse => n,
-                _ => { cs.auto_attack = false; continue; }
+        // --- Player attacks NPC ---
+        if cs.auto_attack && cs.cur_hp > 0 {
+            let target_id = match cs.target_id {
+                Some(id) if id != player_spawn_id => id,
+                _ => { cs.auto_attack = false; 0 }
             };
+            if target_id != 0 {
+                let can_attack = match cs.last_attack_time {
+                    Some(last) => now.duration_since(last) >= Duration::from_millis(cs.attack_delay_ms as u64),
+                    None => true,
+                };
+                if can_attack {
+                    let (dead, npc_level) = {
+                        let npc = match cs.spawned_npcs.get_mut(&target_id) {
+                            Some(n) if n.cur_hp > 0 && !n.is_corpse => n,
+                            _ => { cs.auto_attack = false; continue; }
+                        };
 
-            let damage = rand::thread_rng().gen_range(
-                (player_level.max(1) as i32)..=((player_level as i32) * 3).max(1)
-            );
-            npc.cur_hp = (npc.cur_hp - damage as i64).max(0);
-            let hp_pct = ((npc.cur_hp * 100) / npc.max_hp.max(1)).clamp(0, 100) as u8;
-            let dead = npc.cur_hp <= 0;
+                        let damage = rand::thread_rng().gen_range(
+                            (player_level.max(1) as i32)..=((player_level as i32) * 3).max(1)
+                        );
+                        npc.cur_hp = (npc.cur_hp - damage as i64).max(0);
+                        let hp_pct = ((npc.cur_hp * 100) / npc.max_hp.max(1)).clamp(0, 100) as u8;
+                        let dead = npc.cur_hp <= 0;
 
-            info!(
-                target = %npc.name, damage, hp_remaining = npc.cur_hp,
-                hp_pct, "Combat: hit"
-            );
+                        npc.hate_target = Some(player_spawn_id);
 
-            let mut pkts: Vec<(u16, Vec<u8>)> = Vec::new();
-            pkts.push((opcodes::OP_ANIMATION, structs::build_animation(
-                player_spawn_id as u16, 10, 8,
-            )));
-            pkts.push((opcodes::OP_DAMAGE, structs::build_combat_damage(
-                target_id as u16, player_spawn_id as u16,
-                0, 0xFFFF, damage as u32, 0.0, heading, 0.0,
-            )));
-            pkts.push((opcodes::OP_MOB_HEALTH, structs::build_mob_health(
-                target_id as i16, hp_pct,
-            )));
+                        info!(target = %npc.name, damage, hp_remaining = npc.cur_hp, hp_pct, "Combat: hit");
 
-            if dead {
-                pkts.push((opcodes::OP_DEATH, structs::build_death_struct(
-                    target_id, player_spawn_id, target_id,
-                    damage as u32, 0xFFFFFFFF, 0,
-                )));
+                        pkts.push((opcodes::OP_ANIMATION, structs::build_animation(
+                            player_spawn_id as u16, 10, 8,
+                        )));
+                        pkts.push((opcodes::OP_DAMAGE, structs::build_combat_damage(
+                            target_id as u16, player_spawn_id as u16,
+                            0, 0xFFFF, damage as u32, 0.0, heading, 0.0,
+                        )));
+                        pkts.push((opcodes::OP_MOB_HEALTH, structs::build_mob_health(
+                            target_id as i16, hp_pct,
+                        )));
+
+                        if dead {
+                            pkts.push((opcodes::OP_DEATH, structs::build_death_struct(
+                                target_id, player_spawn_id, target_id,
+                                damage as u32, 0xFFFFFFFF, 0,
+                            )));
+                        }
+
+                        (dead, npc.level)
+                    };
+
+                    cs.last_attack_time = Some(now);
+                    if dead {
+                        cs.auto_attack = false;
+                        if let Some(npc) = cs.spawned_npcs.get_mut(&target_id) {
+                            npc.is_corpse = true;
+                            npc.cur_hp = 0;
+                            npc.hate_target = None;
+                        }
+                        let xp_gain = (npc_level as u32) * 15;
+                        cs.exp_ratio = (cs.exp_ratio + xp_gain).min(330);
+                        let mut exp_buf = vec![0u8; 8];
+                        exp_buf[0..4].copy_from_slice(&cs.exp_ratio.to_le_bytes());
+                        pkts.push((opcodes::OP_EXP_UPDATE, exp_buf));
+                        info!(target_id, npc_level, xp_gain, exp_ratio = cs.exp_ratio, "Combat: target killed");
+                    }
+                }
             }
-
-            (dead, npc.level, pkts)
-        };
-
-        cs.last_attack_time = Some(now);
-        if dead {
-            cs.auto_attack = false;
-            if let Some(npc) = cs.spawned_npcs.get_mut(&target_id) {
-                npc.is_corpse = true;
-                npc.cur_hp = 0;
-            }
-            let xp_gain = (npc_level as u32) * 15;
-            cs.exp_ratio = (cs.exp_ratio + xp_gain).min(330);
-            let mut exp_buf = vec![0u8; 8];
-            exp_buf[0..4].copy_from_slice(&cs.exp_ratio.to_le_bytes());
-            pkts.push((opcodes::OP_EXP_UPDATE, exp_buf));
-            info!(target_id, npc_level, xp_gain, exp_ratio = cs.exp_ratio, "Combat: target killed");
         }
 
-        packets_to_send.push((*addr, pkts));
+        // --- NPCs attack player ---
+        if cs.cur_hp > 0 {
+            let mut npc_attacks: Vec<(u32, String, i32, i16)> = Vec::new();
+            for (&npc_id, npc) in cs.spawned_npcs.iter() {
+                if npc.is_corpse || npc.hate_target.is_none() || npc.cur_hp <= 0 {
+                    continue;
+                }
+                if npc.hate_target != Some(player_spawn_id) {
+                    continue;
+                }
+                let delay_ms = if npc.attack_delay > 0 { (npc.attack_delay as u64) * 100 } else { 4000 };
+                let can_attack = match npc.last_npc_attack_time {
+                    Some(last) => now.duration_since(last) >= Duration::from_millis(delay_ms),
+                    None => true,
+                };
+                if can_attack {
+                    let min = npc.min_dmg.max(1);
+                    let max = npc.max_dmg.max(min);
+                    let damage = rand::thread_rng().gen_range(min..=max);
+                    npc_attacks.push((npc_id, npc.name.clone(), damage, npc.attack_delay));
+                }
+            }
+
+            for (npc_id, npc_name, damage, _delay) in &npc_attacks {
+                if let Some(npc) = cs.spawned_npcs.get_mut(npc_id) {
+                    npc.last_npc_attack_time = Some(now);
+                }
+
+                cs.cur_hp = (cs.cur_hp - *damage as i64).max(0);
+
+                pkts.push((opcodes::OP_ANIMATION, structs::build_animation(
+                    *npc_id as u16, 10, 8,
+                )));
+                pkts.push((opcodes::OP_DAMAGE, structs::build_combat_damage(
+                    player_spawn_id as u16, *npc_id as u16,
+                    0, 0xFFFF, *damage as u32, 0.0, 0.0, 0.0,
+                )));
+                pkts.push((opcodes::OP_HP_UPDATE, structs::build_hp_update(
+                    cs.cur_hp as i32, cs.max_hp as i32, player_spawn_id as i16,
+                )));
+
+                info!(
+                    attacker = %npc_name, damage, player_hp = cs.cur_hp,
+                    max_hp = cs.max_hp, "Combat: NPC hit player"
+                );
+
+                if cs.cur_hp <= 0 {
+                    pkts.push((opcodes::OP_DEATH, structs::build_death_struct(
+                        player_spawn_id, *npc_id, player_spawn_id,
+                        *damage as u32, 0xFFFFFFFF, 0,
+                    )));
+                    info!(killer = %npc_name, "Combat: player died");
+                    for (_, npc) in cs.spawned_npcs.iter_mut() {
+                        npc.hate_target = None;
+                    }
+                    break;
+                }
+            }
+        }
+
+        if !pkts.is_empty() {
+            packets_to_send.push((*addr, pkts));
+        }
     }
 
     for (addr, pkts) in packets_to_send {
@@ -1323,7 +1397,13 @@ async fn handle_zone_packet(
                 is_corpse: false,
                 loot_items: Vec::new(),
                 loot_platinum: 0, loot_gold: 0, loot_silver: 0, loot_copper: 0,
+                x: cs.last_x, y: cs.last_y, z: cs.last_z,
+                hate_target: None, last_npc_attack_time: None,
             });
+
+            let player_max_hp = (level as i64) * 20 + 100;
+            cs.max_hp = player_max_hp;
+            cs.cur_hp = player_max_hp;
 
             let zone_short = if cs.char_zone_short.is_empty() { "innothule".to_string() } else { cs.char_zone_short.clone() };
             let spawns = sqlx::query_as::<_, ZoneSpawnRow>(
@@ -1357,6 +1437,8 @@ async fn handle_zone_packet(
                     is_corpse: false,
                     loot_items: Vec::new(),
                     loot_platinum: 0, loot_gold: 0, loot_silver: 0, loot_copper: 0,
+                    x: row.x, y: row.y, z: row.z,
+                    hate_target: None, last_npc_attack_time: None,
                 });
                 let spawn = structs::build_spawn_struct(&SpawnData {
                     spawn_id: npc_id,
